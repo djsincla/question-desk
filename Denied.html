@@ -3,6 +3,7 @@
 <head>
 <base target="_top">
 <style>
+  [hidden] { display: none !important; }
   body {
     margin: 0;
     padding: 15vh 24px;
@@ -12,12 +13,46 @@
     margin-inline: auto;
     line-height: 1.5;
   }
+  .logo { display: block; max-height: 48px; max-width: 200px; margin-bottom: 24px; }
   h1 { font-size: 1.3rem; margin: 0 0 8px; font-weight: 600; }
   p { color: #5c6874; margin: 0; }
+  ul { list-style: none; padding: 0; margin: 20px 0 0; }
+  li { border: 1px solid #d9dee3; border-radius: 6px; margin-bottom: 8px; }
+  li a { display: flex; justify-content: space-between; gap: 12px; padding: 12px 14px; color: #16202b; text-decoration: none; }
+  li a:hover { background: #f7f8f9; }
+  li span { color: #5c6874; font-size: 0.9rem; }
 </style>
 </head>
 <body>
-  <h1>This view is for facilitators</h1>
-  <p>Sign in with an account listed as a moderator, or scan the code on the screen in the room to ask a question.</p>
+  <img class="logo" id="logo" alt="" hidden>
+  <h1 id="heading"></h1>
+  <p id="body"></p>
+  <ul id="links"></ul>
+
+<script>
+  var BOOT = <?!= boot ?>;
+
+  document.getElementById('heading').textContent = BOOT.heading;
+  document.getElementById('body').textContent = BOOT.body;
+  if (BOOT.brand.logo) {
+    var logo = document.getElementById('logo');
+    logo.src = BOOT.brand.logo;
+    logo.alt = BOOT.brand.orgName;
+    logo.hidden = false;
+  }
+
+  var list = document.getElementById('links');
+  (BOOT.links || []).forEach(function (link) {
+    var li = document.createElement('li');
+    var a = document.createElement('a');
+    a.href = link.href;
+    a.textContent = link.label;
+    var note = document.createElement('span');
+    note.textContent = link.note;
+    a.appendChild(note);
+    li.appendChild(a);
+    list.appendChild(li);
+  });
+</script>
 </body>
 </html>

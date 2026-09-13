@@ -1,0 +1,9 @@
+#!/bin/sh
+# Block commits that leak secrets or break the tests. Skip once with: git commit --no-verify
+node scripts/check-secrets.js --staged || exit 1
+out=$(node --test tests/*.test.js 2>&1) || {
+  echo "$out" | grep -E "^✖|AssertionError|Error:" | head -20
+  echo "Tests failed — commit blocked." >&2
+  exit 1
+}
+echo "$out" | grep -E "^ℹ (pass|fail)"

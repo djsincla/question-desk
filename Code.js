@@ -2,130 +2,412 @@
  * Question Desk
  * Anonymous audience Q&A for Google Workspace, with Gemini topic roll-up.
  *
- * Three views, all served from one deployment:
- *   ?view=ask       (default) participant submission page
- *   ?view=present   big screen: rotating QR code
- *   ?view=moderate  facilitator queue, grouped by topic
+ * Views, all served from one deployment:
+ *   (no parameters)        branded landing page, with staff links when signed in
+ *   ?s=ID&t=TOKEN          participant page, in-room session (token from the rotating QR)
+ *   ?s=ID&k=KEY            participant page, shareable-link session
+ *   ?view=present&s=ID     room screen: QR code for one session
+ *   ?view=moderate&s=ID    facilitator queue for one session
+ *   ?view=admin            sessions, people, branding, health
+ *   POST /exec             load-test endpoint, off unless an admin starts a load test
  *
- * Run setUp() once from the editor before deploying.
+ * Run setUp() once from the editor before deploying, and again after any
+ * change that adds an OAuth scope.
  */
+
+/** Bump with every release; scripts/ship.sh tags git and publishes release notes from CHANGELOG.md. */
+const APP = {
+  version: '2.0.0',
+  repo: 'https://github.com/djsincla/question-desk'
+};
 
 const CONFIG = {
   sheetName: 'Questions',
+  topicSheetName: 'Topics',
+  assetSheetName: 'Assets',
   model: 'gemini-3.5-flash',      // gemini-3.1-flash-lite is cheaper if cost matters
-  moderatorLanguage: 'English',   // topics and translations are written in this
-  maxLength: 300,
-  cooldownSeconds: 300,           // per device
-  roomLimitPerMinute: 15,         // whole-session intake cap
-  entryTokenSeconds: 150,         // how often the QR rotates
+  moderatorLanguage: 'English',   // topic labels, translations and merged questions are written in this
+  // Languages participants read topic labels and "Now answering" in. Codes match Ask.html.
+  displayLanguages: { en: 'English', ko: 'Korean', es: 'Spanish' },
+  defaultMaxLength: 300,          // per session, admin can change
+  maxLengthCeiling: 1024,         // no session may allow more than this
+  cooldownSeconds: 300,           // per device, per session
+  roomLimitPerMinute: 15,         // per session intake cap
+  entryTokenSeconds: 150,         // how often an in-room QR rotates
   deviceTokenSeconds: 21600,      // 6h — CacheService maximum
-  requireEntryToken: true,        // false = plain static QR, no room scoping
-  clusterBatchSize: 25
+  clusterBatchSize: 25,
+  topicCacheSeconds: 15,          // participant topic lists; a full room polls this
+  logoMaxChars: 60000,            // base64 data URL; pages load on weak venue wifi
+  maxRecipients: 50,
+  alertAfterFailures: 3,          // consecutive failed grouping runs before admins are emailed
+  alertRepeatHours: 6,
+  loadTestMinutes: 60
 };
 
 const COLS = {
   id: 1, submitted: 2, device: 3, text: 4,
-  status: 5, topic: 6, lang: 7, translation: 8
+  status: 5, topic: 6, lang: 7, translation: 8, session: 9
 };
+
+const HEADERS = ['ID', 'Submitted', 'Device', 'Question', 'Status', 'Topic',
+                 'Language', 'Translation', 'Session'];
+
+const TOPIC_HEADERS = ['Session', 'Topic', 'Merged question', 'Updated',
+                       'Label translations', 'Merged translations'];
+
+const DEFAULT_ACCENT = '#1b5e5a';
+const ID_RE = /^[a-f0-9]{8}$/;
+const DEVICE_RE = /^[a-f0-9-]{36}$/;
+const EMAIL_RE = /^[^@\s,;<>"']+@[^@\s,;<>"']+\.[^@\s,;<>"']+$/;
+const HEX_RE = /^#[0-9a-f]{6}$/i;
 
 // ---------------------------------------------------------------- routing
 
 function doGet(e) {
-  const view = (e && e.parameter && e.parameter.view) || 'ask';
+  const p = (e && e.parameter) || {};
+  const view = p.view || 'ask';
+  const sid = String(p.s || '');
+
+  if (view === 'admin') {
+    if (!isAdmin_()) return notice_('denied');
+    return page_('Admin.html', 'Question Desk admin', {}, null);
+  }
 
   if (view === 'moderate' || view === 'present') {
-    if (!isModerator_()) return page_('Denied', 'Denied.html');
-    return page_(view === 'present' ? 'Scan to ask' : 'Question queue',
-                 view === 'present' ? 'Present.html' : 'Moderate.html');
+    const email = currentEmail_();
+    if (!email || !(isAdmin_(email) || onRoster_('MODERATORS', email))) return notice_('denied');
+    const session = getSession_(sid);
+    if (!session) return notice_('pick', view);
+    if (!canModerate_(session, email)) return notice_('denied');
+    if (view === 'present') {
+      return page_('Present.html', session.name, { sid: session.id, theme: session.theme }, session);
+    }
+    return page_('Moderate.html', session.name + ' — queue', { sid: session.id }, session);
   }
-  return page_('Ask a question', 'Ask.html');
+
+  if (view === 'ask' && !p.s) return home_();
+
+  const session = getSession_(sid);
+  return page_('Ask.html', 'Ask a question', {
+    sid: session ? session.id : '',
+    credential: String(p.t || p.k || '').slice(0, 64)
+  }, session);
 }
 
-function page_(title, file) {
-  return HtmlService.createTemplateFromFile(file)
-    .evaluate()
+/** Renders a page with server data injected as a JSON literal (see BOOT in each file). */
+function page_(file, title, boot, session) {
+  const template = HtmlService.createTemplateFromFile(file);
+  boot.brand = brand_(session);
+  template.boot = JSON.stringify(boot)
+    .replace(/</g, '\\u003c')
+    .split(String.fromCharCode(0x2028)).join('\\u2028')
+    .split(String.fromCharCode(0x2029)).join('\\u2029');
+  const output = template.evaluate()
     .setTitle(title)
     .addMetaTag('viewport', 'width=device-width, initial-scale=1')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  if (boot.brand.faviconUrl) {
+    // Google rejects some icon URLs; a bad icon must never take the page down.
+    try { output.setFaviconUrl(boot.brand.faviconUrl); } catch (err) { console.error('Favicon: ' + err); }
+  }
+  return output;
 }
 
-function webAppUrl() {
-  return ScriptApp.getService().getUrl();
+/** Splash page at the bare app address. Staff see their live sessions; everyone else sees how to join. */
+function home_() {
+  const email = currentEmail_();
+  const admin = isAdmin_(email);
+  const staff = admin || onRoster_('MODERATORS', email);
+  const base = baseUrl_();
+  const orgName = brand_(null).orgName;
+  return page_('Home.html', orgName ? orgName + ' — Question Desk' : 'Question Desk', {
+    signedIn: !!email,
+    staff: staff,
+    adminUrl: admin ? base + '?view=admin' : '',
+    domain: domainOf_(ownerEmail_()),
+    signInUrl: 'https://accounts.google.com/AccountChooser?continue=' + encodeURIComponent(base),
+    sessions: staff ? sessionsFor_(email)
+      .filter(function (s) { return s.status !== 'ended' && !s.loadTest; })
+      .map(function (s) {
+        const links = sessionLinks_(s);
+        return { name: s.name, status: s.status, present: links.present, moderate: links.moderate };
+      }) : []
+  }, null);
+}
+
+function notice_(mode, view) {
+  if (mode === 'pick') {
+    const email = currentEmail_();
+    const base = baseUrl_();
+    const links = sessionsFor_(email)
+      .filter(function (s) { return s.status !== 'ended'; })
+      .map(function (s) {
+        return {
+          label: s.name,
+          note: s.status === 'active' ? 'Active' : 'Not active',
+          href: base + '?view=' + view + '&s=' + s.id
+        };
+      });
+    return page_('Denied.html', 'Choose a session', {
+      heading: 'Choose a session',
+      body: links.length ? 'Pick the session to open.' : 'You are not assigned to any open sessions.',
+      links: links
+    }, null);
+  }
+  return page_('Denied.html', 'Not available', {
+    heading: 'This view is for facilitators',
+    body: 'Sign in with an account listed as a moderator, or scan the code on the screen in the room to ask a question.',
+    links: []
+  }, null);
+}
+
+// ---------------------------------------------------------------- people
+
+function currentEmail_() {
+  return String(Session.getActiveUser().getEmail() || '').toLowerCase();
+}
+
+function ownerEmail_() {
+  return String(Session.getEffectiveUser().getEmail() || '').toLowerCase();
+}
+
+function roster_(key) {
+  return String(props_().getProperty(key) || '')
+    .split(',')
+    .map(function (s) { return s.trim().toLowerCase(); })
+    .filter(Boolean);
+}
+
+function onRoster_(key, email) {
+  return !!email && roster_(key).indexOf(email) !== -1;
+}
+
+function isAdmin_(email) {
+  if (email === undefined) email = currentEmail_();
+  return !!email && (email === ownerEmail_() || onRoster_('ADMINS', email));
+}
+
+function canModerate_(session, email) {
+  if (isAdmin_(email)) return true;
+  return onRoster_('MODERATORS', email) && (session.moderators || []).indexOf(email) !== -1;
+}
+
+function requireAdmin_() {
+  if (!isAdmin_()) throw new Error('Only administrators can do that.');
+  return currentEmail_();
+}
+
+function requireSession_(sid) {
+  const session = getSession_(sid);
+  if (!session) throw new Error('Session not found.');
+  if (!canModerate_(session, currentEmail_())) throw new Error('You are not a moderator of this session.');
+  return session;
+}
+
+function adminEmails_() {
+  const list = [ownerEmail_()];
+  roster_('ADMINS').forEach(function (e) { if (list.indexOf(e) === -1) list.push(e); });
+  return list.filter(Boolean);
+}
+
+// ---------------------------------------------------------------- sessions
+
+function props_() {
+  return PropertiesService.getScriptProperties();
+}
+
+function getSession_(sid) {
+  if (!ID_RE.test(String(sid || ''))) return null;
+  const raw = props_().getProperty('SESSION_' + sid);
+  return raw ? JSON.parse(raw) : null;
+}
+
+function saveSession_(session) {
+  props_().setProperty('SESSION_' + session.id, JSON.stringify(session));
+}
+
+function allSessions_() {
+  const all = props_().getProperties();
+  return Object.keys(all)
+    .filter(function (k) { return /^SESSION_[a-f0-9]{8}$/.test(k); })
+    .map(function (k) { return JSON.parse(all[k]); })
+    .sort(function (a, b) { return b.created - a.created; });
+}
+
+function sessionsFor_(email) {
+  return allSessions_().filter(function (s) { return canModerate_(s, email); });
+}
+
+function withLock_(fn) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    return fn();
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function updateSession_(sid, mutate) {
+  return withLock_(function () {
+    const session = getSession_(sid);
+    if (!session) throw new Error('Session not found.');
+    mutate(session);
+    saveSession_(session);
+    return session;
+  });
+}
+
+function newId_(length) {
+  let id = '';
+  while (id.length < length) id += Utilities.getUuid().replace(/-/g, '');
+  return id.slice(0, length);
+}
+
+function baseUrl_() {
+  const configured = props_().getProperty('PUBLIC_URL');
+  if (configured) return configured;
+  return baseUrlDetected_();
+}
+
+function baseUrlDetected_() {
+  // The domain-scoped form (/a/macros/<domain>/) can prompt outsiders to sign in.
+  return String(ScriptApp.getService().getUrl() || '')
+    .replace(/\/a\/macros\/[^/]+\/s\//, '/macros/s/');
+}
+
+function sessionLinks_(session) {
+  const base = baseUrl_();
+  return {
+    present: base + '?view=present&s=' + session.id,
+    moderate: base + '?view=moderate&s=' + session.id,
+    participant: session.access === 'link'
+      ? base + '?s=' + session.id + '&k=' + session.linkKey
+      : null
+  };
 }
 
 // ---------------------------------------------------------------- entry tokens
 
 /**
- * Current room token. Rotates on read once expired; the previous token stays
- * valid for one extra window so a scan mid-rotation doesn't fail.
+ * Current room token for an in-room session. Rotates on read once expired; the
+ * previous token stays valid for one extra window so a scan mid-rotation works.
  */
-function getEntryToken() {
-  const props = PropertiesService.getScriptProperties();
-  const now = Date.now();
-  const issued = Number(props.getProperty('TOKEN_ISSUED') || 0);
-  let current = props.getProperty('TOKEN_CURRENT');
+function roomToken_(sid) {
+  const key = 'TOKEN_' + sid;
+  const windowMs = CONFIG.entryTokenSeconds * 1000;
+  let tok = JSON.parse(props_().getProperty(key) || 'null');
 
-  if (!current || now - issued > CONFIG.entryTokenSeconds * 1000) {
-    const previous = current || '';
-    current = Utilities.getUuid().replace(/-/g, '').slice(0, 10);
-    props.setProperties({
-      TOKEN_PREVIOUS: previous,
-      TOKEN_CURRENT: current,
-      TOKEN_ISSUED: String(now)
+  if (!tok || Date.now() - tok.issued > windowMs) {
+    tok = withLock_(function () {
+      const fresh = JSON.parse(props_().getProperty(key) || 'null');
+      if (fresh && Date.now() - fresh.issued <= windowMs) return fresh;
+      const next = {
+        current: newId_(12),
+        previous: fresh ? fresh.current : '',
+        issued: Date.now()
+      };
+      props_().setProperty(key, JSON.stringify(next));
+      return next;
     });
   }
-  return { token: current, rotateInSeconds: CONFIG.entryTokenSeconds };
-}
-
-function validEntryToken_(token) {
-  if (!CONFIG.requireEntryToken) return true;
-  if (!token) return false;
-  const props = PropertiesService.getScriptProperties();
-  return token === props.getProperty('TOKEN_CURRENT') ||
-         token === props.getProperty('TOKEN_PREVIOUS');
-}
-
-/**
- * Exchange a short-lived room token for a device token the browser keeps.
- * Called once, when the participant page first loads after a scan.
- */
-function claimDevice(entryToken) {
-  if (!validEntryToken_(entryToken)) {
-    return { ok: false, reason: 'expired' };
-  }
-  const deviceId = Utilities.getUuid();
-  CacheService.getScriptCache().put('dev:' + deviceId, '1', CONFIG.deviceTokenSeconds);
-  return { ok: true, deviceId: deviceId };
-}
-
-// ---------------------------------------------------------------- submission
-
-function getSessionState(deviceId) {
-  const props = PropertiesService.getScriptProperties();
   return {
-    open: props.getProperty('BOARD_OPEN') !== 'false',
-    heading: props.getProperty('SESSION_HEADING') || 'Questions for the panel',
-    cooldownRemaining: deviceId ? cooldownRemaining_(deviceId) : 0,
-    maxLength: CONFIG.maxLength
+    token: tok.current,
+    expiresIn: Math.max(1, Math.ceil((tok.issued + windowMs - Date.now()) / 1000))
   };
 }
 
-function submitQuestion(deviceId, text, entryToken) {
-  const props = PropertiesService.getScriptProperties();
-  if (props.getProperty('BOARD_OPEN') === 'false') {
-    return { ok: false, reason: 'closed' };
+/**
+ * The displayed token is valid for its own window plus one more. Without a room
+ * screen polling, nothing rotates, so age is checked here rather than trusting
+ * that rotation happened.
+ */
+function validCredential_(session, credential) {
+  if (!credential || typeof credential !== 'string' || credential.length > 64) return false;
+  if (session.access === 'link') return credential === session.linkKey;
+
+  const tok = JSON.parse(props_().getProperty('TOKEN_' + session.id) || 'null');
+  if (!tok) return false;
+  const age = Date.now() - tok.issued;
+  const windowMs = CONFIG.entryTokenSeconds * 1000;
+  if (credential === tok.current) return age <= windowMs * 2;
+  if (credential === tok.previous) return age <= windowMs;
+  return false;
+}
+
+function deviceValid_(sid, deviceId) {
+  return DEVICE_RE.test(String(deviceId || '')) &&
+    !!CacheService.getScriptCache().get('dev:' + sid + ':' + deviceId);
+}
+
+// ---------------------------------------------------------------- participants
+
+function participantState_(session) {
+  if (!session) return { found: false };
+  return {
+    found: true,
+    status: session.status,
+    open: session.open !== false,
+    access: session.access,
+    heading: session.heading || 'Questions for the panel',
+    maxLength: session.maxLength || CONFIG.defaultMaxLength
+  };
+}
+
+function getSessionState(sid, deviceId) {
+  const session = getSession_(sid);
+  const state = participantState_(session);
+  if (!session) return state;
+  const validDevice = DEVICE_RE.test(String(deviceId || ''));
+  state.deviceValid = deviceValid_(sid, deviceId);
+  state.cooldownRemaining = validDevice ? cooldownRemaining_(sid, deviceId) : 0;
+  return state;
+}
+
+/**
+ * Exchange a room token or link key for a device token the browser keeps.
+ * Device tokens are per session, so joining one session grants nothing in another.
+ */
+function claimDevice(sid, credential) {
+  const session = getSession_(sid);
+  if (!session) return { ok: false, reason: 'notFound' };
+  if (session.status === 'ended') return { ok: false, reason: 'ended' };
+  if (!validCredential_(session, credential)) return { ok: false, reason: 'expired' };
+
+  const deviceId = Utilities.getUuid();
+  CacheService.getScriptCache().put('dev:' + sid + ':' + deviceId, '1', CONFIG.deviceTokenSeconds);
+  return { ok: true, deviceId: deviceId, state: getSessionState(sid, deviceId) };
+}
+
+function submitQuestion(sid, deviceId, text, credential) {
+  return submitQuestion_(sid, deviceId, text, credential, false);
+}
+
+/** skipRoomCap is only ever true for load-test submissions through doPost. */
+function submitQuestion_(sid, deviceId, text, credential, skipRoomCap) {
+  // Reject oversized payloads before doing any work on them.
+  if (typeof text !== 'string' || text.length > CONFIG.maxLengthCeiling * 2) {
+    return { ok: false, reason: 'tooLong' };
   }
 
-  const clean = String(text || '').trim().replace(/\s+/g, ' ');
+  const session = getSession_(sid);
+  if (!session) return { ok: false, reason: 'notFound' };
+  if (session.status === 'ended') return { ok: false, reason: 'ended' };
+  if (session.status !== 'active') return { ok: false, reason: 'inactive' };
+  if (session.open === false) return { ok: false, reason: 'closed' };
+
+  const maxLength = session.maxLength || CONFIG.defaultMaxLength;
+  const clean = text.trim().replace(/\s+/g, ' ');
   if (clean.length < 5) return { ok: false, reason: 'tooShort' };
-  if (clean.length > CONFIG.maxLength) return { ok: false, reason: 'tooLong' };
+  if (clean.length > maxLength) return { ok: false, reason: 'tooLong' };
 
+  if (!DEVICE_RE.test(String(deviceId || ''))) deviceId = '';
   const cache = CacheService.getScriptCache();
-  if (!deviceId || !cache.get('dev:' + deviceId)) {
-    if (!validEntryToken_(entryToken)) return { ok: false, reason: 'expired' };
+  if (!deviceId || !cache.get('dev:' + sid + ':' + deviceId)) {
+    if (!validCredential_(session, credential)) return { ok: false, reason: 'expired' };
   }
 
-  const waiting = cooldownRemaining_(deviceId);
+  const waiting = cooldownRemaining_(sid, deviceId);
   if (waiting > 0) return { ok: false, reason: 'cooldown', waitSeconds: waiting };
 
   const lock = LockService.getScriptLock();
@@ -136,119 +418,1043 @@ function submitQuestion(deviceId, text, entryToken) {
   }
 
   try {
-    if (!roomBudgetAvailable_()) return { ok: false, reason: 'busy' };
+    if (!skipRoomCap && !roomBudgetAvailable_(sid)) return { ok: false, reason: 'busy' };
 
-    const sheet = questionSheet_();
-    const id = Utilities.getUuid().slice(0, 8);
-    sheet.appendRow([id, new Date(), deviceId || 'unknown', clean, 'new', '', '', '']);
-    cache.put('cool:' + deviceId, '1', CONFIG.cooldownSeconds);
+    const id = newId_(8);
+    questionSheet_().appendRow([
+      id, new Date(), deviceId || 'unknown', sheetSafe_(clean), 'new', '', '', '', sid
+    ]);
+    if (deviceId) {
+      cache.put('cool:' + sid + ':' + deviceId,
+                String(Date.now() + CONFIG.cooldownSeconds * 1000), CONFIG.cooldownSeconds);
+    }
     return { ok: true, id: id, cooldownSeconds: CONFIG.cooldownSeconds };
   } finally {
     lock.releaseLock();
   }
 }
 
-function cooldownRemaining_(deviceId) {
+function cooldownRemaining_(sid, deviceId) {
   if (!deviceId) return 0;
-  const stamp = CacheService.getScriptCache().get('cool:' + deviceId);
-  if (!stamp) return 0;
-  // Cache TTL does the expiry; we only need to know that it is still present.
-  // The client counts down locally from the value returned at submit time.
-  return 1;
+  const until = Number(CacheService.getScriptCache().get('cool:' + sid + ':' + deviceId) || 0);
+  return Math.max(0, Math.ceil((until - Date.now()) / 1000));
 }
 
-/** Whole-room intake cap, so no single device can flood the queue. */
-function roomBudgetAvailable_() {
+/** Per-session intake cap, so no single device can flood the queue. */
+function roomBudgetAvailable_(sid) {
   const cache = CacheService.getScriptCache();
-  const bucket = 'room:' + Math.floor(Date.now() / 60000);
+  const bucket = 'room:' + sid + ':' + Math.floor(Date.now() / 60000);
   const used = Number(cache.get(bucket) || 0);
   if (used >= CONFIG.roomLimitPerMinute) return false;
   cache.put(bucket, String(used + 1), 120);
   return true;
 }
 
-// ---------------------------------------------------------------- moderation
+// ---------------------------------------------------------------- me too
 
-function getBoard() {
-  if (!isModerator_()) throw new Error('Not a moderator.');
+/**
+ * Topics a participant can support, labelled in every display language. Only
+ * Gemini-written topic labels are shown, never anyone's question text, so there
+ * is nothing unmoderated for the room to read. Cached briefly: a full room polls.
+ */
+function getTopics(sid, deviceId) {
+  const session = getSession_(sid);
+  if (!session) return { ok: false, reason: 'notFound' };
+  if (!deviceValid_(sid, deviceId)) return { ok: false, reason: 'expired' };
 
-  const rows = questionSheet_().getDataRange().getValues().slice(1);
-  const topics = {};
-  const loose = [];
-
-  rows.forEach(function (r) {
-    if (r[COLS.status - 1] === 'dismissed') return;
-    const item = {
-      id: r[COLS.id - 1],
-      text: r[COLS.text - 1],
-      lang: r[COLS.lang - 1] || '',
-      translation: r[COLS.translation - 1] || '',
-      status: r[COLS.status - 1],
-      submitted: r[COLS.submitted - 1] ? new Date(r[COLS.submitted - 1]).getTime() : 0
-    };
-    const topic = r[COLS.topic - 1];
-    if (!topic) { loose.push(item); return; }
-    if (!topics[topic]) topics[topic] = [];
-    topics[topic].push(item);
-  });
-
-  const grouped = Object.keys(topics).map(function (name) {
-    return { topic: name, questions: topics[name], count: topics[name].length };
-  }).sort(function (a, b) { return b.count - a.count; });
-
-  const props = PropertiesService.getScriptProperties();
+  const base = publicTopicsCached_(session);
+  const votes = votesFor_(sid);
+  const mine = myVotes_(sid, deviceId);
   return {
-    topics: grouped,
-    unsorted: loose,
-    open: props.getProperty('BOARD_OPEN') !== 'false',
-    merged: JSON.parse(props.getProperty('MERGED') || '{}')
+    ok: true,
+    status: session.status,
+    open: session.open !== false,
+    nowAnswering: base.nowAnswering,
+    topics: base.topics.map(function (t) {
+      return {
+        topic: t.topic,
+        labels: t.labels,
+        count: t.questions + (votes[t.topic] || 0),
+        answered: t.answered,
+        mine: mine.indexOf(t.topic) !== -1
+      };
+    }).sort(function (a, b) { return b.count - a.count; })
   };
 }
 
-function setStatus(ids, status) {
-  if (!isModerator_()) throw new Error('Not a moderator.');
-  const sheet = questionSheet_();
-  const values = sheet.getDataRange().getValues();
-  const wanted = {};
-  ids.forEach(function (id) { wanted[id] = true; });
+/** Toggles this device's "me too" on a topic. */
+function meToo(sid, deviceId, topic) {
+  const session = getSession_(sid);
+  if (!session) return { ok: false, reason: 'notFound' };
+  if (session.status === 'ended') return { ok: false, reason: 'ended' };
+  if (session.status !== 'active') return { ok: false, reason: 'inactive' };
+  if (session.open === false) return { ok: false, reason: 'closed' };
+  if (!deviceValid_(sid, deviceId)) return { ok: false, reason: 'expired' };
 
-  for (let i = 1; i < values.length; i++) {
-    if (wanted[values[i][COLS.id - 1]]) {
-      sheet.getRange(i + 1, COLS.status).setValue(status);
-    }
+  topic = String(topic || '');
+  const known = publicTopicsCached_(session).topics.some(function (t) { return t.topic === topic; });
+  if (!known) return { ok: false, reason: 'unknownTopic' };
+
+  const cache = CacheService.getScriptCache();
+  const mineKey = 'votes:' + sid + ':' + deviceId;
+  try {
+    return withLock_(function () {
+      const mine = JSON.parse(cache.get(mineKey) || '[]');
+      const votes = votesFor_(sid);
+      const at = mine.indexOf(topic);
+      if (at === -1) {
+        mine.push(topic);
+        votes[topic] = (votes[topic] || 0) + 1;
+      } else {
+        mine.splice(at, 1);
+        votes[topic] = Math.max(0, (votes[topic] || 0) - 1);
+      }
+      props_().setProperty('VOTES_' + sid, JSON.stringify(votes));
+      cache.put(mineKey, JSON.stringify(mine), CONFIG.deviceTokenSeconds);
+      return { ok: true, mine: at === -1, votes: votes[topic] };
+    });
+  } catch (err) {
+    return { ok: false, reason: 'busy' };
   }
-  return getBoard();
 }
 
-function setBoardOpen(open) {
-  if (!isModerator_()) throw new Error('Not a moderator.');
-  PropertiesService.getScriptProperties().setProperty('BOARD_OPEN', open ? 'true' : 'false');
-  return getBoard();
+function votesFor_(sid) {
+  return JSON.parse(props_().getProperty('VOTES_' + sid) || '{}');
+}
+
+function myVotes_(sid, deviceId) {
+  return JSON.parse(CacheService.getScriptCache().get('votes:' + sid + ':' + deviceId) || '[]');
+}
+
+function publicTopicsCached_(session) {
+  const cache = CacheService.getScriptCache();
+  const key = 'topics:' + session.id;
+  const hit = cache.get(key);
+  if (hit) return JSON.parse(hit);
+  const fresh = publicTopics_(session);
+  cache.put(key, JSON.stringify(fresh), CONFIG.topicCacheSeconds);
+  return fresh;
+}
+
+function invalidateTopics_(sid) {
+  CacheService.getScriptCache().remove('topics:' + sid);
+}
+
+function publicTopics_(session) {
+  const records = topicRecords_(session.id);
+  const groups = {};
+  sessionRows_(session.id).forEach(function (q) {
+    if (!q.topic || q.status === 'dismissed') return;
+    const g = groups[q.topic] = groups[q.topic] || { questions: 0, answered: 0 };
+    g.questions++;
+    if (q.status === 'answered') g.answered++;
+  });
+  return {
+    nowAnswering: nowAnsweringView_(session, records),
+    topics: Object.keys(groups).map(function (topic) {
+      return {
+        topic: topic,
+        labels: displayLabels_(topic, records[topic] && records[topic].labels),
+        questions: groups[topic].questions,
+        answered: groups[topic].answered === groups[topic].questions
+      };
+    })
+  };
+}
+
+/** Label in every display language, falling back to the moderator-language label. */
+function displayLabels_(text, translations) {
+  const out = {};
+  translations = translations || {};
+  Object.keys(CONFIG.displayLanguages).forEach(function (code) {
+    out[code] = CONFIG.displayLanguages[code] === CONFIG.moderatorLanguage
+      ? text
+      : (translations[code] || text);
+  });
+  return out;
+}
+
+function translationCodes_() {
+  return Object.keys(CONFIG.displayLanguages).filter(function (code) {
+    return CONFIG.displayLanguages[code] !== CONFIG.moderatorLanguage;
+  });
+}
+
+function nowAnsweringView_(session, records) {
+  const now = session.nowAnswering;
+  if (!now || !now.topic) return null;
+  const rec = records[now.topic] || {};
+  return {
+    topic: now.topic,
+    labels: displayLabels_(now.topic, rec.labels),
+    merged: rec.merged ? displayLabels_(rec.merged, rec.mergedLabels) : null
+  };
+}
+
+// ---------------------------------------------------------------- room screen
+
+function getRoomScreen(sid) {
+  const session = requireSession_(sid);
+  const brand = brand_(session);
+  delete brand.logo;   // the logo arrives with the page; this poll stays small
+  const screen = {
+    status: session.status,
+    open: session.open !== false,
+    theme: session.theme || 'dark',
+    heading: session.heading || 'Questions for the panel',
+    brand: brand,
+    nowAnswering: session.nowAnswering ? nowAnsweringView_(session, topicRecords_(sid)) : null,
+    url: null,
+    refreshInSeconds: 20
+  };
+  if (session.status !== 'active') return screen;
+
+  const base = baseUrl_();
+  if (session.access === 'link') {
+    screen.url = base + '?s=' + sid + '&k=' + session.linkKey;
+  } else {
+    const tok = roomToken_(sid);
+    screen.url = base + '?s=' + sid + '&t=' + tok.token;
+    screen.refreshInSeconds = Math.min(20, tok.expiresIn + 1);
+  }
+  return screen;
+}
+
+// ---------------------------------------------------------------- moderation
+
+function mySessions() {
+  const email = currentEmail_();
+  return sessionsFor_(email).map(function (s) {
+    return { id: s.id, name: s.name, status: s.status };
+  });
+}
+
+function getBoard(sid) {
+  const session = requireSession_(sid);
+
+  const rows = sessionRows_(sid);
+  const votes = votesFor_(sid);
+  const topics = {};
+  const loose = [];
+
+  rows.forEach(function (q) {
+    if (q.status === 'dismissed') return;
+    if (!q.topic) { loose.push(q); return; }
+    if (!topics[q.topic]) topics[q.topic] = [];
+    topics[q.topic].push(q);
+  });
+
+  const grouped = Object.keys(topics).map(function (name) {
+    return { topic: name, questions: topics[name], count: topics[name].length, votes: votes[name] || 0 };
+  }).sort(function (a, b) { return (b.count + b.votes) - (a.count + a.votes); });
+
+  const records = topicRecords_(sid);
+  const merged = {};
+  Object.keys(records).forEach(function (t) { if (records[t].merged) merged[t] = records[t].merged; });
+
+  return {
+    session: {
+      id: session.id,
+      name: session.name,
+      status: session.status,
+      access: session.access,
+      links: sessionLinks_(session)
+    },
+    isAdmin: isAdmin_(),
+    adminUrl: baseUrl_() + '?view=admin',
+    topics: grouped,
+    unsorted: loose,
+    open: session.open !== false,
+    nowAnswering: session.nowAnswering ? session.nowAnswering.topic : null,
+    merged: merged
+  };
+}
+
+function setStatus(sid, ids, status) {
+  const session = requireSession_(sid);
+  if (session.status === 'ended') throw new Error('This session has ended.');
+  if (['new', 'answered', 'dismissed'].indexOf(status) === -1) throw new Error('Unknown status.');
+
+  const wanted = {};
+  ids.forEach(function (id) { wanted[String(id)] = true; });
+  withLock_(function () {
+    const sheet = questionSheet_();
+    const values = sheet.getDataRange().getValues();
+    for (let i = 1; i < values.length; i++) {
+      if (String(values[i][COLS.session - 1]) === sid && wanted[String(values[i][COLS.id - 1])]) {
+        sheet.getRange(i + 1, COLS.status).setValue(status);
+      }
+    }
+  });
+  invalidateTopics_(sid);
+  return getBoard(sid);
+}
+
+function setBoardOpen(sid, open) {
+  requireSession_(sid);
+  updateSession_(sid, function (s) { s.open = !!open; });
+  return getBoard(sid);
+}
+
+/** Shows a topic on the room screen and participants' phones; null clears it. */
+function setNowAnswering(sid, topic) {
+  const session = requireSession_(sid);
+  if (session.status === 'ended') throw new Error('This session has ended.');
+  updateSession_(sid, function (s) {
+    s.nowAnswering = topic ? { topic: String(topic).slice(0, 200), at: Date.now() } : null;
+  });
+  invalidateTopics_(sid);
+  return getBoard(sid);
+}
+
+function groupNow(sid) {
+  requireSession_(sid);
+  return clusterSession_(sid);
+}
+
+// ---------------------------------------------------------------- admin
+
+function adminState() {
+  const me = requireAdmin_();
+  const counts = {};
+  const values = questionSheet_().getDataRange().getValues();
+  for (let i = 1; i < values.length; i++) {
+    const sid = String(values[i][COLS.session - 1]);
+    counts[sid] = (counts[sid] || 0) + 1;
+  }
+
+  return {
+    me: me,
+    owner: ownerEmail_(),
+    domain: domainOf_(ownerEmail_()),
+    admins: roster_('ADMINS'),
+    moderators: roster_('MODERATORS'),
+    sessions: allSessions_().map(function (s) {
+      const out = JSON.parse(JSON.stringify(s));
+      out.links = sessionLinks_(s);
+      out.questionCount = counts[s.id] || 0;
+      return out;
+    }),
+    brand: brand_(null),
+    publicUrl: props_().getProperty('PUBLIC_URL') || '',
+    detectedUrl: baseUrlDetected_(),
+    geminiKeySet: !!props_().getProperty('GEMINI_API_KEY'),
+    sheetUrl: spreadsheet_().getUrl(),
+    mailQuota: MailApp.getRemainingDailyQuota(),
+    health: health_(),
+    loadTest: loadTestView_(),
+    limits: { maxLengthCeiling: CONFIG.maxLengthCeiling, defaultMaxLength: CONFIG.defaultMaxLength },
+    app: { version: APP.version, releaseNotes: APP.repo + '/releases/tag/v' + APP.version, repo: APP.repo }
+  };
+}
+
+function saveSession(input) {
+  const me = requireAdmin_();
+  input = input || {};
+
+  const name = cleanText_(input.name, 80);
+  if (!name) throw new Error('Give the session a name.');
+  const access = input.access === 'link' ? 'link' : 'room';
+  const theme = input.theme === 'light' ? 'light' : 'dark';
+  const maxLength = Math.round(Number(input.maxLength) || CONFIG.defaultMaxLength);
+  if (maxLength < 50 || maxLength > CONFIG.maxLengthCeiling) {
+    throw new Error('Question length must be between 50 and ' + CONFIG.maxLengthCeiling + ' characters.');
+  }
+  const roster = roster_('MODERATORS');
+  const moderators = (input.moderators || [])
+    .map(function (e) { return String(e).toLowerCase(); })
+    .filter(function (e) { return roster.indexOf(e) !== -1; });
+
+  const start = optionalTime_(input.scheduledStart, 'start');
+  const end = optionalTime_(input.scheduledEnd, 'end');
+  if (start && end && end <= start) throw new Error('The scheduled end must be after the start.');
+
+  const brandAccent = String(input.brandAccent || '');
+  if (brandAccent && !HEX_RE.test(brandAccent)) throw new Error('Session accent color must look like #1b5e5a.');
+
+  const fields = {
+    name: name,
+    heading: cleanText_(input.heading, 120) || 'Questions for the panel',
+    access: access,
+    theme: theme,
+    maxLength: maxLength,
+    moderators: moderators,
+    emailOnEnd: !!input.emailOnEnd,
+    scheduledStart: start,
+    scheduledEnd: end,
+    brand: { orgName: cleanText_(input.brandOrgName, 80), accent: brandAccent.toLowerCase() }
+  };
+
+  if (input.id) {
+    updateSession_(input.id, function (s) {
+      if (s.scheduledStart !== fields.scheduledStart) s.scheduleStarted = false;
+      Object.keys(fields).forEach(function (k) { s[k] = fields[k]; });
+      if (s.access === 'link' && !s.linkKey) s.linkKey = newId_(16);
+    });
+    invalidateTopics_(input.id);
+  } else {
+    withLock_(function () {
+      const session = fields;
+      session.id = newId_(8);
+      session.linkKey = newId_(16);
+      session.status = 'inactive';
+      session.open = true;
+      session.created = Date.now();
+      session.createdBy = me;
+      saveSession_(session);
+    });
+  }
+  return adminState();
+}
+
+function optionalTime_(value, label) {
+  if (value === null || value === undefined || value === '') return null;
+  const ms = Number(value);
+  if (!isFinite(ms) || ms <= 0) throw new Error('The scheduled ' + label + ' is not a valid date and time.');
+  return Math.round(ms);
+}
+
+function setSessionActive(sid, active) {
+  requireAdmin_();
+  updateSession_(sid, function (s) {
+    if (s.status === 'ended') throw new Error('This session has ended and cannot be reopened.');
+    s.status = active ? 'active' : 'inactive';
+    if (active && !s.started) s.started = Date.now();
+  });
+  return adminState();
+}
+
+function regenerateLink(sid) {
+  requireAdmin_();
+  // Phones that already joined keep their device token until it expires (6h).
+  updateSession_(sid, function (s) { s.linkKey = newId_(16); });
+  return adminState();
+}
+
+function endSession(sid) {
+  requireAdmin_();
+  const result = endSession_(sid);
+  result.state = adminState();
+  return result;
+}
+
+/**
+ * Ends a session for good: closes intake, runs a final grouping pass so the
+ * summary is translated, and emails moderators if the session asks for it.
+ * No permission check — callers are endSession() and the schedule trigger.
+ */
+function endSession_(sid) {
+  const session = updateSession_(sid, function (s) {
+    if (s.status === 'ended') throw new Error('This session has already ended.');
+    s.status = 'ended';
+    s.open = false;
+    s.ended = Date.now();
+    s.nowAnswering = null;
+  });
+  props_().deleteProperty('TOKEN_' + sid);
+  invalidateTopics_(sid);
+
+  let groupingNote = '';
+  try {
+    for (let pass = 0; pass < 8 && clusterSession_(sid) > 0; pass++) { /* drain in batches */ }
+  } catch (err) {
+    groupingNote = 'Final grouping failed, so some questions may be untranslated.';
+    console.error('Final grouping for ' + sid + ': ' + err);
+  }
+
+  let emailed = 0;
+  if (session.emailOnEnd && session.moderators.length && !session.loadTest) {
+    emailed = sendSummary_(session, session.moderators);
+  }
+  return { emailed: emailed, note: groupingNote };
+}
+
+/** Deletes a session that is not running, with its questions, topics, votes and logo. */
+function deleteSession(sid) {
+  requireAdmin_();
+  const session = getSession_(sid);
+  if (!session) throw new Error('Session not found.');
+  if (session.status === 'active') throw new Error('Deactivate or end the session before deleting it.');
+  deleteSession_(sid);
+  return adminState();
+}
+
+function deleteSession_(sid) {
+  withLock_(function () {
+    [[questionSheet_(), COLS.session], [topicSheet_(), 1]].forEach(function (pair) {
+      const sheet = pair[0];
+      const col = pair[1];
+      const values = sheet.getDataRange().getValues();
+      for (let i = values.length - 1; i >= 1; i--) {
+        if (String(values[i][col - 1]) === sid) sheet.deleteRow(i + 1);
+      }
+    });
+    ['SESSION_', 'TOKEN_', 'VOTES_'].forEach(function (p) { props_().deleteProperty(p + sid); });
+  });
+  setAsset_(sid, '');
+  invalidateTopics_(sid);
+}
+
+function emailSummary(sid, recipients) {
+  requireAdmin_();
+  const session = getSession_(sid);
+  if (!session) throw new Error('Session not found.');
+  const to = parseEmails_(recipients && recipients.length ? recipients : session.moderators);
+  if (!to.length) throw new Error('Add at least one recipient.');
+  return sendSummary_(session, to);
+}
+
+/** options: { to: [emails], participant: bool, present: bool, moderate: bool } */
+function emailLinks(sid, options) {
+  requireAdmin_();
+  const session = getSession_(sid);
+  if (!session) throw new Error('Session not found.');
+  options = options || {};
+
+  const to = options.toModerators ? session.moderators.slice() : parseEmails_(options.to);
+  if (!to.length) {
+    throw new Error(options.toModerators ? 'This session has no moderators assigned.' : 'Add at least one recipient.');
+  }
+  checkQuota_(to.length);
+
+  const links = sessionLinks_(session);
+  const items = [];
+  if (options.participant) {
+    if (!links.participant) throw new Error('In-room sessions have no shareable link — people join by scanning the room screen.');
+    items.push(['Ask a question', links.participant,
+      'Anyone with this link can submit a question anonymously.']);
+  }
+  if (options.present) {
+    items.push(['Room screen', links.present,
+      'Open on the projector. Requires signing in with an assigned ' + domainOf_(ownerEmail_()) + ' account.']);
+  }
+  if (options.moderate) {
+    items.push(['Facilitator queue', links.moderate,
+      'Questions grouped by topic. Requires signing in with an assigned ' + domainOf_(ownerEmail_()) + ' account.']);
+  }
+  if (!items.length) throw new Error('Choose at least one link to send.');
+
+  const brand = brand_(session);
+  const html = emailShell_(brand, esc_(session.name),
+    items.map(function (it) {
+      return '<p style="margin:0 0 18px"><strong>' + esc_(it[0]) + '</strong><br>' +
+        '<a href="' + esc_(it[1]) + '" style="color:' + brand.accent + '">' + esc_(it[1]) + '</a><br>' +
+        '<span style="color:#5c6874">' + esc_(it[2]) + '</span></p>';
+    }).join(''));
+
+  // One message per recipient so addresses are never exposed to each other.
+  to.forEach(function (address) {
+    MailApp.sendEmail({ to: address, subject: session.name + ' — Question Desk links', htmlBody: html, name: brand.orgName || 'Question Desk' });
+  });
+  return to.length;
+}
+
+function addPerson(role, email) {
+  const me = requireAdmin_();
+  const key = role === 'admin' ? 'ADMINS' : 'MODERATORS';
+  const address = parseEmails_([email])[0];
+  if (!address) throw new Error('Enter an email address.');
+  const domain = domainOf_(ownerEmail_());
+  if (domainOf_(address) !== domain) {
+    throw new Error('Only @' + domain + ' accounts can sign in to this app. ' +
+      'Google does not tell the app who is signed in from any other domain.');
+  }
+  withLock_(function () {
+    const list = roster_(key);
+    if (list.indexOf(address) === -1) list.push(address);
+    props_().setProperty(key, list.join(','));
+  });
+  console.log(me + ' added ' + address + ' as ' + role);
+  return adminState();
+}
+
+function removePerson(role, email) {
+  const me = requireAdmin_();
+  const address = String(email || '').toLowerCase();
+  if (role === 'admin') {
+    if (address === ownerEmail_()) throw new Error('The script owner is always an administrator.');
+    if (address === me) throw new Error('You cannot remove yourself. Ask another administrator.');
+  }
+  const key = role === 'admin' ? 'ADMINS' : 'MODERATORS';
+  withLock_(function () {
+    props_().setProperty(key, roster_(key).filter(function (e) { return e !== address; }).join(','));
+    if (role !== 'admin') {
+      allSessions_().forEach(function (s) {
+        const i = (s.moderators || []).indexOf(address);
+        if (i !== -1) { s.moderators.splice(i, 1); saveSession_(s); }
+      });
+    }
+  });
+  return adminState();
+}
+
+// ---------------------------------------------------------------- branding
+
+function saveBrand(input) {
+  requireAdmin_();
+  input = input || {};
+  const color = function (value, fallback) {
+    return HEX_RE.test(String(value || '')) ? String(value).toLowerCase() : fallback;
+  };
+
+  const favicon = String(input.faviconUrl || '').trim();
+  if (favicon && !/^https:\/\/[^\s"'<>]+$/.test(favicon)) {
+    throw new Error('The tab icon must be an https:// link to an image.');
+  }
+
+  props_().setProperty('BRAND', JSON.stringify({
+    orgName: cleanText_(input.orgName, 80),
+    accent: color(input.accent, DEFAULT_ACCENT),
+    welcome: cleanText_(input.welcome, 200),
+    footer: cleanText_(input.footer, 160),
+    roomBgDark: color(input.roomBgDark, '#10171f'),
+    roomBgLight: color(input.roomBgLight, '#ffffff'),
+    faviconUrl: favicon.slice(0, 500)
+  }));
+
+  const url = String(input.publicUrl || '').trim();
+  if (!url) {
+    props_().deleteProperty('PUBLIC_URL');
+  } else if (/^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(url)) {
+    props_().setProperty('PUBLIC_URL', url);
+  } else {
+    throw new Error('The app address must look like https://script.google.com/macros/s/…/exec');
+  }
+  return adminState();
+}
+
+/**
+ * Global branding, with a session's overrides applied when one is given.
+ * Logos live in the Assets sheet and are served from the cache.
+ */
+function brand_(session) {
+  const base = JSON.parse(props_().getProperty('BRAND') || '{}');
+  const brand = {
+    orgName: base.orgName || '',
+    accent: base.accent || DEFAULT_ACCENT,
+    welcome: base.welcome || '',
+    footer: base.footer || '',
+    roomBgDark: base.roomBgDark || '#10171f',
+    roomBgLight: base.roomBgLight || '#ffffff',
+    faviconUrl: base.faviconUrl || '',
+    logo: asset_('global')
+  };
+  if (session) {
+    const own = session.brand || {};
+    if (own.orgName) brand.orgName = own.orgName;
+    if (own.accent) brand.accent = own.accent;
+    if (session.hasLogo) brand.logo = asset_(session.id) || brand.logo;
+  }
+  return brand;
+}
+
+/** Logo arrives already downscaled by the browser. sid = null for the global logo. */
+function saveLogo(dataUrl, sid) {
+  requireAdmin_();
+  dataUrl = String(dataUrl || '');
+  if (!/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(dataUrl)) {
+    throw new Error('The logo must be a PNG, JPEG or WebP image.');
+  }
+  if (dataUrl.length > CONFIG.logoMaxChars) throw new Error('That logo is too large even after resizing.');
+  if (sid) {
+    if (!getSession_(sid)) throw new Error('Session not found.');
+    setAsset_(sid, dataUrl);
+    updateSession_(sid, function (s) { s.hasLogo = true; });
+  } else {
+    setAsset_('global', dataUrl);
+  }
+  return adminState();
+}
+
+function removeLogo(sid) {
+  requireAdmin_();
+  if (sid) {
+    setAsset_(sid, '');
+    updateSession_(sid, function (s) { s.hasLogo = false; });
+  } else {
+    setAsset_('global', '');
+  }
+  return adminState();
+}
+
+function getSessionLogo(sid) {
+  requireAdmin_();
+  const session = getSession_(sid);
+  return session && session.hasLogo ? asset_(sid) : '';
+}
+
+function asset_(key) {
+  const cache = CacheService.getScriptCache();
+  const hit = cache.get('asset:' + key);
+  if (hit !== null) return hit === '-' ? '' : hit;
+
+  let value = '';
+  const sheet = assetSheet_();
+  if (sheet) {
+    const values = sheet.getDataRange().getValues();
+    for (let i = 1; i < values.length; i++) {
+      if (String(values[i][0]) === key) { value = values[i].slice(1).join(''); break; }
+    }
+  }
+  cache.put('asset:' + key, value || '-', 21600);
+  return value;
+}
+
+/** Stores a data URL across cells (50,000 characters per cell); '' deletes. */
+function setAsset_(key, value) {
+  const sheet = assetSheet_();
+  if (!sheet) return;
+  withLock_(function () {
+    const values = sheet.getDataRange().getValues();
+    for (let i = values.length - 1; i >= 1; i--) {
+      if (String(values[i][0]) === key) sheet.deleteRow(i + 1);
+    }
+    if (value) {
+      const row = [key];
+      for (let i = 0; i < value.length; i += 45000) row.push(value.slice(i, i + 45000));
+      sheet.appendRow(row);
+    }
+  });
+  CacheService.getScriptCache().put('asset:' + key, value || '-', 21600);
+}
+
+// ---------------------------------------------------------------- summaries
+
+function sendSummary_(session, recipients) {
+  const to = parseEmails_(recipients);
+  if (!to.length) return 0;
+  checkQuota_(to.length);
+
+  const rows = sessionRows_(session.id);
+  const records = topicRecords_(session.id);
+  const votes = votesFor_(session.id);
+  const tz = Session.getScriptTimeZone();
+  const fmt = function (ms) { return ms ? Utilities.formatDate(new Date(ms), tz, 'MMM d, yyyy h:mm a') : '—'; };
+  const merged = function (t) { return records[t] && records[t].merged ? records[t].merged : ''; };
+
+  const kept = rows.filter(function (q) { return q.status !== 'dismissed'; });
+  const groups = {};
+  kept.forEach(function (q) {
+    const t = q.topic || 'Not grouped';
+    (groups[t] = groups[t] || []).push(q);
+  });
+  const weight = function (t) { return groups[t].length + (votes[t] || 0); };
+  const order = Object.keys(groups).sort(function (a, b) { return weight(b) - weight(a); });
+
+  const brand = brand_(session);
+  let body = '<p style="color:#5c6874;margin:0 0 20px">' +
+    esc_(fmt(session.started)) + ' – ' + esc_(fmt(session.ended)) + '<br>' +
+    kept.length + ' questions in ' + order.length + ' topics' +
+    (rows.length - kept.length ? ' · ' + (rows.length - kept.length) + ' dismissed' : '') +
+    '</p>';
+
+  order.forEach(function (topic) {
+    body += '<h2 style="font-size:16px;margin:24px 0 8px;border-left:4px solid ' + brand.accent + ';padding-left:8px">' + esc_(topic) +
+      ' <span style="color:#5c6874;font-weight:400">(' + groups[topic].length +
+      (votes[topic] ? ' · ' + votes[topic] + ' me too' : '') + ')</span></h2>';
+    if (merged(topic)) {
+      body += '<p style="background:#fffdf5;border-left:3px solid #d9c27a;padding:8px 12px;margin:0 0 8px">' +
+        esc_(merged(topic)) + '</p>';
+    }
+    body += '<ul style="margin:0;padding-left:20px">' + groups[topic].map(function (q) {
+      const translated = q.translation && q.translation !== q.text;
+      return '<li style="margin-bottom:8px">' +
+        (q.status === 'answered' ? '<span style="color:' + brand.accent + '">✓ </span>' : '') +
+        esc_(translated ? q.translation : q.text) +
+        (translated ? '<br><span style="color:#5c6874;font-size:13px">' + esc_(q.lang) + ': ' + esc_(q.text) + '</span>' : '') +
+        '</li>';
+    }).join('') + '</ul>';
+  });
+
+  const header = ['ID', 'Submitted', 'Status', 'Topic', 'Language', 'Question (original)', 'Translation',
+                  'Merged question for topic', 'Me too (topic)'];
+  const csv = [header].concat(rows.map(function (q) {
+    return [q.id, fmt(q.submitted), q.status, q.topic, q.lang, q.text, q.translation, merged(q.topic), votes[q.topic] || 0];
+  })).map(function (r) { return r.map(csvCell_).join(','); }).join('\r\n');
+
+  const filename = session.name.replace(/[^\w -]+/g, '').trim().replace(/\s+/g, '-') || 'session';
+  const blob = Utilities.newBlob('\ufeff' + csv, 'text/csv', filename + '-questions.csv');
+
+  MailApp.sendEmail({
+    to: to.join(','),
+    subject: session.name + ' — questions summary',
+    htmlBody: emailShell_(brand, esc_(session.name) + ' — questions', body),
+    attachments: [blob],
+    name: brand.orgName || 'Question Desk'
+  });
+  updateSession_(session.id, function (s) { s.summarySent = Date.now(); });
+  return to.length;
+}
+
+function emailShell_(brand, title, inner) {
+  return '<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:#16202b;max-width:640px;line-height:1.5">' +
+    '<div style="border-top:4px solid ' + brand.accent + ';padding-top:12px">' +
+    '<p style="color:#5c6874;font-size:13px;margin:0 0 4px">' + esc_(brand.orgName || 'Question Desk') + '</p>' +
+    '<h1 style="font-size:20px;margin:0 0 16px">' + title + '</h1>' + inner +
+    (brand.footer ? '<p style="color:#5c6874;font-size:13px;margin:28px 0 0;border-top:1px solid #d9dee3;padding-top:10px">' + esc_(brand.footer) + '</p>' : '') +
+    '</div></div>';
+}
+
+function checkQuota_(needed) {
+  const left = MailApp.getRemainingDailyQuota();
+  if (left < needed) throw new Error('Daily email quota reached (' + left + ' left). Try again tomorrow.');
+}
+
+// ---------------------------------------------------------------- health
+
+function health_() {
+  return JSON.parse(props_().getProperty('HEALTH') || '{}');
+}
+
+/**
+ * Tracks grouping runs. After CONFIG.alertAfterFailures failures in a row,
+ * admins get one email (repeated at most every alertRepeatHours), and another
+ * when grouping recovers. This is the early warning for a retired model ID.
+ */
+function noteGroupingResult_(error) {
+  const h = health_();
+  const now = Date.now();
+  if (error) {
+    h.failures = (h.failures || 0) + 1;
+    h.lastError = String(error).slice(0, 500);
+    h.lastErrorAt = now;
+    const due = !h.alertedAt || now - h.alertedAt > CONFIG.alertRepeatHours * 3600 * 1000;
+    if (h.failures >= CONFIG.alertAfterFailures && due) {
+      if (alertAdmins_('Question grouping is failing',
+        '<p>Questions are arriving but have not been grouped or translated for ' + h.failures +
+        ' runs in a row. Facilitators still see every question, ungrouped.</p>' +
+        '<p><strong>Last error:</strong> ' + esc_(h.lastError) + '</p>' +
+        '<p>Open the Admin page → Health and run a health check. A 404 usually means the Gemini model ' +
+        'name (' + esc_(CONFIG.model) + ') was retired; a 400 or 403 usually means the API key.</p>')) {
+        h.alertedAt = now;
+      }
+    }
+  } else {
+    if (h.alertedAt) {
+      alertAdmins_('Question grouping recovered', '<p>Grouping and translation are working again.</p>');
+      h.alertedAt = null;
+    }
+    h.failures = 0;
+    h.lastOkAt = now;
+  }
+  props_().setProperty('HEALTH', JSON.stringify(h));
+}
+
+function alertAdmins_(subject, html) {
+  try {
+    const to = adminEmails_();
+    if (!to.length || MailApp.getRemainingDailyQuota() < to.length) return false;
+    const brand = brand_(null);
+    MailApp.sendEmail({ to: to.join(','), subject: 'Question Desk: ' + subject,
+      htmlBody: emailShell_(brand, esc_(subject), html), name: brand.orgName || 'Question Desk' });
+    return true;
+  } catch (err) {
+    console.error('Alert email failed: ' + err);
+    return false;
+  }
+}
+
+function runHealthCheck() {
+  requireAdmin_();
+  const checks = [];
+  const add = function (name, ok, detail) { checks.push({ name: name, ok: !!ok, detail: detail }); };
+
+  const key = props_().getProperty('GEMINI_API_KEY');
+  add('Gemini API key', key, key ? 'Set' : 'Missing — add GEMINI_API_KEY in Project Settings → Script Properties.');
+  if (key) {
+    const started = Date.now();
+    const r = geminiRequest_('Health check. Set ok to true.', {
+      type: 'OBJECT', properties: { ok: { type: 'BOOLEAN' } }, required: ['ok']
+    });
+    add('Gemini model ' + CONFIG.model, r.ok, r.ok ? 'Responded in ' + (Date.now() - started) + ' ms' : r.error);
+  }
+
+  const trigger = ScriptApp.getProjectTriggers().some(function (t) {
+    return t.getHandlerFunction() === 'clusterQuestions';
+  });
+  add('Grouping and schedule trigger', trigger, trigger ? 'Runs every minute' : 'Missing — run setUp() from the editor.');
+
+  try {
+    const ss = spreadsheet_();
+    const ok = [CONFIG.sheetName, CONFIG.topicSheetName, CONFIG.assetSheetName]
+      .every(function (n) { return !!ss.getSheetByName(n); });
+    add('Submissions sheet', ok, ok ? 'Reachable' : 'Some sheets are missing — run setUp() from the editor.');
+  } catch (err) {
+    add('Submissions sheet', false, String(err));
+  }
+
+  const quota = MailApp.getRemainingDailyQuota();
+  add('Email quota', quota >= 10, quota + ' emails left today');
+
+  const url = baseUrl_();
+  const dev = /\/dev$/.test(url);
+  add('App address', url && !dev, dev ? 'Points at the /dev test address — set the app address on the Branding tab.' : url);
+
+  const h = health_();
+  add('Recent grouping', (h.failures || 0) < CONFIG.alertAfterFailures,
+    h.failures ? h.failures + ' failed runs in a row. Last error: ' + h.lastError
+      : h.lastOkAt ? 'Working' : 'Nothing grouped yet');
+
+  return { checks: checks, ranAt: Date.now() };
+}
+
+// ---------------------------------------------------------------- load test
+
+/**
+ * Starts a throwaway session and switches on the POST endpoint for an hour,
+ * so scripts/loadtest.js can submit through the same path phones use.
+ */
+function startLoadTest() {
+  const me = requireAdmin_();
+  if (!loadTest_()) {
+    const session = {
+      id: newId_(8), name: 'Load test ' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'MMM d h:mm a'),
+      heading: 'Load test', access: 'link', theme: 'dark', maxLength: CONFIG.defaultMaxLength,
+      moderators: [], emailOnEnd: false, linkKey: newId_(16), status: 'active', open: true,
+      created: Date.now(), started: Date.now(), createdBy: me, loadTest: true, brand: { orgName: '', accent: '' }
+    };
+    saveSession_(session);
+    props_().setProperty('LOADTEST', JSON.stringify({
+      key: newId_(32), sid: session.id, expires: Date.now() + CONFIG.loadTestMinutes * 60000
+    }));
+  }
+  return adminState();
+}
+
+/** Switches the endpoint off and deletes the load-test session and its questions. */
+function stopLoadTest() {
+  requireAdmin_();
+  const lt = JSON.parse(props_().getProperty('LOADTEST') || 'null');
+  if (lt) {
+    if (getSession_(lt.sid)) deleteSession_(lt.sid);
+    props_().deleteProperty('LOADTEST');
+  }
+  return adminState();
+}
+
+function loadTest_() {
+  const lt = JSON.parse(props_().getProperty('LOADTEST') || 'null');
+  return lt && Date.now() < lt.expires ? lt : null;
+}
+
+function loadTestView_() {
+  const lt = JSON.parse(props_().getProperty('LOADTEST') || 'null');
+  if (!lt) return null;
+  const url = baseUrl_();
+  return {
+    sid: lt.sid,
+    key: lt.key,
+    url: url,
+    expires: lt.expires,
+    expired: Date.now() >= lt.expires,
+    command: 'node scripts/loadtest.js --url "' + url + '" --key ' + lt.key + ' --count 40'
+  };
+}
+
+function doPost(e) {
+  let body = null;
+  try {
+    body = JSON.parse(e.postData.contents);
+  } catch (err) {
+    return json_({ ok: false, reason: 'badRequest' });
+  }
+  const lt = loadTest_();
+  if (!lt || !body || typeof body.key !== 'string' || body.key !== lt.key) {
+    return json_({ ok: false, reason: 'disabled' });
+  }
+  const session = getSession_(lt.sid);
+  if (!session) return json_({ ok: false, reason: 'disabled' });
+
+  const started = Date.now();
+  const res = submitQuestion_(lt.sid, Utilities.getUuid(), String(body.text || 'Load test question'),
+                              session.linkKey, true);
+  res.serverMs = Date.now() - started;
+  return json_(res);
+}
+
+function json_(value) {
+  return ContentService.createTextOutput(JSON.stringify(value)).setMimeType(ContentService.MimeType.JSON);
+}
+
+// ---------------------------------------------------------------- schedule
+
+/** Starts and ends scheduled sessions. Called every minute by the trigger. */
+function runSchedule_() {
+  const now = Date.now();
+  let changed = 0;
+  allSessions_().forEach(function (s) {
+    if (s.status === 'ended') return;
+    try {
+      if (s.scheduledEnd && now >= s.scheduledEnd) {
+        endSession_(s.id);
+        changed++;
+      } else if (s.scheduledStart && now >= s.scheduledStart && !s.scheduleStarted) {
+        // Starts once. If an admin deactivates it afterwards, the schedule leaves it alone.
+        updateSession_(s.id, function (x) {
+          x.scheduleStarted = true;
+          x.status = 'active';
+          if (!x.started) x.started = now;
+        });
+        changed++;
+      }
+    } catch (err) {
+      console.error('Schedule for ' + s.id + ': ' + err);
+    }
+  });
+  return changed;
 }
 
 // ---------------------------------------------------------------- Gemini
 
+/** Trigger entry point: runs the schedule, then groups new questions in every active session. */
+function clusterQuestions() {
+  try {
+    runSchedule_();
+  } catch (err) {
+    console.error('Schedule: ' + err);
+  }
+
+  let total = 0;
+  let failure = null;
+  allSessions_()
+    .filter(function (s) { return s.status === 'active'; })
+    .forEach(function (s) {
+      try {
+        total += clusterSession_(s.id);
+      } catch (err) {
+        failure = err;
+        console.error('Grouping ' + s.id + ': ' + err);
+      }
+    });
+  if (failure || total > 0) noteGroupingResult_(failure ? (failure.message || String(failure)) : null);
+  return total;
+}
+
 /**
- * Assigns a topic to every question that doesn't have one yet.
+ * Assigns a topic to every question in one session that doesn't have one yet.
  * Existing topic names are passed in so labels stay stable between runs
  * instead of re-shuffling under the facilitator's eyes.
  */
-function clusterQuestions() {
+function clusterSession_(sid) {
   const sheet = questionSheet_();
   const values = sheet.getDataRange().getValues();
   const pending = [];
   const existing = {};
 
   for (let i = 1; i < values.length; i++) {
+    if (String(values[i][COLS.session - 1]) !== sid) continue;
     const topic = values[i][COLS.topic - 1];
     if (topic) { existing[topic] = true; continue; }
     if (values[i][COLS.status - 1] === 'dismissed') continue;
-    pending.push({ row: i + 1, id: values[i][COLS.id - 1], text: values[i][COLS.text - 1] });
-    if (pending.length >= CONFIG.clusterBatchSize) break;
+    if (pending.length < CONFIG.clusterBatchSize) {
+      pending.push({ id: String(values[i][COLS.id - 1]), text: String(values[i][COLS.text - 1]) });
+    }
   }
   if (!pending.length) return 0;
 
   const lang = CONFIG.moderatorLanguage;
+  const codes = translationCodes_();
+  const names = codes.map(function (c) { return CONFIG.displayLanguages[c]; });
 
   const prompt = [
     'You are preparing audience questions from a live meeting for a facilitator.',
@@ -266,6 +1472,10 @@ function clusterQuestions() {
     'question was asked in, so that questions on the same theme group together',
     'across languages. Reuse an existing label verbatim when a question fits it.',
     'Otherwise write a new label of at most five words in plain language.',
+    names.length ? '' : null,
+    names.length ? 'Separately, for every topic label you use, give its translation into ' + names.join(' and ') + '.' : null,
+    names.length ? 'Participants see these on their phones. They are for display only: always use the' : null,
+    names.length ? lang + ' label in the assignments.' : null,
     '',
     'Existing topic labels:',
     Object.keys(existing).length ? Object.keys(existing).join('\n') : '(none yet)',
@@ -274,7 +1484,7 @@ function clusterQuestions() {
     pending.map(function (q) { return q.id + ': ' + q.text; }).join('\n'),
     '',
     'Do not invent questions and do not answer them.'
-  ].join('\n');
+  ].filter(function (line) { return line !== null; }).join('\n');
 
   const schema = {
     type: 'OBJECT',
@@ -295,38 +1505,73 @@ function clusterQuestions() {
     },
     required: ['assignments']
   };
+  if (codes.length) schema.properties.labels = labelSchema_('topic', codes);
 
-  const result = callGemini_(prompt, schema);
-  if (!result || !result.assignments) return 0;
+  const response = geminiRequest_(prompt, schema);
+  if (!response.ok) throw new Error('Grouping failed: ' + response.error);
+  const result = response.data;
+  if (!result || !result.assignments) throw new Error('Grouping failed: Gemini returned no assignments.');
 
-  const byId = {};
-  pending.forEach(function (q) { byId[q.id] = q.row; });
+  const pendingIds = {};
+  pending.forEach(function (q) { pendingIds[q.id] = true; });
 
-  result.assignments.forEach(function (a) {
-    const row = byId[a.id];
-    if (!row) return;
-    sheet.getRange(row, COLS.topic, 1, 3)
-      .setValues([[a.topic, a.language || '', a.translation || '']]);
+  // Rows can move while Gemini is thinking (a deleted session, for one), so find
+  // each question by id at write time, under the lock.
+  let written = 0;
+  withLock_(function () {
+    const ids = sheet.getRange(1, COLS.id, sheet.getLastRow(), 1).getValues();
+    const rowById = {};
+    ids.forEach(function (r, i) { rowById[String(r[0])] = i + 1; });
+    result.assignments.forEach(function (a) {
+      const id = String(a.id);
+      if (!pendingIds[id] || !rowById[id]) return;
+      sheet.getRange(rowById[id], COLS.topic, 1, 3)
+        .setValues([[sheetSafe_(a.topic), sheetSafe_(a.language || ''), sheetSafe_(a.translation || '')]]);
+      written++;
+    });
   });
-  return result.assignments.length;
+
+  if (result.labels && result.labels.length) {
+    const byTopic = {};
+    result.labels.forEach(function (l) {
+      if (l && l.topic && l.translations) byTopic[String(l.topic)] = { labels: pickCodes_(l.translations, codes) };
+    });
+    upsertTopics_(sid, byTopic, true);
+  }
+  invalidateTopics_(sid);
+  return written;
+}
+
+function labelSchema_(field, codes) {
+  const translations = { type: 'OBJECT', properties: {}, required: codes };
+  codes.forEach(function (c) { translations.properties[c] = { type: 'STRING', description: CONFIG.displayLanguages[c] }; });
+  const item = { type: 'OBJECT', properties: {}, required: [field, 'translations'] };
+  item.properties[field] = { type: 'STRING' };
+  item.properties.translations = translations;
+  return { type: 'ARRAY', items: item };
+}
+
+function pickCodes_(obj, codes) {
+  const out = {};
+  codes.forEach(function (c) { if (obj[c]) out[c] = String(obj[c]).slice(0, 300); });
+  return out;
 }
 
 /** Collapses one topic's questions into a single question to read aloud. */
-function mergeTopic(topic) {
-  if (!isModerator_()) throw new Error('Not a moderator.');
+function mergeTopic(sid, topic) {
+  requireSession_(sid);
 
-  const rows = questionSheet_().getDataRange().getValues().slice(1)
-    .filter(function (r) {
-      return r[COLS.topic - 1] === topic && r[COLS.status - 1] !== 'dismissed';
-    })
-    .map(function (r) {
-      const source = r[COLS.translation - 1] || r[COLS.text - 1];
-      const from = r[COLS.lang - 1];
-      return '- ' + source + (from ? '  [asked in ' + from + ']' : '');
+  const rows = sessionRows_(sid)
+    .filter(function (q) { return q.topic === topic && q.status !== 'dismissed'; })
+    .map(function (q) {
+      const source = q.translation || q.text;
+      return '- ' + source + (q.lang ? '  [asked in ' + q.lang + ']' : '');
     });
 
   if (!rows.length) return { ok: false };
 
+  const codes = translationCodes_();
+  const names = codes.map(function (c) { return CONFIG.displayLanguages[c]; });
   const prompt = [
     'These audience questions were all asked about "' + topic + '", by people',
     'writing in different languages.',
@@ -335,91 +1580,231 @@ function mergeTopic(topic) {
     'Do not soften criticism, and do not add anything nobody asked.',
     'If they are not actually asking the same thing, say so instead of forcing',
     'them together. One sentence, under 40 words.',
+    names.length ? 'Also translate that question into ' + names.join(' and ') + ' for the room screen,' : null,
+    names.length ? 'just as faithfully: do not soften it in translation either.' : null,
     '',
     rows.join('\n')
-  ].join('\n');
+  ].filter(function (line) { return line !== null; }).join('\n');
 
   const schema = {
     type: 'OBJECT',
     properties: { question: { type: 'STRING' } },
     required: ['question']
   };
+  if (codes.length) {
+    schema.properties.translations = labelSchema_('question', codes).items.properties.translations;
+  }
 
-  const result = callGemini_(prompt, schema);
-  if (!result || !result.question) return { ok: false };
+  const response = geminiRequest_(prompt, schema);
+  if (!response.ok || !response.data || !response.data.question) return { ok: false };
 
-  const props = PropertiesService.getScriptProperties();
-  const merged = JSON.parse(props.getProperty('MERGED') || '{}');
-  merged[topic] = result.question;
-  props.setProperty('MERGED', JSON.stringify(merged));
-  return { ok: true, question: result.question };
+  const update = {};
+  update[topic] = {
+    merged: response.data.question,
+    mergedLabels: pickCodes_(response.data.translations || {}, codes)
+  };
+  upsertTopics_(sid, update, false);
+  invalidateTopics_(sid);
+  return { ok: true, question: response.data.question };
 }
 
-function callGemini_(prompt, schema) {
-  const key = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
-  if (!key) throw new Error('GEMINI_API_KEY is not set in Script Properties.');
+/** Returns { ok, data } or { ok: false, status, error } with a readable cause. */
+function geminiRequest_(prompt, schema) {
+  const key = props_().getProperty('GEMINI_API_KEY');
+  if (!key) return { ok: false, error: 'GEMINI_API_KEY is not set in Script Properties.' };
 
-  const response = UrlFetchApp.fetch(
-    'https://generativelanguage.googleapis.com/v1beta/models/' + CONFIG.model + ':generateContent',
-    {
-      method: 'post',
-      contentType: 'application/json',
-      headers: { 'x-goog-api-key': key },
-      muteHttpExceptions: true,
-      payload: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: 0.1,
-          responseMimeType: 'application/json',
-          responseSchema: schema
-        }
-      })
-    }
-  );
+  let response;
+  try {
+    response = UrlFetchApp.fetch(
+      'https://generativelanguage.googleapis.com/v1beta/models/' + CONFIG.model + ':generateContent',
+      {
+        method: 'post',
+        contentType: 'application/json',
+        headers: { 'x-goog-api-key': key },
+        muteHttpExceptions: true,
+        payload: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: 0.1,
+            responseMimeType: 'application/json',
+            responseSchema: schema
+          }
+        })
+      }
+    );
+  } catch (err) {
+    return { ok: false, error: 'Could not reach Gemini: ' + err };
+  }
 
-  if (response.getResponseCode() !== 200) {
-    console.error('Gemini ' + response.getResponseCode() + ': ' + response.getContentText());
-    return null;
+  const code = response.getResponseCode();
+  if (code !== 200) {
+    const text = String(response.getContentText() || '');
+    console.error('Gemini ' + code + ': ' + text);
+    const hint = code === 404 ? ' — model ' + CONFIG.model + ' not found; it may have been retired. Update CONFIG.model.'
+      : code === 429 ? ' — rate limited or out of quota.'
+      : code === 400 || code === 401 || code === 403 ? ' — the API key was rejected or the request is invalid.'
+      : '';
+    return { ok: false, status: code, error: 'Gemini ' + code + hint + ' ' + text.slice(0, 200) };
   }
 
   try {
     const body = JSON.parse(response.getContentText());
-    return JSON.parse(body.candidates[0].content.parts[0].text);
+    return { ok: true, data: JSON.parse(body.candidates[0].content.parts[0].text) };
   } catch (err) {
     console.error('Could not parse Gemini response: ' + err);
-    return null;
+    return { ok: false, error: 'Could not parse Gemini response: ' + err };
   }
 }
 
 // ---------------------------------------------------------------- plumbing
 
+function spreadsheet_() {
+  return SpreadsheetApp.openById(props_().getProperty('SHEET_ID'));
+}
+
 function questionSheet_() {
-  const ss = SpreadsheetApp.openById(
-    PropertiesService.getScriptProperties().getProperty('SHEET_ID')
-  );
-  return ss.getSheetByName(CONFIG.sheetName);
+  return spreadsheet_().getSheetByName(CONFIG.sheetName);
 }
 
-function isModerator_() {
-  const email = Session.getActiveUser().getEmail();
-  if (!email) return false;
-  const list = (PropertiesService.getScriptProperties().getProperty('MODERATORS') || '')
-    .split(',').map(function (s) { return s.trim().toLowerCase(); });
-  return list.indexOf(email.toLowerCase()) !== -1;
+function topicSheet_() {
+  return spreadsheet_().getSheetByName(CONFIG.topicSheetName);
 }
 
-function include(file) {
-  return HtmlService.createHtmlOutputFromFile(file).getContent();
+function assetSheet_() {
+  return props_().getProperty('SHEET_ID') ? spreadsheet_().getSheetByName(CONFIG.assetSheetName) : null;
 }
 
-/** Run once from the editor. */
+function sessionRows_(sid) {
+  return questionSheet_().getDataRange().getValues().slice(1)
+    .filter(function (r) { return String(r[COLS.session - 1]) === sid; })
+    .map(function (r) {
+      return {
+        id: String(r[COLS.id - 1]),
+        text: String(r[COLS.text - 1]),
+        lang: r[COLS.lang - 1] || '',
+        translation: r[COLS.translation - 1] ? String(r[COLS.translation - 1]) : '',
+        topic: r[COLS.topic - 1] ? String(r[COLS.topic - 1]) : '',
+        status: r[COLS.status - 1],
+        submitted: r[COLS.submitted - 1] ? new Date(r[COLS.submitted - 1]).getTime() : 0
+      };
+    });
+}
+
+/** { topic: { merged, labels, mergedLabels } } for one session, from the Topics sheet. */
+function topicRecords_(sid) {
+  const out = {};
+  const sheet = topicSheet_();
+  if (!sheet) return out;
+  sheet.getDataRange().getValues().slice(1).forEach(function (r) {
+    if (String(r[0]) !== sid) return;
+    out[String(r[1])] = {
+      merged: r[2] ? String(r[2]) : '',
+      labels: parseJson_(r[4]),
+      mergedLabels: parseJson_(r[5])
+    };
+  });
+  return out;
+}
+
+/**
+ * Writes topic records. With onlyMissingLabels, existing label translations are
+ * kept so a topic's wording on phones doesn't change between runs.
+ */
+function upsertTopics_(sid, updates, onlyMissingLabels) {
+  const sheet = topicSheet_();
+  const topics = Object.keys(updates);
+  if (!sheet || !topics.length) return;
+  withLock_(function () {
+    const values = sheet.getDataRange().getValues();
+    const rowOf = {};
+    for (let i = 1; i < values.length; i++) {
+      if (String(values[i][0]) === sid) rowOf[String(values[i][1])] = i + 1;
+    }
+    topics.forEach(function (topic) {
+      const u = updates[topic];
+      const row = rowOf[topic];
+      if (!row) {
+        sheet.appendRow([sid, sheetSafe_(topic), u.merged ? sheetSafe_(u.merged) : '', new Date(),
+          JSON.stringify(u.labels || {}), JSON.stringify(u.mergedLabels || {})]);
+        return;
+      }
+      if (u.labels) {
+        const current = parseJson_(values[row - 1][4]);
+        if (!onlyMissingLabels || !Object.keys(current).length) {
+          sheet.getRange(row, 5).setValue(JSON.stringify(u.labels));
+        }
+      }
+      if (u.merged !== undefined) {
+        sheet.getRange(row, 3, 1, 2).setValues([[sheetSafe_(u.merged), new Date()]]);
+        sheet.getRange(row, 6).setValue(JSON.stringify(u.mergedLabels || {}));
+      }
+    });
+  });
+}
+
+function parseJson_(value) {
+  if (!value) return {};
+  try {
+    const parsed = JSON.parse(String(value));
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch (err) {
+    return {};
+  }
+}
+
+/** Anonymous text must never be evaluated as a spreadsheet formula. */
+function sheetSafe_(value) {
+  const s = String(value);
+  return /^[=+\-@]/.test(s) ? "'" + s : s;
+}
+
+function csvCell_(value) {
+  let s = value === null || value === undefined ? '' : String(value);
+  if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+  return '"' + s.replace(/"/g, '""') + '"';
+}
+
+function esc_(value) {
+  return String(value === null || value === undefined ? '' : value)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function cleanText_(value, max) {
+  return String(value === null || value === undefined ? '' : value)
+    .replace(/\s+/g, ' ').trim().slice(0, max);
+}
+
+function domainOf_(email) {
+  return String(email || '').split('@')[1] || '';
+}
+
+function parseEmails_(input) {
+  const list = Array.isArray(input) ? input : String(input || '').split(/[\s,;]+/);
+  const seen = {};
+  const out = [];
+  list.forEach(function (raw) {
+    const e = String(raw || '').trim().toLowerCase();
+    if (!e) return;
+    if (!EMAIL_RE.test(e)) throw new Error('Not an email address: ' + e);
+    if (!seen[e]) { seen[e] = true; out.push(e); }
+  });
+  if (out.length > CONFIG.maxRecipients) throw new Error('Send to at most ' + CONFIG.maxRecipients + ' people at a time.');
+  return out;
+}
+
+/**
+ * Run from the editor once, and again after updates that add permissions.
+ * Safe to re-run: creates what is missing and migrates single-session data.
+ * Admin only, since google.script.run can reach any public function.
+ */
 function setUp() {
-  const props = PropertiesService.getScriptProperties();
+  if (!isAdmin_()) throw new Error('Run setUp() from the Apps Script editor as the script owner.');
+  const props = props_();
 
-  let sheetId = props.getProperty('SHEET_ID');
   let ss;
-  if (sheetId) {
-    ss = SpreadsheetApp.openById(sheetId);
+  if (props.getProperty('SHEET_ID')) {
+    ss = SpreadsheetApp.openById(props.getProperty('SHEET_ID'));
   } else {
     ss = SpreadsheetApp.create('Question Desk — submissions');
     props.setProperty('SHEET_ID', ss.getId());
@@ -428,19 +1813,64 @@ function setUp() {
   let sheet = ss.getSheetByName(CONFIG.sheetName);
   if (!sheet) {
     sheet = ss.insertSheet(CONFIG.sheetName);
-    sheet.appendRow(['ID', 'Submitted', 'Device', 'Question', 'Status', 'Topic',
-                     'Language', 'Translation']);
+    sheet.appendRow(HEADERS);
     sheet.setFrozenRows(1);
+  } else if (!sheet.getRange(1, COLS.session).getValue()) {
+    sheet.getRange(1, COLS.session).setValue('Session');
   }
+
+  let topicSheet = ss.getSheetByName(CONFIG.topicSheetName);
+  if (!topicSheet) {
+    topicSheet = ss.insertSheet(CONFIG.topicSheetName);
+    topicSheet.appendRow(TOPIC_HEADERS);
+    topicSheet.setFrozenRows(1);
+  } else {
+    topicSheet.getRange(1, 1, 1, TOPIC_HEADERS.length).setValues([TOPIC_HEADERS]);
+  }
+
+  if (!ss.getSheetByName(CONFIG.assetSheetName)) {
+    ss.insertSheet(CONFIG.assetSheetName).appendRow(['Key', 'Data (continues across columns)']);
+  }
+
+  // Plain text, so an ID like 12e45678 or a question like "3/4" isn't turned into a number or date.
+  sheet.getRange('A:A').setNumberFormat('@');
+  sheet.getRange('C:I').setNumberFormat('@');
+  topicSheet.getRange('A:C').setNumberFormat('@');
 
   ScriptApp.getProjectTriggers().forEach(function (t) {
     if (t.getHandlerFunction() === 'clusterQuestions') ScriptApp.deleteTrigger(t);
   });
   ScriptApp.newTrigger('clusterQuestions').timeBased().everyMinutes(1).create();
 
-  props.setProperty('BOARD_OPEN', 'true');
-  getEntryToken();
+  // Migrate a single-session install: untagged questions become the first session.
+  const last = sheet.getLastRow();
+  const untagged = last > 1 && sheet.getRange(2, COLS.session, last - 1, 1).getValues()
+    .some(function (r) { return !r[0]; });
+  if (!allSessions_().length && (untagged || props.getProperty('TOKEN_CURRENT'))) {
+    const first = {
+      id: newId_(8), name: 'First session', heading: props.getProperty('SESSION_HEADING') || 'Questions for the panel',
+      access: 'room', theme: 'dark', maxLength: CONFIG.defaultMaxLength,
+      moderators: roster_('MODERATORS'), emailOnEnd: false, linkKey: newId_(16),
+      status: 'active', open: props.getProperty('BOARD_OPEN') !== 'false',
+      created: Date.now(), started: Date.now(), createdBy: ownerEmail_(),
+      brand: { orgName: '', accent: '' }
+    };
+    saveSession_(first);
+    if (last > 1) {
+      const range = sheet.getRange(2, COLS.session, last - 1, 1);
+      range.setValues(range.getValues().map(function (r) { return [r[0] || first.id]; }));
+    }
+    const oldMerged = JSON.parse(props.getProperty('MERGED') || '{}');
+    Object.keys(oldMerged).forEach(function (topic) {
+      topicSheet.appendRow([first.id, sheetSafe_(topic), sheetSafe_(oldMerged[topic]), new Date(), '{}', '{}']);
+    });
+    console.log('Migrated existing questions into "First session" (' + first.id + ').');
+  }
+  ['TOKEN_CURRENT', 'TOKEN_PREVIOUS', 'TOKEN_ISSUED', 'BOARD_OPEN', 'MERGED', 'SESSION_HEADING']
+    .forEach(function (k) { props.deleteProperty(k); });
 
+  // Touch MailApp so the editor asks for the send-email permission now, not mid-event.
+  console.log('Email quota remaining today: ' + MailApp.getRemainingDailyQuota());
   console.log('Sheet: ' + ss.getUrl());
-  console.log('Now set GEMINI_API_KEY and MODERATORS in Project Settings > Script Properties.');
+  console.log('Admin page: <deployment URL>?view=admin (signed in as ' + ownerEmail_() + ')');
 }

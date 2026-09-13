@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html>
+<head>
+<base target="_top">
+<style>
+  [hidden] { display: none !important; }
+  :root {
+    --ink: #16202b;
+    --muted: #5c6874;
+    --rule: #d9dee3;
+    --accent: #1b5e5a;
+    --paper: #f7f8f9;
+  }
+  * { box-sizing: border-box; }
+  html, body { min-height: 100%; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    color: var(--ink);
+    background: var(--paper);
+    line-height: 1.5;
+    display: flex;
+    flex-direction: column;
+  }
+  .band { height: 6px; background: var(--accent); }
+  main {
+    flex: 1;
+    width: 100%;
+    max-width: 36rem;
+    margin: 0 auto;
+    padding: 9vh 24px 32px;
+  }
+  .logo { display: block; max-height: 88px; max-width: 260px; margin-bottom: 20px; }
+  .org { color: var(--muted); font-size: 1rem; margin: 0 0 6px; }
+  h1 { font-size: clamp(1.8rem, 6vw, 2.6rem); line-height: 1.1; margin: 0 0 14px; font-weight: 650; }
+  .welcome { font-size: 1.1rem; margin: 0 0 28px; }
+  .join { background: #fff; border: 1px solid var(--rule); border-left: 4px solid var(--accent); border-radius: 6px; padding: 18px 20px; margin-bottom: 28px; }
+  .join p { margin: 0 0 6px; }
+  .join p:last-child { margin-bottom: 0; }
+  .join .main { font-weight: 600; font-size: 1.05rem; }
+  .join [lang="ko"], .join [lang="es"] { color: var(--muted); }
+  .staff { border-top: 1px solid var(--rule); padding-top: 18px; }
+  .staff h2 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 0 0 10px; font-weight: 600; }
+  .staff ul { list-style: none; margin: 0 0 12px; padding: 0; }
+  .staff li { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; background: #fff; border: 1px solid var(--rule); border-radius: 6px; padding: 10px 14px; margin-bottom: 8px; }
+  .staff li span { color: var(--muted); font-size: 0.85rem; }
+  .staff a { color: var(--accent); }
+  .staff .links a { margin-left: 12px; }
+  .quiet { color: var(--muted); font-size: 0.9rem; margin: 0; }
+  footer { text-align: center; color: var(--muted); font-size: 0.85rem; padding: 18px 24px 24px; }
+</style>
+</head>
+<body>
+<div class="band"></div>
+<main>
+  <img class="logo" id="logo" alt="" hidden>
+  <p class="org" id="org" hidden></p>
+  <h1 id="title">Questions welcome</h1>
+  <p class="welcome" id="welcome" hidden></p>
+
+  <div class="join">
+    <p class="main" lang="en">To ask a question, scan the code on the screen in the room.</p>
+    <p lang="ko">질문하려면 회의실 화면의 코드를 스캔하세요.</p>
+    <p lang="es">Para hacer una pregunta, escanea el código de la pantalla de la sala.</p>
+    <p class="quiet" id="anon">Questions are anonymous. You can ask in any language.</p>
+  </div>
+
+  <section class="staff" id="staff">
+    <h2>For staff</h2>
+    <div id="staffSignedIn" hidden>
+      <ul id="sessions"></ul>
+      <p class="quiet" id="noSessions" hidden>No open sessions assigned to you.</p>
+      <p class="quiet"><a id="adminLink" hidden>Open the admin page</a></p>
+    </div>
+    <p class="quiet" id="staffSignedOut" hidden>
+      Facilitators and administrators: <a id="signIn">sign in</a> with your <span id="domain"></span> account.
+    </p>
+  </section>
+</main>
+<footer id="footer" hidden></footer>
+
+<script>
+  var BOOT = <?!= boot ?>;
+  var brand = BOOT.brand;
+
+  function $(id) { return document.getElementById(id); }
+
+  if (brand.accent) document.documentElement.style.setProperty('--accent', brand.accent);
+  if (brand.logo) {
+    $('logo').src = brand.logo;
+    $('logo').alt = brand.orgName;
+    $('logo').hidden = false;
+  }
+  if (brand.orgName) {
+    $('org').textContent = brand.orgName;
+    $('org').hidden = false;
+  }
+  if (brand.welcome) {
+    $('welcome').textContent = brand.welcome;
+    $('welcome').hidden = false;
+  }
+  if (brand.footer) {
+    $('footer').textContent = brand.footer;
+    $('footer').hidden = false;
+  }
+
+  if (BOOT.staff) {
+    $('staffSignedIn').hidden = false;
+    if (BOOT.adminUrl) {
+      $('adminLink').href = BOOT.adminUrl;
+      $('adminLink').hidden = false;
+    }
+    $('noSessions').hidden = BOOT.sessions.length > 0;
+    BOOT.sessions.forEach(function (s) {
+      var li = document.createElement('li');
+      var name = document.createElement('div');
+      name.textContent = s.name + ' ';
+      var status = document.createElement('span');
+      status.textContent = s.status === 'active' ? 'Active' : 'Not active';
+      name.appendChild(status);
+      li.appendChild(name);
+      var links = document.createElement('div');
+      links.className = 'links';
+      [['Room screen', s.present], ['Queue', s.moderate]].forEach(function (pair) {
+        var a = document.createElement('a');
+        a.textContent = pair[0];
+        a.href = pair[1];
+        links.appendChild(a);
+      });
+      li.appendChild(links);
+      $('sessions').appendChild(li);
+    });
+  } else {
+    $('staffSignedOut').hidden = false;
+    $('signIn').href = BOOT.signInUrl;
+    $('domain').textContent = '@' + BOOT.domain;
+  }
+</script>
+</body>
+</html>

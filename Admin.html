@@ -1,0 +1,998 @@
+<!DOCTYPE html>
+<html>
+<head>
+<base target="_top">
+<style>
+  [hidden] { display: none !important; }
+  :root {
+    --ink: #16202b;
+    --muted: #5c6874;
+    --rule: #d9dee3;
+    --action: #1b5e5a;
+    --stop: #8c2f22;
+    --paper: #f7f8f9;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 20px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    color: var(--ink);
+    background: #fff;
+    font-size: 15px;
+    line-height: 1.45;
+  }
+  .wrap { max-width: 60rem; margin: 0 auto; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding-bottom: 12px; border-bottom: 1px solid var(--rule); }
+  header .title { display: flex; align-items: center; gap: 12px; }
+  header img { max-height: 36px; max-width: 160px; }
+  h1 { font-size: 1.2rem; margin: 0; font-weight: 600; }
+  h2 { font-size: 1rem; margin: 0 0 10px; font-weight: 600; }
+  h3 { font-size: 0.95rem; margin: 0; font-weight: 600; }
+  .who { color: var(--muted); font-size: 0.9rem; }
+  a { color: var(--action); }
+
+  nav.tabs { display: flex; gap: 4px; margin: 16px 0 20px; border-bottom: 1px solid var(--rule); }
+  nav.tabs button { border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: none; padding: 8px 12px; color: var(--muted); }
+  nav.tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--action); font-weight: 600; }
+
+  button {
+    font: inherit;
+    padding: 6px 11px;
+    border: 1px solid var(--rule);
+    background: #fff;
+    border-radius: 4px;
+    cursor: pointer;
+    color: var(--ink);
+  }
+  button:hover { background: var(--paper); }
+  button:disabled { opacity: 0.5; cursor: default; }
+  button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--action); outline-offset: 1px; }
+  button.primary { background: var(--action); border-color: var(--action); color: #fff; }
+  button.danger { color: var(--stop); }
+  button.quiet { border-color: transparent; color: var(--muted); }
+
+  input[type=text], input[type=email], input[type=number], input[type=url], textarea {
+    font: inherit; padding: 7px 9px; border: 1px solid var(--rule); border-radius: 4px; width: 100%; color: inherit;
+  }
+  textarea { min-height: 5rem; resize: vertical; }
+  label.field { display: block; margin-bottom: 14px; }
+  label.field > span, .field-label { display: block; font-weight: 600; font-size: 0.9rem; margin-bottom: 4px; }
+  .hint { color: var(--muted); font-size: 0.85rem; margin-top: 3px; }
+  .choice { display: flex; gap: 8px; align-items: flex-start; margin-bottom: 6px; font-weight: 400; }
+  .choice input { margin-top: 3px; }
+  .choice small { display: block; color: var(--muted); }
+  .row { display: flex; gap: 16px; flex-wrap: wrap; }
+  .row > * { flex: 1 1 14rem; }
+  .actions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+
+  .panel { border: 1px solid var(--rule); border-radius: 6px; padding: 16px; margin-bottom: 18px; background: #fff; }
+  .panel.form { background: var(--paper); }
+
+  .session { border: 1px solid var(--rule); border-radius: 6px; margin-bottom: 12px; }
+  .session .head { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 12px 14px; }
+  .session .meta { color: var(--muted); font-size: 0.85rem; margin-top: 2px; }
+  .session .links { border-top: 1px solid var(--rule); padding: 12px 14px; background: var(--paper); }
+  .linkrow { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+  .linkrow b { flex: 0 0 9rem; font-size: 0.85rem; }
+  .linkrow input { flex: 1; font-size: 0.85rem; }
+  .pill { font-size: 0.75rem; border-radius: 10px; padding: 2px 8px; background: var(--paper); color: var(--muted); border: 1px solid var(--rule); vertical-align: 2px; margin-left: 6px; font-weight: 400; }
+  .pill.active { background: #e5f2ef; color: var(--action); border-color: #b9dcd5; }
+  .pill.ended { background: #f3ecea; color: var(--stop); border-color: #e2cdc8; }
+
+  ul.people { list-style: none; margin: 0 0 12px; padding: 0; }
+  ul.people li { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 7px 0; border-bottom: 1px solid #eef1f3; }
+  .adder { display: flex; gap: 8px; }
+
+  .logo-preview { display: flex; align-items: center; justify-content: center; min-height: 80px; border: 1px dashed var(--rule); border-radius: 6px; margin-bottom: 8px; padding: 10px; }
+  .logo-preview img { max-height: 80px; max-width: 100%; }
+  .swatch { display: flex; gap: 8px; align-items: center; }
+  .swatch input[type=color] { width: 44px; height: 34px; padding: 0; border: 1px solid var(--rule); border-radius: 4px; background: #fff; }
+  dl.status { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 0; }
+  dl.status dt { color: var(--muted); }
+  dl.status dd { margin: 0; }
+
+  .toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 10px 16px; border-radius: 6px; max-width: 90vw; box-shadow: 0 4px 16px rgba(0,0,0,0.2); z-index: 20; }
+  .toast.error { background: var(--stop); }
+
+  .modal { position: fixed; inset: 0; background: rgba(22,32,43,0.45); display: flex; align-items: flex-start; justify-content: center; padding: 8vh 16px; z-index: 10; }
+  .modal .panel { width: 100%; max-width: 32rem; box-shadow: 0 8px 32px rgba(0,0,0,0.25); }
+  .empty { color: var(--muted); padding: 24px 0; text-align: center; }
+  fieldset { border: 1px solid var(--rule); border-radius: 6px; padding: 12px 14px; margin: 0 0 14px; }
+  legend { font-weight: 600; font-size: 0.9rem; padding: 0 6px; }
+  input[type=datetime-local] { font: inherit; padding: 6px 8px; border: 1px solid var(--rule); border-radius: 4px; width: 100%; }
+  .pill.test { background: #eef0fb; color: #3b4a9a; border-color: #cfd5f2; }
+  table.checks { width: 100%; border-collapse: collapse; margin-top: 10px; }
+  table.checks td { padding: 8px 6px; border-bottom: 1px solid #eef1f3; vertical-align: top; }
+  table.checks td:first-child { width: 1.5rem; font-weight: 700; }
+  td.ok { color: var(--action); }
+  td.bad { color: var(--stop); }
+  pre.cmd { background: var(--paper); border: 1px solid var(--rule); border-radius: 4px; padding: 10px; white-space: pre-wrap; word-break: break-all; font-size: 0.85rem; margin: 8px 0; }
+  header { border-top: 4px solid var(--action); padding-top: 12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="title">
+    <img id="logo" alt="" hidden>
+    <h1>Question Desk admin</h1>
+  </div>
+  <div class="who"><span id="who">Loading…</span> · <span id="version"></span> <a id="notes" target="_blank" rel="noopener" hidden>Release notes</a></div>
+</header>
+
+<nav class="tabs" role="tablist">
+  <button type="button" role="tab" data-tab="sessions" aria-selected="true">Sessions</button>
+  <button type="button" role="tab" data-tab="people" aria-selected="false">People</button>
+  <button type="button" role="tab" data-tab="branding" aria-selected="false">Branding</button>
+  <button type="button" role="tab" data-tab="health" aria-selected="false">Health &amp; testing</button>
+</nav>
+
+<!-- Sessions -->
+<section id="tab-sessions">
+  <div class="actions" style="margin-bottom:16px">
+    <button type="button" class="primary" id="newSession">New session</button>
+  </div>
+
+  <form class="panel form" id="sessionForm" hidden autocomplete="off">
+    <h2 id="formTitle">New session</h2>
+    <input type="hidden" id="f-id">
+    <div class="row">
+      <label class="field"><span>Name</span>
+        <input type="text" id="f-name" maxlength="80" required>
+        <div class="hint">For admins and moderators, e.g. "Family night — Sept".</div>
+      </label>
+      <label class="field"><span>Heading participants see</span>
+        <input type="text" id="f-heading" maxlength="120" placeholder="Questions for the panel">
+      </label>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <span class="field-label">How people join</span>
+        <label class="choice"><input type="radio" name="access" value="room" checked>
+          <span>In-room QR<small>The code on the room screen changes every 150 seconds. Only people in the room can ask.</small></span></label>
+        <label class="choice"><input type="radio" name="access" value="link">
+          <span>Shareable link<small>A fixed link and QR you can email or print. Anyone with the link can ask.</small></span></label>
+      </div>
+      <div class="field">
+        <span class="field-label">Room screen theme</span>
+        <label class="choice"><input type="radio" name="theme" value="dark" checked><span>Dark<small>Best for dim rooms and most projectors.</small></span></label>
+        <label class="choice"><input type="radio" name="theme" value="light"><span>Light<small>Best for bright rooms and TVs.</small></span></label>
+      </div>
+    </div>
+
+    <div class="row">
+      <label class="field"><span>Longest question allowed (characters)</span>
+        <input type="number" id="f-max" min="50" step="10">
+        <div class="hint" id="maxHint"></div>
+      </label>
+      <label class="field"><span>&nbsp;</span>
+        <span class="choice"><input type="checkbox" id="f-email">
+          <span>Email the summary to this session's moderators when it ends<small>Topics, merged questions, every question with its translation, and a CSV file.</small></span></span>
+      </label>
+    </div>
+
+    <fieldset>
+      <legend>Schedule (optional)</legend>
+      <div class="row">
+        <label class="field"><span>Start automatically</span><input type="datetime-local" id="f-start"></label>
+        <label class="field"><span>End automatically</span><input type="datetime-local" id="f-end"></label>
+      </div>
+      <div class="hint">Checked every minute. Ending sends the summary if the box above is ticked. You can still start, stop and end by hand.</div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Session branding (optional)</legend>
+      <div class="hint" style="margin:0 0 10px">For partner events. Leave blank to use your organization's branding.</div>
+      <div class="row">
+        <label class="field"><span>Organization name</span><input type="text" id="f-org" maxlength="80"></label>
+        <div class="field">
+          <span class="field-label">Accent color</span>
+          <label class="choice"><input type="checkbox" id="f-accent-on"><span>Use a different accent</span></label>
+          <input type="color" id="f-accent" aria-label="Session accent color">
+        </div>
+      </div>
+      <div class="field" id="f-logo-box">
+        <span class="field-label">Logo</span>
+        <div class="logo-preview" id="f-logo-preview"><span class="hint">Uses the organization logo</span></div>
+        <div class="actions">
+          <input type="file" id="f-logo" accept="image/png,image/jpeg,image/webp,image/svg+xml">
+          <button type="button" class="danger" id="f-logo-remove" hidden>Remove session logo</button>
+        </div>
+      </div>
+      <div class="hint" id="f-logo-later" hidden>Save the session first, then edit it to add a logo.</div>
+    </fieldset>
+
+    <div class="field">
+      <span class="field-label">Moderators for this session</span>
+      <div id="f-mods"></div>
+      <div class="hint">Administrators can run every session. Add people to the moderator list on the People tab.</div>
+    </div>
+
+    <div class="actions">
+      <button type="submit" class="primary" id="saveSession">Save session</button>
+      <button type="button" class="quiet" id="cancelSession">Cancel</button>
+    </div>
+  </form>
+
+  <div id="sessionList"></div>
+</section>
+
+<!-- People -->
+<section id="tab-people" hidden>
+  <p class="hint" id="domainHint" style="margin-top:0"></p>
+  <div class="row">
+    <div class="panel">
+      <h2>Administrators</h2>
+      <p class="hint" style="margin-top:0">Can create and run sessions, manage people, and change branding.</p>
+      <ul class="people" id="adminList"></ul>
+      <form class="adder" data-role="admin">
+        <input type="email" placeholder="name@domain.org" aria-label="Administrator email">
+        <button type="submit">Add</button>
+      </form>
+    </div>
+    <div class="panel">
+      <h2>Moderators</h2>
+      <p class="hint" style="margin-top:0">Can open the room screen and queue for sessions they are assigned to.</p>
+      <ul class="people" id="modList"></ul>
+      <form class="adder" data-role="moderator">
+        <input type="email" placeholder="name@domain.org" aria-label="Moderator email">
+        <button type="submit">Add</button>
+      </form>
+    </div>
+  </div>
+</section>
+
+<!-- Branding & settings -->
+<section id="tab-branding" hidden>
+  <div class="row">
+    <form class="panel" id="brandForm">
+      <h2>Branding</h2>
+      <label class="field"><span>Organization name</span>
+        <input type="text" id="b-org" maxlength="80">
+        <div class="hint">Shown beside the logo and as the sender name on emails.</div>
+      </label>
+      <div class="field">
+        <span class="field-label">Accent color</span>
+        <div class="swatch">
+          <input type="color" id="b-accent-pick" aria-label="Pick accent color">
+          <input type="text" id="b-accent" maxlength="7" style="width:7rem" aria-label="Accent color hex">
+        </div>
+        <div class="hint">Used for buttons on the participant page.</div>
+      </div>
+      <label class="field"><span>Welcome text</span>
+        <input type="text" id="b-welcome" maxlength="200">
+        <div class="hint">One line on the landing page and participant page, e.g. "Thank you for joining us tonight."</div>
+      </label>
+      <label class="field"><span>Footer</span>
+        <input type="text" id="b-footer" maxlength="160">
+        <div class="hint">Website or contact line on every page and email.</div>
+      </label>
+      <div class="row">
+        <div class="field">
+          <span class="field-label">Room screen background — dark</span>
+          <div class="swatch"><input type="color" id="b-bg-dark" aria-label="Dark background"></div>
+        </div>
+        <div class="field">
+          <span class="field-label">Room screen background — light</span>
+          <div class="swatch"><input type="color" id="b-bg-light" aria-label="Light background"></div>
+        </div>
+      </div>
+      <label class="field"><span>Tab icon</span>
+        <input type="url" id="b-favicon" placeholder="https://your-site.org/icon.png">
+        <div class="hint">A link to a square PNG on your website. Google only accepts a public image link here, not an upload.</div>
+      </label>
+      <label class="field"><span>App address</span>
+        <input type="url" id="b-url" placeholder="">
+        <div class="hint" id="urlHint"></div>
+      </label>
+      <button type="submit" class="primary">Save branding</button>
+    </form>
+
+    <div class="panel">
+      <h2>Logo</h2>
+      <div class="logo-preview" id="logoPreview"><span class="hint">No logo</span></div>
+      <div class="actions">
+        <label class="choice" style="margin:0"><input type="file" id="logoFile" accept="image/png,image/jpeg,image/webp,image/svg+xml"></label>
+      </div>
+      <div class="actions" style="margin-top:8px">
+        <button type="button" id="removeLogo" class="danger" hidden>Remove logo</button>
+      </div>
+      <div class="hint">Resized in your browser before upload so pages stay fast on venue wifi. A wide logo on a transparent or white background works best.</div>
+
+    </div>
+  </div>
+</section>
+
+<!-- Health & testing -->
+<section id="tab-health" hidden>
+  <div class="row">
+    <div class="panel">
+      <h2>Health check</h2>
+      <p class="hint" style="margin-top:0">Tests the Gemini key and model, the every-minute trigger, the sheet, email quota and the app address. Admins are also emailed automatically if grouping fails 3 minutes in a row.</p>
+      <button type="button" class="primary" id="runHealth">Run health check</button>
+      <table class="checks" id="checks"></table>
+      <dl class="status" style="margin-top:14px">
+        <dt>Last grouping</dt><dd id="s-grouping"></dd>
+        <dt>Emails left today</dt><dd id="s-quota"></dd>
+        <dt>Submissions sheet</dt><dd><a id="s-sheet" target="_blank" rel="noopener">Open</a></dd>
+      </dl>
+    </div>
+    <div class="panel">
+      <h2>Load test</h2>
+      <p class="hint" style="margin-top:0">Simulates a full room submitting at once, through the same code path phones use, against a throwaway session. Run it before an event, not during one.</p>
+      <div id="lt-off">
+        <button type="button" id="startLoad">Start load test</button>
+      </div>
+      <div id="lt-on" hidden>
+        <p style="margin:0">Running until <strong id="lt-expires"></strong>. On your computer, in the project folder, run:</p>
+        <pre class="cmd" id="lt-cmd"></pre>
+        <div class="actions">
+          <button type="button" id="copyLoad">Copy command</button>
+          <button type="button" class="danger" id="stopLoad">Finish and delete test data</button>
+        </div>
+        <p class="hint">Increase <code>--count</code> to the size of your largest room. The key only works until the time above.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+</div>
+
+<div class="modal" id="emailModal" hidden>
+  <form class="panel" id="emailForm">
+    <h2 id="emailTitle">Email links</h2>
+    <label class="field"><span>Recipients</span>
+      <textarea id="e-to" placeholder="one@example.org, two@example.org"></textarea>
+      <div class="hint">Separate addresses with commas or new lines. Each person gets their own email.</div>
+    </label>
+    <div class="field" id="e-kinds">
+      <span class="field-label">Include</span>
+      <label class="choice"><input type="checkbox" id="e-participant">
+        <span>Participant link<small id="e-participant-hint">Anyone with this link can ask a question.</small></span></label>
+      <label class="choice"><input type="checkbox" id="e-present">
+        <span>Room screen link<small>Only works for assigned moderators and administrators.</small></span></label>
+      <label class="choice"><input type="checkbox" id="e-moderate">
+        <span>Facilitator queue link<small>Only works for assigned moderators and administrators.</small></span></label>
+    </div>
+    <div class="actions">
+      <button type="submit" class="primary" id="e-send">Send</button>
+      <button type="button" class="quiet" id="e-cancel">Cancel</button>
+    </div>
+  </form>
+</div>
+
+<div class="toast" id="toast" hidden></div>
+
+<script>
+  var BOOT = <?!= boot ?>;
+  var state = null;
+  var openLinks = {};
+
+  // ------------------------------------------------------------ helpers
+
+  function $(id) { return document.getElementById(id); }
+
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined) n.textContent = text;
+    return n;
+  }
+
+  var toastTimer = null;
+  function toast(message, isError) {
+    var t = $('toast');
+    t.textContent = message;
+    t.className = 'toast' + (isError ? ' error' : '');
+    t.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.hidden = true; }, isError ? 7000 : 3500);
+  }
+
+  /** Calls a server function; disables `button` while it runs. */
+  function call(fn, args, onOk, button) {
+    if (button) button.disabled = true;
+    var runner = google.script.run
+      .withSuccessHandler(function (res) {
+        if (button) button.disabled = false;
+        onOk(res);
+      })
+      .withFailureHandler(function (err) {
+        if (button) button.disabled = false;
+        toast(err && err.message ? err.message : 'Something went wrong.', true);
+      });
+    runner[fn].apply(runner, args);
+  }
+
+  function fmtDate(ms) {
+    if (!ms) return '';
+    var d = new Date(ms);
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ' ' +
+      d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  }
+
+  function copyInput(input) {
+    input.focus();
+    input.select();
+    var done = false;
+    try { done = document.execCommand('copy'); } catch (e) {}
+    toast(done ? 'Copied' : 'Selected — press Ctrl/Cmd+C to copy');
+  }
+
+  // ------------------------------------------------------------ tabs
+
+  var tabs = document.querySelectorAll('nav.tabs button');
+  for (var i = 0; i < tabs.length; i++) {
+    tabs[i].addEventListener('click', function () {
+      for (var j = 0; j < tabs.length; j++) {
+        var on = tabs[j] === this;
+        tabs[j].setAttribute('aria-selected', on ? 'true' : 'false');
+        $('tab-' + tabs[j].getAttribute('data-tab')).hidden = !on;
+      }
+    });
+  }
+
+  // ------------------------------------------------------------ render
+
+  function render(next) {
+    state = next;
+    $('who').textContent = 'Signed in as ' + state.me;
+    $('version').textContent = 'Version ' + state.app.version;
+    $('notes').href = state.app.releaseNotes;
+    $('notes').hidden = false;
+    renderLogo(state.brand.logo);
+    renderSessions();
+    renderPeople();
+    renderBranding();
+  }
+
+  function renderLogo(src) {
+    var logo = $('logo');
+    logo.hidden = !src;
+    if (src) logo.src = src;
+  }
+
+  if (BOOT.brand.accent) document.documentElement.style.setProperty('--action', BOOT.brand.accent);
+
+  function statusLabel(s) {
+    return s.status === 'active' ? 'Active' : s.status === 'ended' ? 'Ended' : 'Not active';
+  }
+
+  function renderSessions() {
+    var list = $('sessionList');
+    list.innerHTML = '';
+    if (!state.sessions.length) {
+      list.appendChild(el('p', 'empty', 'No sessions yet. Create one to get a room screen and queue.'));
+      return;
+    }
+    state.sessions.forEach(function (s) { list.appendChild(sessionCard(s)); });
+  }
+
+  function sessionCard(s) {
+    var card = el('div', 'session');
+    var head = el('div', 'head');
+
+    var info = el('div');
+    var h = el('h3', null, s.name);
+    h.appendChild(el('span', 'pill ' + s.status, statusLabel(s)));
+    if (s.loadTest) h.appendChild(el('span', 'pill test', 'Load test'));
+    info.appendChild(h);
+    var meta = [
+      s.access === 'link' ? 'Shareable link' : 'In-room QR',
+      s.theme === 'light' ? 'Light screen' : 'Dark screen',
+      s.questionCount + (s.questionCount === 1 ? ' question' : ' questions'),
+      s.moderators.length + (s.moderators.length === 1 ? ' moderator' : ' moderators'),
+      'max ' + s.maxLength + ' chars'
+    ];
+    if (s.ended) meta.push('ended ' + fmtDate(s.ended));
+    else if (s.started) meta.push('started ' + fmtDate(s.started));
+    else meta.push('created ' + fmtDate(s.created));
+    if (s.status !== 'ended' && s.scheduledStart && !s.scheduleStarted) meta.push('starts ' + fmtDate(s.scheduledStart));
+    if (s.status !== 'ended' && s.scheduledEnd) meta.push('ends ' + fmtDate(s.scheduledEnd));
+    if (s.brand && s.brand.orgName) meta.push('branded for ' + s.brand.orgName);
+    if (s.summarySent) meta.push('summary emailed ' + fmtDate(s.summarySent));
+    info.appendChild(el('div', 'meta', meta.join(' · ')));
+    head.appendChild(info);
+
+    var acts = el('div', 'actions');
+    var ended = s.status === 'ended';
+
+    if (!ended) {
+      var toggle = el('button', s.status === 'active' ? '' : 'primary', s.status === 'active' ? 'Deactivate' : 'Activate');
+      toggle.type = 'button';
+      toggle.onclick = function () {
+        call('setSessionActive', [s.id, s.status !== 'active'], function (res) {
+          render(res);
+          toast(s.status === 'active' ? 'Session deactivated' : 'Session is live');
+        }, toggle);
+      };
+      acts.appendChild(toggle);
+    }
+
+    var linksBtn = el('button', null, openLinks[s.id] ? 'Hide links' : 'Links');
+    linksBtn.type = 'button';
+    linksBtn.onclick = function () { openLinks[s.id] = !openLinks[s.id]; renderSessions(); };
+    acts.appendChild(linksBtn);
+
+    if (!ended) {
+      var edit = el('button', null, 'Edit');
+      edit.type = 'button';
+      edit.onclick = function () { openForm(s); };
+      acts.appendChild(edit);
+
+      var mail = el('button', null, 'Email links');
+      mail.type = 'button';
+      mail.onclick = function () { openEmail(s, 'links'); };
+      acts.appendChild(mail);
+
+      var mailMods = el('button', null, 'Email moderators');
+      mailMods.type = 'button';
+      mailMods.disabled = !s.moderators.length;
+      mailMods.title = s.moderators.length ? s.moderators.join(', ') : 'No moderators assigned';
+      mailMods.onclick = function () {
+        call('emailLinks', [s.id, { toModerators: true, present: true, moderate: true }], function (n) {
+          toast('Sent room screen and queue links to ' + n + (n === 1 ? ' moderator' : ' moderators'));
+        }, mailMods);
+      };
+      acts.appendChild(mailMods);
+
+      var end = el('button', 'danger', 'End session');
+      end.type = 'button';
+      end.onclick = function () {
+        var msg = 'End "' + s.name + '"? Participants can no longer submit and it cannot be reopened.' +
+          (s.emailOnEnd && s.moderators.length ? '\n\nThe summary will be emailed to ' + s.moderators.length + ' moderator(s).' : '');
+        if (!confirm(msg)) return;
+        end.textContent = 'Ending…';
+        call('endSession', [s.id], function (res) {
+          render(res.state);
+          toast('Session ended' + (res.emailed ? ' — summary emailed to ' + res.emailed : '') + (res.note ? '. ' + res.note : ''), !!res.note);
+        }, end);
+      };
+      acts.appendChild(end);
+    } else {
+      var summary = el('button', 'primary', 'Email summary');
+      summary.type = 'button';
+      summary.onclick = function () { openEmail(s, 'summary'); };
+      acts.appendChild(summary);
+    }
+    if (s.status !== 'active') {
+      var del = el('button', 'quiet', 'Delete');
+      del.type = 'button';
+      del.onclick = function () {
+        if (!confirm('Delete "' + s.name + '" and all ' + s.questionCount + ' of its questions? This cannot be undone.')) return;
+        call('deleteSession', [s.id], function (res) { render(res); toast('Session deleted'); }, del);
+      };
+      acts.appendChild(del);
+    }
+    head.appendChild(acts);
+    card.appendChild(head);
+
+    if (openLinks[s.id]) {
+      var links = el('div', 'links');
+      linkRow(links, 'Room screen', s.links.present);
+      linkRow(links, 'Facilitator queue', s.links.moderate);
+      if (s.links.participant) {
+        linkRow(links, 'Participant link', s.links.participant);
+        if (!ended) {
+          var regen = el('button', 'quiet', 'Replace participant link');
+          regen.type = 'button';
+          regen.onclick = function () {
+            if (!confirm('Replace the participant link? The old link stops working for anyone who has not joined yet.')) return;
+            call('regenerateLink', [s.id], function (res) { render(res); toast('New participant link created'); }, regen);
+          };
+          links.appendChild(regen);
+        }
+      } else {
+        links.appendChild(el('div', 'hint', 'In-room sessions have no participant link — people join by scanning the room screen.'));
+      }
+      card.appendChild(links);
+    }
+    return card;
+  }
+
+  function linkRow(parent, label, url) {
+    var row = el('div', 'linkrow');
+    row.appendChild(el('b', null, label));
+    var input = el('input');
+    input.type = 'text';
+    input.readOnly = true;
+    input.value = url;
+    input.onfocus = function () { input.select(); };
+    row.appendChild(input);
+    var copy = el('button', null, 'Copy');
+    copy.type = 'button';
+    copy.onclick = function () { copyInput(input); };
+    row.appendChild(copy);
+    var open = el('a', null, 'Open');
+    open.href = url;
+    open.target = '_blank';
+    open.rel = 'noopener';
+    row.appendChild(open);
+    parent.appendChild(row);
+  }
+
+  // ------------------------------------------------------------ session form
+
+  function radio(name, value) {
+    var inputs = document.querySelectorAll('input[name=' + name + ']');
+    for (var i = 0; i < inputs.length; i++) {
+      if (value === undefined) { if (inputs[i].checked) return inputs[i].value; }
+      else inputs[i].checked = inputs[i].value === value;
+    }
+  }
+
+  function openForm(s) {
+    s = s || {};
+    $('formTitle').textContent = s.id ? 'Edit session' : 'New session';
+    $('f-id').value = s.id || '';
+    $('f-name').value = s.name || '';
+    $('f-heading').value = s.heading || '';
+    radio('access', s.access || 'room');
+    radio('theme', s.theme || 'dark');
+    $('f-max').value = s.maxLength || state.limits.defaultMaxLength;
+    $('f-max').max = state.limits.maxLengthCeiling;
+    $('maxHint').textContent = 'Between 50 and ' + state.limits.maxLengthCeiling + '. Shorter questions are easier to read aloud.';
+    $('f-email').checked = s.id ? !!s.emailOnEnd : true;
+    $('f-start').value = toLocalInput(s.scheduledStart);
+    $('f-end').value = toLocalInput(s.scheduledEnd);
+    var own = s.brand || {};
+    $('f-org').value = own.orgName || '';
+    $('f-org').placeholder = state.brand.orgName || '';
+    $('f-accent-on').checked = !!own.accent;
+    $('f-accent').value = own.accent || state.brand.accent;
+    editingId = s.id || '';
+    $('f-logo-box').hidden = !s.id;
+    $('f-logo-later').hidden = !!s.id;
+    renderSessionLogo('');
+    if (s.id && s.hasLogo) call('getSessionLogo', [s.id], renderSessionLogo);
+
+    var box = $('f-mods');
+    box.innerHTML = '';
+    if (!state.moderators.length) {
+      box.appendChild(el('div', 'hint', 'No moderators yet.'));
+    }
+    state.moderators.forEach(function (email) {
+      var label = el('label', 'choice');
+      var cb = el('input');
+      cb.type = 'checkbox';
+      cb.value = email;
+      cb.checked = (s.moderators || []).indexOf(email) !== -1;
+      label.appendChild(cb);
+      label.appendChild(el('span', null, email));
+      box.appendChild(label);
+    });
+
+    $('sessionForm').hidden = false;
+    $('f-name').focus();
+  }
+
+  var editingId = '';
+
+  function toLocalInput(ms) {
+    if (!ms) return '';
+    var d = new Date(ms);
+    function p2(n) { return (n < 10 ? '0' : '') + n; }
+    return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()) + 'T' + p2(d.getHours()) + ':' + p2(d.getMinutes());
+  }
+
+  function fromLocalInput(value) {
+    if (!value) return null;
+    var parts = value.split(/[-T:]/);
+    return new Date(+parts[0], +parts[1] - 1, +parts[2], +parts[3], +parts[4]).getTime();
+  }
+
+  function renderSessionLogo(src) {
+    var box = $('f-logo-preview');
+    box.innerHTML = '';
+    if (src) {
+      var img = el('img');
+      img.src = src;
+      img.alt = 'Session logo';
+      box.appendChild(img);
+    } else {
+      box.appendChild(el('span', 'hint', 'Uses the organization logo'));
+    }
+    $('f-logo-remove').hidden = !src;
+  }
+
+  $('f-accent').addEventListener('input', function () { $('f-accent-on').checked = true; });
+
+  $('f-logo').addEventListener('change', function () {
+    var file = this.files && this.files[0];
+    var picker = this;
+    if (!file || !editingId) return;
+    shrinkImage(file, 60000, function (err, dataUrl) {
+      picker.value = '';
+      if (err) { toast(err, true); return; }
+      call('saveLogo', [dataUrl, editingId], function (res) {
+        render(res);
+        renderSessionLogo(dataUrl);
+        toast('Session logo saved');
+      });
+    });
+  });
+
+  $('f-logo-remove').onclick = function () {
+    call('removeLogo', [editingId], function (res) { render(res); renderSessionLogo(''); toast('Session logo removed'); }, this);
+  };
+
+  $('newSession').onclick = function () { openForm(null); };
+  $('cancelSession').onclick = function () { $('sessionForm').hidden = true; };
+
+  $('sessionForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var mods = [];
+    var boxes = $('f-mods').querySelectorAll('input[type=checkbox]');
+    for (var i = 0; i < boxes.length; i++) if (boxes[i].checked) mods.push(boxes[i].value);
+    var input = {
+      id: $('f-id').value,
+      name: $('f-name').value,
+      heading: $('f-heading').value,
+      access: radio('access'),
+      theme: radio('theme'),
+      maxLength: $('f-max').value,
+      emailOnEnd: $('f-email').checked,
+      moderators: mods,
+      scheduledStart: fromLocalInput($('f-start').value),
+      scheduledEnd: fromLocalInput($('f-end').value),
+      brandOrgName: $('f-org').value,
+      brandAccent: $('f-accent-on').checked ? $('f-accent').value : ''
+    };
+    call('saveSession', [input], function (res) {
+      $('sessionForm').hidden = true;
+      render(res);
+      toast(input.id ? 'Session saved' : 'Session created — activate it when you are ready');
+    }, $('saveSession'));
+  });
+
+  // ------------------------------------------------------------ email modal
+
+  var emailTarget = null;
+  var emailMode = 'links';
+
+  function openEmail(s, mode) {
+    emailTarget = s;
+    emailMode = mode;
+    $('emailTitle').textContent = (mode === 'summary' ? 'Email summary — ' : 'Email links — ') + s.name;
+    $('e-kinds').hidden = mode === 'summary';
+    $('e-to').value = mode === 'summary' ? s.moderators.join(', ') : '';
+    var hasLink = !!s.links.participant;
+    $('e-participant').disabled = !hasLink;
+    $('e-participant').checked = hasLink;
+    $('e-participant-hint').textContent = hasLink
+      ? 'Anyone with this link can ask a question.'
+      : 'Not available: in-room sessions are joined by scanning the room screen.';
+    $('e-present').checked = !hasLink;
+    $('e-moderate').checked = false;
+    $('emailModal').hidden = false;
+    $('e-to').focus();
+  }
+
+  function closeEmail() { $('emailModal').hidden = true; }
+  $('e-cancel').onclick = closeEmail;
+  $('emailModal').addEventListener('click', function (e) { if (e.target === this) closeEmail(); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeEmail(); });
+
+  $('emailForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var to = $('e-to').value;
+    if (emailMode === 'summary') {
+      call('emailSummary', [emailTarget.id, to.split(/[\s,;]+/).filter(Boolean)], function (n) {
+        closeEmail();
+        toast('Summary sent to ' + n + (n === 1 ? ' person' : ' people'));
+        call('adminState', [], render);
+      }, $('e-send'));
+      return;
+    }
+    call('emailLinks', [emailTarget.id, {
+      to: to,
+      participant: $('e-participant').checked,
+      present: $('e-present').checked,
+      moderate: $('e-moderate').checked
+    }], function (n) {
+      closeEmail();
+      toast('Links sent to ' + n + (n === 1 ? ' person' : ' people'));
+    }, $('e-send'));
+  });
+
+  // ------------------------------------------------------------ people
+
+  function renderPeople() {
+    $('domainHint').textContent = 'Only @' + state.domain + ' accounts can be administrators or moderators. ' +
+      'Google does not tell the app who is signed in from any other domain.';
+    personList($('adminList'), 'admin', [state.owner].concat(state.admins.filter(function (e) { return e !== state.owner; })));
+    personList($('modList'), 'moderator', state.moderators);
+  }
+
+  function personList(ul, role, emails) {
+    ul.innerHTML = '';
+    if (!emails.length) ul.appendChild(el('li', 'hint', 'None yet'));
+    emails.forEach(function (email) {
+      var li = el('li');
+      li.appendChild(el('span', null, email));
+      var locked = role === 'admin' && (email === state.owner || email === state.me);
+      if (locked) {
+        li.appendChild(el('span', 'hint', email === state.owner ? 'Owner' : 'You'));
+      } else {
+        var rm = el('button', 'quiet', 'Remove');
+        rm.type = 'button';
+        rm.onclick = function () {
+          var extra = role === 'moderator' ? ' They will also be removed from every session.' : '';
+          if (!confirm('Remove ' + email + ' as ' + role + '?' + extra)) return;
+          call('removePerson', [role, email], function (res) { render(res); toast('Removed ' + email); }, rm);
+        };
+        li.appendChild(rm);
+      }
+      ul.appendChild(li);
+    });
+  }
+
+  var adders = document.querySelectorAll('form.adder');
+  for (var a = 0; a < adders.length; a++) {
+    adders[a].addEventListener('submit', function (e) {
+      e.preventDefault();
+      var form = this;
+      var input = form.querySelector('input');
+      call('addPerson', [form.getAttribute('data-role'), input.value], function (res) {
+        toast('Added ' + input.value.trim().toLowerCase());
+        input.value = '';
+        render(res);
+      }, form.querySelector('button'));
+    });
+  }
+
+  // ------------------------------------------------------------ branding
+
+  function renderBranding() {
+    $('b-org').value = state.brand.orgName;
+    $('b-accent').value = state.brand.accent;
+    $('b-accent-pick').value = state.brand.accent;
+    $('b-url').value = state.publicUrl;
+    $('b-welcome').value = state.brand.welcome;
+    $('b-footer').value = state.brand.footer;
+    $('b-bg-dark').value = state.brand.roomBgDark;
+    $('b-bg-light').value = state.brand.roomBgLight;
+    $('b-favicon').value = state.brand.faviconUrl;
+    $('b-url').placeholder = state.detectedUrl;
+    $('urlHint').textContent = 'Used in QR codes and emailed links. Leave blank to use the detected address. ' +
+      'If links open the wrong version, paste the /exec address from Deploy → Manage deployments.';
+
+    var preview = $('logoPreview');
+    preview.innerHTML = '';
+    if (state.brand.logo) {
+      var img = el('img');
+      img.src = state.brand.logo;
+      img.alt = 'Current logo';
+      preview.appendChild(img);
+    } else {
+      preview.appendChild(el('span', 'hint', 'No logo'));
+    }
+    $('removeLogo').hidden = !state.brand.logo;
+
+    $('s-quota').textContent = state.mailQuota;
+    $('s-sheet').href = state.sheetUrl;
+    var h = state.health || {};
+    $('s-grouping').textContent = h.failures
+      ? h.failures + ' failed runs in a row — ' + h.lastError
+      : h.lastOkAt ? 'Working (last ' + fmtDate(h.lastOkAt) + ')' : 'Nothing grouped yet';
+    renderLoadTest();
+  }
+
+  function renderLoadTest() {
+    var lt = state.loadTest;
+    $('lt-off').hidden = !!(lt && !lt.expired);
+    $('lt-on').hidden = !(lt && !lt.expired);
+    if (lt && !lt.expired) {
+      $('lt-expires').textContent = fmtDate(lt.expires);
+      $('lt-cmd').textContent = lt.command;
+    }
+  }
+
+  $('runHealth').onclick = function () {
+    var table = $('checks');
+    table.innerHTML = '<tr><td></td><td>Checking…</td></tr>';
+    call('runHealthCheck', [], function (res) {
+      table.innerHTML = '';
+      res.checks.forEach(function (c) {
+        var tr = el('tr');
+        tr.appendChild(el('td', c.ok ? 'ok' : 'bad', c.ok ? '✓' : '✗'));
+        var td = el('td');
+        td.appendChild(el('strong', null, c.name));
+        td.appendChild(el('div', 'hint', c.detail));
+        tr.appendChild(td);
+        table.appendChild(tr);
+      });
+      var bad = res.checks.filter(function (c) { return !c.ok; }).length;
+      toast(bad ? bad + ' check(s) need attention' : 'All checks passed', bad > 0);
+    }, this);
+  };
+
+  $('startLoad').onclick = function () {
+    call('startLoadTest', [], function (res) { render(res); toast('Load test ready — run the command'); }, this);
+  };
+  $('stopLoad').onclick = function () {
+    if (!confirm('Finish the load test? Its session and every test question will be deleted.')) return;
+    call('stopLoadTest', [], function (res) { render(res); toast('Load test finished and cleaned up'); }, this);
+  };
+  $('copyLoad').onclick = function () {
+    var range = document.createRange();
+    range.selectNodeContents($('lt-cmd'));
+    var sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+    var done = false;
+    try { done = document.execCommand('copy'); } catch (e) {}
+    toast(done ? 'Copied' : 'Selected — press Ctrl/Cmd+C to copy');
+  };
+
+  $('b-accent-pick').addEventListener('input', function () { $('b-accent').value = this.value; });
+  $('b-accent').addEventListener('input', function () {
+    if (/^#[0-9a-f]{6}$/i.test(this.value)) $('b-accent-pick').value = this.value;
+  });
+
+  $('brandForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    call('saveBrand', [{
+      orgName: $('b-org').value, accent: $('b-accent').value, publicUrl: $('b-url').value,
+      welcome: $('b-welcome').value, footer: $('b-footer').value,
+      roomBgDark: $('b-bg-dark').value, roomBgLight: $('b-bg-light').value, faviconUrl: $('b-favicon').value
+    }], function (res) {
+      render(res);
+      toast('Branding saved');
+    }, this.querySelector('button[type=submit]'));
+  });
+
+  $('logoFile').addEventListener('change', function () {
+    var file = this.files && this.files[0];
+    var picker = this;
+    if (!file) return;
+    shrinkImage(file, state ? 60000 : 60000, function (err, dataUrl) {
+      picker.value = '';
+      if (err) { toast(err, true); return; }
+      call('saveLogo', [dataUrl], function (res) { render(res); toast('Logo saved'); });
+    });
+  });
+
+  $('removeLogo').onclick = function () {
+    if (!confirm('Remove the logo?')) return;
+    call('removeLogo', [], function (res) { render(res); toast('Logo removed'); }, this);
+  };
+
+  /** Downscale in the browser so the stored logo stays small; tries PNG, then WebP, then smaller sizes. */
+  function shrinkImage(file, maxChars, done) {
+    var reader = new FileReader();
+    reader.onerror = function () { done('Could not read that file.'); };
+    reader.onload = function () {
+      var img = new Image();
+      img.onerror = function () { done('That file is not an image this browser can read.'); };
+      img.onload = function () {
+        var w = img.naturalWidth || 600, h = img.naturalHeight || 200;
+        var scale = Math.min(1, 600 / w, 200 / h);
+        for (var attempt = 0; attempt < 6; attempt++) {
+          var canvas = document.createElement('canvas');
+          canvas.width = Math.max(1, Math.round(w * scale));
+          canvas.height = Math.max(1, Math.round(h * scale));
+          canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+          var png = canvas.toDataURL('image/png');
+          if (png.length <= maxChars) return done(null, png);
+          var webp = canvas.toDataURL('image/webp', 0.9);
+          if (webp.indexOf('data:image/webp') === 0 && webp.length <= maxChars) return done(null, webp);
+          scale *= 0.75;
+        }
+        done('That image is too detailed to use as a logo. Try a simpler or smaller version.');
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  // ------------------------------------------------------------ start
+
+  renderLogo(BOOT.brand.logo);
+  call('adminState', [], render);
+</script>
+</body>
+</html>

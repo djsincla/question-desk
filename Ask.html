@@ -3,6 +3,7 @@
 <head>
 <base target="_top">
 <style>
+  [hidden] { display: none !important; }
   :root {
     --ink: #16202b;
     --muted: #5c6874;
@@ -23,6 +24,8 @@
     max-width: 34rem;
     margin-inline: auto;
   }
+  .brand { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; color: var(--muted); font-size: 0.9rem; }
+  .brand img { max-height: 44px; max-width: 180px; }
   .langs { display: flex; gap: 6px; margin-bottom: 20px; }
   .langs button {
     width: auto;
@@ -81,6 +84,22 @@
   .note p { margin: 0; }
   .note p + p { margin-top: 6px; }
 
+  .welcome { margin: 0 0 18px; }
+  .now { margin: 0 0 20px; padding: 12px 14px; border-radius: 6px; background: var(--action); color: var(--action-ink, #fff); }
+  .now small { display: block; text-transform: uppercase; letter-spacing: 0.06em; font-size: 0.72rem; font-weight: 700; opacity: 0.85; }
+  .now strong { display: block; font-size: 1.1rem; line-height: 1.3; }
+  .now span { display: block; margin-top: 4px; font-size: 0.95rem; }
+  .topics { margin-top: 32px; border-top: 1px solid var(--rule); padding-top: 16px; }
+  .topics h2 { font-size: 0.95rem; font-weight: 600; margin: 0 0 4px; color: var(--muted); }
+  .topics .hint { color: var(--muted); font-size: 0.88rem; margin: 0 0 12px; }
+  .topics ul { list-style: none; padding: 0; }
+  .topics li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid #eef1f3; }
+  .topics li .name { flex: 1; }
+  .topics li .count { display: block; color: var(--muted); font-size: 0.82rem; }
+  .topics li.done .name { color: var(--muted); }
+  .topics button.metoo { width: auto; margin: 0; padding: 7px 12px; font-size: 0.9rem; font-weight: 600; background: #fff; color: var(--action); border: 1px solid var(--action); white-space: nowrap; }
+  .topics button.metoo[aria-pressed="true"] { background: var(--action); color: var(--action-ink, #fff); }
+  footer.foot { margin-top: 36px; color: var(--muted); font-size: 0.85rem; text-align: center; }
   .sent { margin-top: 32px; border-top: 1px solid var(--rule); padding-top: 16px; }
   .sent h2 { font-size: 0.95rem; font-weight: 600; margin: 0 0 10px; color: var(--muted); }
   .sent li { margin-bottom: 10px; color: var(--muted); }
@@ -89,14 +108,22 @@
 </head>
 <body>
 
+<div class="brand" id="brand" hidden>
+  <img id="logo" alt="" hidden>
+  <span id="org"></span>
+</div>
+
 <nav class="langs" id="langs" aria-label="Language">
   <button type="button" data-lang="en" lang="en">English</button>
   <button type="button" data-lang="ko" lang="ko">한국어</button>
   <button type="button" data-lang="es" lang="es">Español</button>
 </nav>
 
+<div class="now" id="now" hidden><small id="nowTag">Now answering</small><strong id="nowText"></strong><span id="nowMerged" hidden></span></div>
+
 <h1 id="heading">Questions for the panel</h1>
 <p class="sub" id="sub">Your question goes to the facilitator. Your name is not attached.</p>
+<p class="welcome" id="welcome" hidden></p>
 
 <label for="q" class="visually-hidden" style="position:absolute;left:-9999px">Your question</label>
 <textarea id="q" placeholder="What would you like to ask?" maxlength="400"></textarea>
@@ -111,6 +138,14 @@
   <ul id="sentList"></ul>
 </div>
 
+<section class="topics" id="topics" hidden>
+  <h2 id="topicsHeading">What people are asking about</h2>
+  <p class="hint" id="topicsHint">Tap Me too on anything you also want answered.</p>
+  <ul id="topicList"></ul>
+</section>
+
+<footer class="foot" id="footer" hidden></footer>
+
 <script>
   var STRINGS = {
     en: {
@@ -123,13 +158,27 @@
       nextIn: 'Next question in ',
       expiredBtn: 'Scan the code again',
       expired: 'This link has expired. Scan the code on the screen in the room.',
+      linkExpiredBtn: 'Link expired',
+      linkExpired: 'This link is no longer valid. Ask the organizer for a new one.',
+      notFound: 'This link is not valid. Scan the code on the screen in the room.',
+      inactiveBtn: 'Not open yet',
+      inactive: 'This session is not taking questions yet. Try again when it starts.',
+      endedBtn: 'Session ended',
+      ended: 'This session has ended. Thank you for your questions.',
       closedBtn: 'Questions are closed',
       closed: 'The facilitator has closed question submission.',
       busy: 'A lot of questions are arriving at once. Try again in a moment.',
       short: 'That is a bit short — add a few more words.',
       long: 'Too long. Trim it to {n} characters.',
       failed: 'That did not send. Check your connection and try again.',
-      youAsked: 'You have asked'
+      youAsked: 'You have asked',
+      nowAnswering: 'Now answering',
+      topicsHeading: 'What people are asking about',
+      topicsHint: 'Tap Me too on anything you also want answered.',
+      meToo: 'Me too',
+      people: '{n} people',
+      person: '1 person',
+      answered: 'Answered'
     },
     ko: {
       sub: '질문은 진행자에게 전달됩니다. 이름은 표시되지 않습니다.',
@@ -141,13 +190,27 @@
       nextIn: '다음 질문까지 ',
       expiredBtn: '코드를 다시 스캔하세요',
       expired: '이 링크는 만료되었습니다. 화면의 코드를 다시 스캔해 주세요.',
+      linkExpiredBtn: '링크 만료',
+      linkExpired: '이 링크는 더 이상 유효하지 않습니다. 주최자에게 새 링크를 요청해 주세요.',
+      notFound: '유효하지 않은 링크입니다. 화면의 코드를 스캔해 주세요.',
+      inactiveBtn: '아직 열리지 않았습니다',
+      inactive: '이 세션은 아직 질문을 받지 않습니다. 세션이 시작되면 다시 시도해 주세요.',
+      endedBtn: '세션이 종료되었습니다',
+      ended: '이 세션은 종료되었습니다. 질문해 주셔서 감사합니다.',
       closedBtn: '질문이 마감되었습니다',
       closed: '진행자가 질문 접수를 마감했습니다.',
       busy: '질문이 한꺼번에 많이 들어오고 있습니다. 잠시 후 다시 시도해 주세요.',
       short: '조금 짧습니다. 몇 마디 더 적어 주세요.',
       long: '너무 깁니다. {n}자 이내로 줄여 주세요.',
       failed: '전송되지 않았습니다. 연결을 확인한 후 다시 시도해 주세요.',
-      youAsked: '보낸 질문'
+      youAsked: '보낸 질문',
+      nowAnswering: '지금 답변 중',
+      topicsHeading: '사람들이 묻는 주제',
+      topicsHint: '답변을 듣고 싶은 주제에 "저도요"를 눌러 주세요.',
+      meToo: '저도요',
+      people: '{n}명',
+      person: '1명',
+      answered: '답변 완료'
     },
     es: {
       sub: 'Tu pregunta llega al moderador. Tu nombre no se adjunta.',
@@ -159,13 +222,27 @@
       nextIn: 'Próxima pregunta en ',
       expiredBtn: 'Escanea el código otra vez',
       expired: 'Este enlace caducó. Vuelve a escanear el código de la pantalla.',
+      linkExpiredBtn: 'Enlace caducado',
+      linkExpired: 'Este enlace ya no es válido. Pide uno nuevo a quien organiza.',
+      notFound: 'Este enlace no es válido. Escanea el código de la pantalla.',
+      inactiveBtn: 'Aún no está abierta',
+      inactive: 'Esta sesión todavía no recibe preguntas. Vuelve a intentarlo cuando empiece.',
+      endedBtn: 'Sesión terminada',
+      ended: 'Esta sesión terminó. Gracias por tus preguntas.',
       closedBtn: 'Preguntas cerradas',
       closed: 'El moderador cerró el envío de preguntas.',
       busy: 'Están llegando muchas preguntas a la vez. Inténtalo en un momento.',
       short: 'Es un poco corta: añade algunas palabras más.',
       long: 'Demasiado larga. Redúcela a {n} caracteres.',
       failed: 'No se envió. Revisa tu conexión e inténtalo de nuevo.',
-      youAsked: 'Has preguntado'
+      youAsked: 'Has preguntado',
+      nowAnswering: 'Respondiendo ahora',
+      topicsHeading: 'Sobre qué pregunta la gente',
+      topicsHint: 'Toca "Yo también" en lo que también quieras que se responda.',
+      meToo: 'Yo también',
+      people: '{n} personas',
+      person: '1 persona',
+      answered: 'Respondida'
     }
   };
 
@@ -184,6 +261,10 @@
     document.getElementById('sub').textContent = T('sub');
     document.getElementById('q').placeholder = T('placeholder');
     document.getElementById('sentHeading').textContent = T('youAsked');
+    document.getElementById('topicsHeading').textContent = T('topicsHeading');
+    document.getElementById('topicsHint').textContent = T('topicsHint');
+    document.getElementById('nowTag').textContent = T('nowAnswering');
+    if (typeof renderTopics === 'function' && lastTopics) renderTopics(lastTopics);
     if (!q.disabled && !ticker) send.textContent = T('send');
 
     var buttons = document.querySelectorAll('.langs button');
@@ -192,11 +273,14 @@
     }
   }
 
-  var KEY = 'qd.device';
+  // Session and credential come from the server, which sees the real URL. The page
+  // itself runs in a sandboxed iframe, so window.location never carries ?s= or ?t=.
+  var BOOT = <?!= boot ?>;
+  var sid = BOOT.sid;
+  var credential = BOOT.credential;
+  var access = 'room';
+  var KEY = 'qd.device.' + sid;
   var deviceId = null;
-  // Filled from the top-level URL in start(). The page runs in a sandboxed
-  // iframe, so window.location never carries the ?t= from the QR code.
-  var entryToken = '';
   var maxLength = 300;
   var ticker = null;
 
@@ -216,6 +300,15 @@
     q.disabled = true;
     send.disabled = true;
     send.textContent = reason;
+  }
+
+  function stop(reason) {
+    if (reason === 'ended') { lock(T('endedBtn')); say(T('ended'), 'stop'); }
+    else if (reason === 'inactive') { lock(T('inactiveBtn')); say(T('inactive'), 'hold'); }
+    else if (reason === 'closed') { lock(T('closedBtn')); say(T('closed'), 'stop'); }
+    else if (reason === 'notFound') { lock(T('expiredBtn')); say(T('notFound'), 'stop'); }
+    else if (access === 'link') { lock(T('linkExpiredBtn')); say(T('linkExpired'), 'stop'); }
+    else { lock(T('expiredBtn')); say(T('expired'), 'stop'); }
   }
 
   function countdown(seconds) {
@@ -273,13 +366,9 @@
         }
         if (res.reason === 'cooldown') {
           say(T('cooldown'), 'hold');
-          countdown(300);
-        } else if (res.reason === 'expired') {
-          lock(T('expiredBtn'));
-          say(T('expired'), 'stop');
-        } else if (res.reason === 'closed') {
-          lock(T('closedBtn'));
-          say(T('closed'), 'stop');
+          countdown(res.waitSeconds || 60);
+        } else if (['expired', 'closed', 'ended', 'inactive', 'notFound'].indexOf(res.reason) !== -1) {
+          stop(res.reason);
         } else if (res.reason === 'busy') {
           recover(T('busy'));
         } else if (res.reason === 'tooShort') {
@@ -293,7 +382,7 @@
         send.textContent = T('send');
         updateMeter();
       })
-      .submitQuestion(deviceId, text, entryToken);
+      .submitQuestion(sid, deviceId, text, credential);
   });
 
   function addSent(text) {
@@ -304,8 +393,126 @@
     box.hidden = false;
   }
 
-  // Exchange the room token for a device token, once per browser.
+  function applyBrand() {
+    var brand = BOOT.brand;
+    if (brand.welcome) {
+      document.getElementById('welcome').textContent = brand.welcome;
+      document.getElementById('welcome').hidden = false;
+    }
+    if (brand.footer) {
+      document.getElementById('footer').textContent = brand.footer;
+      document.getElementById('footer').hidden = false;
+    }
+    if (brand.accent) {
+      document.documentElement.style.setProperty('--action', brand.accent);
+      // Light accents get dark button text so the label stays readable.
+      var hex = brand.accent.replace('#', '');
+      var r = parseInt(hex.substr(0, 2), 16), g = parseInt(hex.substr(2, 2), 16), b = parseInt(hex.substr(4, 2), 16);
+      if ((r * 299 + g * 587 + b * 114) / 1000 > 150) {
+        var style = document.createElement('style');
+        style.textContent = '#send:not(:disabled) { color: #16202b; }';
+        document.documentElement.style.setProperty('--action-ink', '#16202b');
+        document.head.appendChild(style);
+      }
+    }
+    if (!brand.logo && !brand.orgName) return;
+    document.getElementById('brand').hidden = false;
+    document.getElementById('org').textContent = brand.orgName;
+    if (brand.logo) {
+      var logo = document.getElementById('logo');
+      logo.src = brand.logo;
+      logo.alt = brand.orgName;
+      logo.hidden = false;
+    }
+  }
+
+  var lastTopics = null;
+  var topicTimer = null;
+
+  function labelFor(labels) {
+    return (labels && (labels[lang] || labels.en)) || '';
+  }
+
+  function renderTopics(res) {
+    lastTopics = res;
+    var now = res.nowAnswering;
+    document.getElementById('now').hidden = !now;
+    if (now) {
+      document.getElementById('nowText').textContent = labelFor(now.labels);
+      var merged = document.getElementById('nowMerged');
+      merged.hidden = !now.merged;
+      if (now.merged) merged.textContent = labelFor(now.merged);
+    }
+
+    var list = document.getElementById('topicList');
+    list.innerHTML = '';
+    document.getElementById('topics').hidden = !res.topics.length;
+    var canVote = res.status === 'active' && res.open;
+    res.topics.forEach(function (t) {
+      var li = document.createElement('li');
+      if (t.answered) li.className = 'done';
+      var name = document.createElement('div');
+      name.className = 'name';
+      name.textContent = labelFor(t.labels);
+      var count = document.createElement('span');
+      count.className = 'count';
+      count.textContent = (t.count === 1 ? T('person') : T('people').replace('{n}', t.count)) +
+        (t.answered ? ' · ' + T('answered') : '');
+      name.appendChild(count);
+      li.appendChild(name);
+
+      if (canVote && !t.answered) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'metoo';
+        b.textContent = T('meToo') + (t.mine ? ' ✓' : '');
+        b.setAttribute('aria-pressed', t.mine ? 'true' : 'false');
+        b.onclick = function () {
+          // Optimistic: flip now, reconcile with the server's answer.
+          t.mine = !t.mine;
+          t.count += t.mine ? 1 : -1;
+          renderTopics(lastTopics);
+          google.script.run.withSuccessHandler(function (r) {
+            if (!r.ok) { loadTopics(); return; }
+          }).withFailureHandler(loadTopics).meToo(sid, deviceId, t.topic);
+        };
+        li.appendChild(b);
+      }
+      list.appendChild(li);
+    });
+  }
+
+  function loadTopics() {
+    if (!deviceId) return;
+    google.script.run.withSuccessHandler(function (res) {
+      if (!res.ok) return;
+      renderTopics(res);
+      if (res.status === 'ended') clearInterval(topicTimer);
+    }).getTopics(sid, deviceId);
+  }
+
+  function startTopics() {
+    loadTopics();
+    clearInterval(topicTimer);
+    topicTimer = setInterval(loadTopics, 30000);
+  }
+
+  function applyState(state) {
+    access = state.access;
+    document.getElementById('heading').textContent = state.heading;
+    maxLength = state.maxLength;
+    q.setAttribute('maxlength', String(maxLength + 100));
+    startTopics();
+    if (state.status !== 'active') { stop(state.status === 'ended' ? 'ended' : 'inactive'); return; }
+    if (!state.open) { stop('closed'); return; }
+    if (state.cooldownRemaining > 0) { countdown(state.cooldownRemaining); return; }
+    updateMeter();
+  }
+
+  // Exchange the room token or link key for a device token, once per browser, per session.
   (function start() {
+    applyBrand();
+
     var saved = null;
     try { saved = localStorage.getItem(LANG_KEY); } catch (e) {}
     setLang(saved || (navigator.language || 'en').slice(0, 2));
@@ -315,36 +522,36 @@
       if (button) setLang(button.dataset.lang);
     });
 
+    if (!sid) { stop('notFound'); return; }
+
     try { deviceId = localStorage.getItem(KEY); } catch (e) { deviceId = null; }
 
-    function loadState() {
-      google.script.run.withSuccessHandler(function (state) {
-        document.getElementById('heading').textContent = state.heading;
-        maxLength = state.maxLength;
-        if (!state.open) {
-          lock(T('closedBtn'));
-          say(T('closed'), 'stop');
-          return;
-        }
-        updateMeter();
-      }).getSessionState(deviceId);
-    }
-
-    if (deviceId) { loadState(); return; }
-
-    google.script.url.getLocation(function (location) {
-      entryToken = (location.parameter && location.parameter.t) || '';
+    function claim() {
       google.script.run.withSuccessHandler(function (res) {
-        if (!res.ok) {
-          lock(T('expiredBtn'));
-          say(T('expired'), 'stop');
-          return;
-        }
+        if (!res.ok) { stop(res.reason); return; }
         deviceId = res.deviceId;
         try { localStorage.setItem(KEY, deviceId); } catch (e) {}
-        loadState();
-      }).claimDevice(entryToken);
-    });
+        applyState(res.state);
+      }).withFailureHandler(function () {
+        say(T('failed'), 'stop');
+      }).claimDevice(sid, credential);
+    }
+
+    if (!deviceId) { claim(); return; }
+
+    google.script.run.withSuccessHandler(function (state) {
+      if (!state.found) { stop('notFound'); return; }
+      access = state.access;
+      // Device token lapsed (6h) or was never valid: join again if this URL still carries a credential.
+      if (!state.deviceValid && state.status !== 'ended') {
+        if (credential) { claim(); return; }
+        stop('expired');
+        return;
+      }
+      applyState(state);
+    }).withFailureHandler(function () {
+      say(T('failed'), 'stop');
+    }).getSessionState(sid, deviceId);
   })();
 </script>
 </body>

@@ -3,6 +3,7 @@
 <head>
 <base target="_top">
 <style>
+  [hidden] { display: none !important; }
   :root {
     --ink: #16202b;
     --muted: #5c6874;
@@ -32,6 +33,14 @@
     flex-wrap: wrap;
   }
   h1 { font-size: 1.2rem; margin: 0; font-weight: 600; }
+  .title { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .title img { max-height: 32px; max-width: 140px; }
+  .title select { font: inherit; padding: 5px 8px; border: 1px solid var(--rule); border-radius: 4px; background: #fff; max-width: 60vw; }
+  .pill { font-size: 0.75rem; border-radius: 10px; padding: 2px 8px; background: var(--paper); color: var(--muted); border: 1px solid var(--rule); }
+  .pill.active { background: #e5f2ef; color: var(--action); border-color: #b9dcd5; }
+  .nav { display: flex; gap: 14px; font-size: 0.9rem; }
+  .nav a { color: var(--action); }
+  .notice { background: var(--paper); border: 1px solid var(--rule); border-radius: 6px; padding: 10px 14px; margin-bottom: 18px; color: var(--muted); }
   .tally { color: var(--muted); font-size: 0.9rem; }
 
   button {
@@ -49,6 +58,12 @@
   button.quiet { border-color: transparent; color: var(--muted); }
 
   .topic { border: 1px solid var(--rule); border-radius: 6px; margin-bottom: 18px; overflow: hidden; }
+  .topic.live { border: 2px solid var(--action); }
+  .topic.live > .head { background: var(--action); color: var(--action-ink, #fff); }
+  .topic.live > .head .count { color: inherit; opacity: 0.85; }
+  .votes { font-weight: 600; color: var(--action); }
+  .topic.live .votes { color: inherit; }
+  header { border-top: 4px solid var(--action); padding-top: 12px; }
   .topic > .head {
     display: flex; align-items: center; justify-content: space-between; gap: 12px;
     padding: 12px 14px; background: var(--paper); border-bottom: 1px solid var(--rule);
@@ -94,9 +109,20 @@
 <body>
 
 <header>
-  <h1>Question queue</h1>
-  <span class="tally" id="tally">Loading…</span>
+  <div class="title">
+    <img id="logo" alt="" hidden>
+    <h1 id="name">Question queue</h1>
+    <select id="switcher" aria-label="Switch session" hidden></select>
+    <span class="pill" id="pill"></span>
+  </div>
+  <div class="nav">
+    <span class="tally" id="tally">Loading…</span>
+    <a id="roomLink" target="_blank" rel="noopener">Room screen</a>
+    <a id="adminLink" target="_top" hidden>Admin</a>
+  </div>
 </header>
+
+<div class="notice" id="endedNotice" hidden>This session has ended. The queue is read-only.</div>
 
 <div class="bar">
   <button id="toggle">Pause submissions</button>
@@ -108,6 +134,8 @@
 <div id="board"><p class="empty">Waiting for the first question.</p></div>
 
 <script>
+  var BOOT = <?!= boot ?>;
+  var sid = BOOT.sid;
   var board = document.getElementById('board');
   var tally = document.getElementById('tally');
   var toggle = document.getElementById('toggle');
@@ -120,8 +148,54 @@
     if (state) draw(state);
   };
 
+  if (BOOT.brand.accent) {
+    document.documentElement.style.setProperty('--action', BOOT.brand.accent);
+    var hx = BOOT.brand.accent.replace('#', '');
+    var lum = (parseInt(hx.substr(0, 2), 16) * 299 + parseInt(hx.substr(2, 2), 16) * 587 + parseInt(hx.substr(4, 2), 16) * 114) / 1000;
+    if (lum > 150) document.documentElement.style.setProperty('--action-ink', '#16202b');
+  }
+  if (BOOT.brand.logo) {
+    var logo = document.getElementById('logo');
+    logo.src = BOOT.brand.logo;
+    logo.alt = BOOT.brand.orgName;
+    logo.hidden = false;
+  }
+
+  var switcher = document.getElementById('switcher');
+  switcher.onchange = function () {
+    if (!state) return;
+    window.top.location.href = state.adminUrl.replace('view=admin', 'view=moderate&s=' + switcher.value);
+  };
+  google.script.run.withSuccessHandler(function (sessions) {
+    if (sessions.length < 2) return;
+    sessions.forEach(function (s) {
+      var o = document.createElement('option');
+      o.value = s.id;
+      o.textContent = s.name + (s.status === 'active' ? '' : ' (' + (s.status === 'ended' ? 'ended' : 'not active') + ')');
+      if (s.id === sid) o.selected = true;
+      switcher.appendChild(o);
+    });
+    switcher.hidden = false;
+    document.getElementById('name').hidden = true;
+  }).mySessions();
+
+  var ended = false;
+
   function draw(data) {
     state = data;
+    ended = data.session.status === 'ended';
+    document.getElementById('name').textContent = data.session.name;
+    document.title = data.session.name + ' — queue';
+    var pill = document.getElementById('pill');
+    pill.textContent = data.session.status === 'active' ? 'Active' : ended ? 'Ended' : 'Not active';
+    pill.className = 'pill ' + data.session.status;
+    document.getElementById('roomLink').href = data.session.links.present;
+    var adminLink = document.getElementById('adminLink');
+    adminLink.href = data.adminUrl;
+    adminLink.hidden = !data.isAdmin;
+    document.getElementById('endedNotice').hidden = !ended;
+    document.querySelector('.bar').hidden = ended;
+
     toggle.textContent = data.open ? 'Pause submissions' : 'Reopen submissions';
 
     var total = data.unsorted.length;
@@ -135,14 +209,14 @@
     }
 
     board.innerHTML = '';
-    data.topics.forEach(function (t) { board.appendChild(topicBlock(t, data.merged[t.topic])); });
+    data.topics.forEach(function (t) { board.appendChild(topicBlock(t, data.merged[t.topic], false, data.nowAnswering === t.topic)); });
     if (data.unsorted.length) {
       board.appendChild(topicBlock({ topic: 'Not yet grouped', questions: data.unsorted, count: data.unsorted.length }, null, true));
     }
   }
 
-  function topicBlock(t, mergedText, isLoose) {
-    var wrap = el('div', 'topic');
+  function topicBlock(t, mergedText, isLoose, isLive) {
+    var wrap = el('div', isLive ? 'topic live' : 'topic');
 
     var head = el('div', 'head');
     var h = el('h2');
@@ -151,10 +225,25 @@
     c.textContent = t.count + (t.count === 1 ? ' question' : ' questions');
     h.appendChild(document.createTextNode(' '));
     h.appendChild(c);
+    if (t.votes) {
+      var v = el('span', 'votes');
+      v.textContent = ' · +' + t.votes + ' me too';
+      h.appendChild(v);
+    }
     head.appendChild(h);
 
-    if (!isLoose) {
+    if (!isLoose && !ended) {
       var acts = el('div', 'acts');
+      var live = el('button', isLive ? '' : 'primary');
+      live.textContent = isLive ? 'Stop showing' : 'Now answering';
+      live.title = 'Show this topic on the room screen and participants\' phones';
+      live.onclick = function () {
+        live.disabled = true;
+        google.script.run.withSuccessHandler(draw).withFailureHandler(function () {
+          live.disabled = false;
+        }).setNowAnswering(sid, isLive ? null : t.topic);
+      };
+      acts.appendChild(live);
       var merge = el('button');
       merge.textContent = mergedText ? 'Rewrite as one' : 'Merge into one question';
       merge.onclick = function () {
@@ -163,7 +252,9 @@
         google.script.run.withSuccessHandler(function (res) {
           if (res.ok) { state.merged[t.topic] = res.question; draw(state); }
           else { merge.disabled = false; merge.textContent = 'Merge failed — retry'; }
-        }).mergeTopic(t.topic);
+        }).withFailureHandler(function () {
+          merge.disabled = false; merge.textContent = 'Merge failed — retry';
+        }).mergeTopic(sid, t.topic);
       };
       var dismissAll = el('button', 'quiet');
       dismissAll.textContent = 'Dismiss all';
@@ -211,6 +302,8 @@
         text.appendChild(wait);
       }
       li.appendChild(text);
+      list.appendChild(li);
+      if (ended) return;
 
       var acts2 = el('div', 'acts');
       var done = el('button');
@@ -222,7 +315,6 @@
       acts2.appendChild(done);
       acts2.appendChild(drop);
       li.appendChild(acts2);
-      list.appendChild(li);
     });
     wrap.appendChild(list);
     return wrap;
@@ -235,11 +327,11 @@
   }
 
   function act(ids, status) {
-    google.script.run.withSuccessHandler(draw).setStatus(ids, status);
+    google.script.run.withSuccessHandler(draw).setStatus(sid, ids, status);
   }
 
   toggle.onclick = function () {
-    google.script.run.withSuccessHandler(draw).setBoardOpen(!state.open);
+    google.script.run.withSuccessHandler(draw).setBoardOpen(sid, !state.open);
   };
 
   document.getElementById('cluster').onclick = function () {
@@ -250,13 +342,19 @@
       b.disabled = false;
       b.textContent = 'Group now';
       load();
-    }).clusterQuestions();
+    }).withFailureHandler(function () {
+      b.disabled = false;
+      b.textContent = 'Grouping failed — retry';
+    }).groupNow(sid);
   };
 
   document.getElementById('refresh').onclick = load;
 
   function load() {
-    google.script.run.withSuccessHandler(draw).getBoard();
+    if (ended) return;
+    google.script.run.withSuccessHandler(draw).withFailureHandler(function (err) {
+      tally.textContent = err && err.message ? err.message : 'Lost connection — retrying';
+    }).getBoard(sid);
   }
 
   load();

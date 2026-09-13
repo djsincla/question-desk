@@ -1,0 +1,76 @@
+'use strict';
+/** Repository hygiene: versioning, release notes, and the secret scanner. */
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const { createApp } = require('./harness');
+const secrets = require('../scripts/check-secrets');
+
+const ROOT = path.join(__dirname, '..');
+const read = (f) => fs.readFileSync(path.join(ROOT, f), 'utf8');
+
+test('admin page gets the app version and a release notes link', () => {
+  const h = createApp().install();
+  const app = h.app.adminState().app;
+  assert.match(app.version, /^\d+\.\d+\.\d+$/);
+  assert.equal(app.releaseNotes, 'https://github.com/djsincla/question-desk/releases/tag/v' + app.version);
+});
+
+test('CHANGELOG.md has a dated section and link for the current version', () => {
+  const version = createApp().app.APP.version;
+  const changelog = read('CHANGELOG.md');
+  assert.match(changelog, new RegExp('^## \\[' + version.replace(/\./g, '\\.') + '\\] - \\d{4}-\\d{2}-\\d{2}$', 'm'));
+  assert.match(changelog, new RegExp('^\\[' + version.replace(/\./g, '\\.') + '\\]: https://github\\.com/djsincla/question-desk/releases/tag/v' + version.replace(/\./g, '\\.') + '$', 'm'));
+  const top = changelog.match(/^## \[(\d+\.\d+\.\d+)\]/m)[1];
+  assert.equal(top, version, 'newest changelog entry matches APP.version');
+});
+
+test('ship.sh reads the same version the app reports', () => {
+  const ship = read('scripts/ship.sh');
+  const pattern = ship.match(/sed -n "s\/\^  version: '\\\(\[0-9\]\[0-9\.\]\*\\\)',\$\/\\1\/p" Code\.js/);
+  assert.ok(pattern, 'ship.sh parses APP.version from Code.js');
+  assert.match(read('Code.js'), /^  version: '\d+\.\d+\.\d+',$/m);
+});
+
+test('secret scanner catches keys, tokens, deployment IDs and real emails', () => {
+  const samples = [
+    ['AI' + 'za' + 'Sy' + 'A'.repeat(33), 'Google API key'],
+    ['gh' + 'p_' + 'a'.repeat(36), 'GitHub token'],
+    ['AKfy' + 'cbw' + 'X'.repeat(40), 'Apps Script deployment ID'],
+    ['"script' + 'Id": "1abc_real_id"', 'Apps Script project ID'],
+    ['-----BEGIN ' + 'PRIVATE KEY-----', 'Private key'],
+    ['someone' + '@' + 'realcompany.com', 'Email address']
+  ];
+  samples.forEach(([text, name]) => {
+    const found = secrets.scanText('x ' + text + ' y', 'sample');
+    assert.ok(found.some((f) => f.name === name), name + ' not detected');
+  });
+});
+
+test('secret scanner allows placeholders', () => {
+  const ok = 'mod@example.org owner@example.com a@b.test name@domain.org noreply@anthropic.com ' +
+    '1+x@users.noreply.github.com "scriptId": "YOUR_SCRIPT_ID"';
+  assert.deepEqual(secrets.scanText(ok, 'sample'), []);
+});
+
+test('local config files can never be committed', () => {
+  const findings = secrets.scanFiles(['.clasp.json', '.deploy.env', '.env.local', 'key.pem', 'README.md'], () => 'clean');
+  assert.deepEqual(findings.map((f) => f.where), ['.clasp.json', '.deploy.env', '.env.local', 'key.pem']);
+  const ignore = read('.gitignore');
+  ['.clasp.json', '.clasprc.json', '.deploy.env', '.env'].forEach((f) => assert.match(ignore, new RegExp('^' + f.replace('.', '\\.') + '$', 'm')));
+});
+
+test('every tracked-to-be file is clean', () => {
+  const files = [];
+  (function walk(dir) {
+    fs.readdirSync(path.join(ROOT, dir), { withFileTypes: true }).forEach((d) => {
+      const rel = dir ? dir + '/' + d.name : d.name;
+      if (d.isDirectory()) { if (d.name !== '.git' && d.name !== 'node_modules') walk(rel); return; }
+      files.push(rel);
+    });
+  })('');
+  const ignored = /(^|\/)(\.clasp\.json|\.clasprc\.json|\.deploy\.env|\.DS_Store)$/;
+  const findings = secrets.scanFiles(files.filter((f) => !ignored.test(f)), (f) => read(f));
+  assert.deepEqual(findings, []);
+});

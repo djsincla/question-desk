@@ -4,53 +4,172 @@
 <base target="_top">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
+  [hidden] { display: none !important; }
   * { box-sizing: border-box; }
   html, body { height: 100%; margin: 0; }
   body {
+    --bg: #10171f;
+    --ink: #ffffff;
+    --muted: #9dabb8;
+    --faint: #4d5b69;
+    --accent: #1b5e5a;
+    --accent-ink: #ffffff;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 6vw;
-    padding: 5vh 5vw;
-    background: #10171f;
-    color: #fff;
+    padding: 12vh 5vw 8vh;
+    background: var(--bg);
+    color: var(--ink);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    transition: background 0.3s, color 0.3s;
   }
-  .words { max-width: 22ch; }
-  h1 { font-size: clamp(2.5rem, 6vw, 5rem); line-height: 1.05; margin: 0 0 0.4em; font-weight: 600; }
-  p { font-size: clamp(1rem, 1.7vw, 1.5rem); line-height: 1.35; margin: 0 0 0.55em; color: #9dabb8; }
-  p:last-of-type { margin-bottom: 0; }
+  body.light {
+    --ink: #16202b;
+    --muted: #5c6874;
+    --faint: #9aa4ad;
+  }
+  body.answering { padding-bottom: 30vh; }
+  .band { position: fixed; top: 0; left: 0; right: 0; height: 0.8vh; background: var(--accent); }
+  .brand { position: fixed; top: 4vh; left: 5vw; display: flex; align-items: center; gap: 1.2vw; }
+  .brand img { max-height: 9vh; max-width: 24vw; }
+  .brand span { font-size: clamp(0.9rem, 1.5vw, 1.4rem); color: var(--muted); }
+  body.dark .brand img { background: #fff; padding: 0.8vh 1vw; border-radius: 6px; }
   .words { max-width: 26ch; }
+  h1 { font-size: clamp(2.5rem, 6vw, 5rem); line-height: 1.05; margin: 0 0 0.4em; font-weight: 600; }
+  p { font-size: clamp(1rem, 1.7vw, 1.5rem); line-height: 1.35; margin: 0 0 0.55em; color: var(--muted); }
+  p:last-of-type { margin-bottom: 0; }
   .code {
     background: #fff;
     padding: 2.5vh;
     border-radius: 8px;
     line-height: 0;
+    box-shadow: 0 0 0 0.5vh var(--accent);
   }
   .code img, .code canvas { width: min(38vh, 38vw); height: auto; }
-  .status { position: fixed; bottom: 3vh; left: 0; right: 0; text-align: center; color: #4d5b69; font-size: 0.95rem; }
+  .waiting {
+    width: min(38vh, 38vw);
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    border: 2px dashed var(--faint);
+    border-radius: 8px;
+    color: var(--muted);
+    font-size: clamp(1rem, 1.8vw, 1.6rem);
+    padding: 2vw;
+    line-height: 1.3;
+  }
+  .now {
+    position: fixed;
+    left: 5vw;
+    right: 5vw;
+    bottom: 6vh;
+    background: var(--accent);
+    color: var(--accent-ink);
+    border-radius: 10px;
+    padding: 2.4vh 2.5vw;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.6vh 2.5vw;
+    align-items: baseline;
+  }
+  .now .tag { grid-row: span 3; text-transform: uppercase; letter-spacing: 0.08em; font-size: clamp(0.8rem, 1.3vw, 1.2rem); font-weight: 700; opacity: 0.85; }
+  .now .label { font-size: clamp(1.6rem, 3.4vw, 3.2rem); font-weight: 650; line-height: 1.1; }
+  .now .others { font-size: clamp(0.9rem, 1.6vw, 1.5rem); opacity: 0.85; }
+  .now .merged { font-size: clamp(1rem, 1.8vw, 1.7rem); line-height: 1.3; }
+  .status { position: fixed; bottom: 2vh; left: 0; right: 0; text-align: center; color: var(--faint); font-size: 0.95rem; }
+  .footer { position: fixed; top: 4.5vh; right: 5vw; color: var(--muted); font-size: clamp(0.8rem, 1.2vw, 1.1rem); }
 </style>
 </head>
-<body>
+<body class="dark">
+
+<div class="band"></div>
+<div class="brand" id="brand" hidden>
+  <img id="logo" alt="" hidden>
+  <span id="org"></span>
+</div>
+<div class="footer" id="footer" hidden></div>
 
 <div class="words">
-  <h1>Ask the panel</h1>
+  <h1 id="heading">Ask the panel</h1>
   <p lang="en">Point your camera at the code. Ask in any language.</p>
   <p lang="ko">카메라로 코드를 스캔하세요. 어떤 언어로도 질문할 수 있습니다.</p>
   <p lang="es">Apunta la cámara al código. Pregunta en cualquier idioma.</p>
 </div>
 
-<div class="code" id="code"></div>
+<div class="code" id="code" hidden></div>
+<div class="waiting" id="waiting"></div>
+
+<div class="now" id="now" hidden>
+  <div class="tag">Now answering</div>
+  <div class="label" id="nowLabel"></div>
+  <div class="others" id="nowOthers"></div>
+  <div class="merged" id="nowMerged" hidden></div>
+</div>
+
 <div class="status" id="status"></div>
 
 <script>
+  var BOOT = <?!= boot ?>;
+
   var box = document.getElementById('code');
+  var waiting = document.getElementById('waiting');
   var status = document.getElementById('status');
   var qr = null;
-  var base = '';
+  var shownUrl = '';
+  var theme = BOOT.theme || 'dark';
+  var brand = BOOT.brand;
+  var themeOverride = null;   // press T to flip locally, e.g. if the projector washes out
 
-  function render(token) {
-    var url = base + (base.indexOf('?') === -1 ? '?' : '&') + 't=' + token;
+  function inkFor(hex) {
+    var h = String(hex || '').replace('#', '');
+    var r = parseInt(h.substr(0, 2), 16), g = parseInt(h.substr(2, 2), 16), b = parseInt(h.substr(4, 2), 16);
+    return (r * 299 + g * 587 + b * 114) / 1000 > 150 ? '#16202b' : '#ffffff';
+  }
+
+  function applyTheme() {
+    var t = themeOverride || theme;
+    document.body.className = t + (document.getElementById('now').hidden ? '' : ' answering');
+    var s = document.body.style;
+    s.setProperty('--bg', t === 'light' ? brand.roomBgLight : brand.roomBgDark);
+    s.setProperty('--accent', brand.accent);
+    s.setProperty('--accent-ink', inkFor(brand.accent));
+    // A custom background can be light in dark mode or vice versa; keep text readable.
+    var bgInk = inkFor(t === 'light' ? brand.roomBgLight : brand.roomBgDark);
+    s.setProperty('--ink', bgInk);
+    s.setProperty('--muted', bgInk === '#ffffff' ? '#9dabb8' : '#5c6874');
+    s.setProperty('--faint', bgInk === '#ffffff' ? '#4d5b69' : '#9aa4ad');
+  }
+
+  function applyBrand() {
+    document.getElementById('org').textContent = brand.orgName || '';
+    document.getElementById('brand').hidden = !(brand.logo || brand.orgName);
+    var footer = document.getElementById('footer');
+    footer.textContent = brand.footer || '';
+    footer.hidden = !brand.footer;
+  }
+
+  if (brand.logo) {
+    var logo = document.getElementById('logo');
+    logo.src = brand.logo;
+    logo.alt = brand.orgName;
+    logo.hidden = false;
+  }
+  applyBrand();
+  applyTheme();
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 't' || e.key === 'T') {
+      themeOverride = (themeOverride || theme) === 'dark' ? 'light' : 'dark';
+      applyTheme();
+    }
+  });
+
+  function render(url) {
+    if (url === shownUrl) return;
+    shownUrl = url;
     if (qr) { qr.clear(); qr.makeCode(url); }
     else {
       qr = new QRCode(box, {
@@ -62,21 +181,59 @@
     }
   }
 
-  function refresh() {
-    google.script.run.withSuccessHandler(function (res) {
-      render(res.token);
-      status.textContent = 'Code refreshes automatically';
-      setTimeout(refresh, res.rotateInSeconds * 1000);
-    }).withFailureHandler(function () {
-      status.textContent = 'Lost connection — reload this page';
-      setTimeout(refresh, 15000);
-    }).getEntryToken();
+  function showWaiting(text) {
+    box.hidden = true;
+    waiting.hidden = false;
+    waiting.textContent = text;
+    shownUrl = '';
   }
 
-  google.script.run.withSuccessHandler(function (url) {
-    base = url;
-    refresh();
-  }).webAppUrl();
+  function showNow(now) {
+    var panel = document.getElementById('now');
+    panel.hidden = !now;
+    if (now) {
+      document.getElementById('nowLabel').textContent = now.labels.en;
+      var others = [];
+      if (now.labels.ko && now.labels.ko !== now.labels.en) others.push(now.labels.ko);
+      if (now.labels.es && now.labels.es !== now.labels.en) others.push(now.labels.es);
+      document.getElementById('nowOthers').textContent = others.join('  ·  ');
+      var merged = document.getElementById('nowMerged');
+      merged.hidden = !now.merged;
+      if (now.merged) merged.textContent = now.merged.en;
+    }
+    applyTheme();
+  }
+
+  function refresh() {
+    google.script.run.withSuccessHandler(function (screen) {
+      theme = screen.theme;
+      screen.brand.logo = brand.logo;
+      brand = screen.brand;
+      applyBrand();
+      document.getElementById('heading').textContent = screen.heading;
+      showNow(screen.status === 'active' ? screen.nowAnswering : null);
+
+      if (screen.status === 'ended') {
+        showWaiting('This session has ended');
+        status.textContent = '';
+      } else if (screen.status !== 'active' || !screen.url) {
+        showWaiting('Questions open soon');
+        status.textContent = 'Waiting for this session to start';
+      } else {
+        render(screen.url);
+        waiting.hidden = true;
+        box.hidden = false;
+        status.textContent = screen.open ? 'Code refreshes automatically' : 'Questions are paused';
+      }
+      if (screen.status !== 'ended') setTimeout(refresh, screen.refreshInSeconds * 1000);
+    }).withFailureHandler(function () {
+      status.textContent = 'Lost connection — retrying';
+      setTimeout(refresh, 15000);
+    }).getRoomScreen(BOOT.sid);
+  }
+
+  showWaiting('Loading…');
+  refresh();
 </script>
 </body>
 </html>

@@ -1,0 +1,386 @@
+'use strict';
+/**
+ * Runs the real Code.js against in-memory fakes of the Apps Script services it
+ * uses. Each createApp() call is a fresh, isolated install with its own clock,
+ * properties, cache, spreadsheet, outbox and Gemini stub.
+ *
+ * The fakes enforce the Apps Script limits that have bitten this project or
+ * could: 9KB per property value, 500KB of properties in total, and the
+ * spreadsheet's habit of evaluating strings that start with "=".
+ */
+
+const fs = require('node:fs');
+const path = require('node:path');
+const crypto = require('node:crypto');
+
+const SOURCE = fs.readFileSync(path.join(__dirname, '..', 'Code.js'), 'utf8');
+const FUNCTION_NAMES = Array.from(SOURCE.matchAll(/^function ([A-Za-z0-9_]+)\s*\(/gm), (m) => m[1]);
+
+const DEPLOY_URL = 'https://script.google.com/a/macros/example.org/s/DEPLOYID/exec';
+const PUBLIC_URL = 'https://script.google.com/macros/s/DEPLOYID/exec';
+const OWNER = 'owner@example.org';
+
+function createApp(options) {
+  options = options || {};
+  const clock = { now: Date.UTC(2026, 8, 12, 18, 0, 0) };
+  const env = {
+    clock,
+    owner: options.owner || OWNER,
+    activeUser: options.activeUser === undefined ? (options.owner || OWNER) : options.activeUser,
+    outbox: [],
+    geminiCalls: [],
+    gemini: defaultGemini,
+    mailQuota: 100,
+    faviconError: null,
+    propertyReads: 0,
+    triggers: [],
+    logs: []
+  };
+
+  // ---------------------------------------------------------- Date
+  const RealDate = Date;
+  class FakeDate extends RealDate {
+    constructor(...args) {
+      if (args.length === 0) super(clock.now);
+      else super(...args);
+    }
+    static now() { return clock.now; }
+  }
+
+  // ---------------------------------------------------------- properties
+  const store = new Map();
+  const scriptProperties = {
+    getProperty: (k) => { env.propertyReads++; return store.has(k) ? store.get(k) : null; },
+    setProperty(k, v) {
+      v = String(v);
+      if (Buffer.byteLength(v) > 9000) throw new Error('Property value too large: ' + k + ' (' + Buffer.byteLength(v) + ' bytes)');
+      store.set(k, v);
+      let total = 0;
+      store.forEach((val, key) => { total += Buffer.byteLength(key) + Buffer.byteLength(val); });
+      if (total > 500000) throw new Error('Property store over 500KB');
+      return scriptProperties;
+    },
+    setProperties(obj) {
+      Object.keys(obj).forEach((k) => scriptProperties.setProperty(k, obj[k]));
+      return scriptProperties;
+    },
+    deleteProperty(k) { store.delete(k); return scriptProperties; },
+    getProperties() {
+      const out = {};
+      store.forEach((v, k) => { out[k] = v; });
+      return out;
+    }
+  };
+
+  // ---------------------------------------------------------- cache
+  const cacheStore = new Map();
+  const scriptCache = {
+    get(k) {
+      const hit = cacheStore.get(k);
+      if (!hit) return null;
+      if (hit.expires <= clock.now) { cacheStore.delete(k); return null; }
+      return hit.value;
+    },
+    remove(k) { cacheStore.delete(k); },
+    put(k, v, ttlSeconds) {
+      if (k.length > 250) throw new Error('Cache key too long');
+      if (String(v).length > 100000) throw new Error('Cache value over 100KB: ' + k);
+      cacheStore.set(k, { value: String(v), expires: clock.now + (ttlSeconds || 600) * 1000 });
+    }
+  };
+
+  // ---------------------------------------------------------- spreadsheet
+  const spreadsheets = new Map();
+
+  function makeSpreadsheet(name) {
+    const ss = {
+      id: 'sheet-' + (spreadsheets.size + 1),
+      name,
+      sheets: new Map(),
+      getId() { return ss.id; },
+      getUrl() { return 'https://docs.google.com/spreadsheets/d/' + ss.id; },
+      getSheetByName(n) { return ss.sheets.get(n) || null; },
+      insertSheet(n) { const sh = makeSheet(n); ss.sheets.set(n, sh); return sh; }
+    };
+    spreadsheets.set(ss.id, ss);
+    return ss;
+  }
+
+  function makeSheet(name) {
+    const sheet = {
+      name,
+      rows: [],
+      formulas: [],
+      width() { return sheet.rows.reduce((w, r) => Math.max(w, r.length), 0); },
+      store(value, row, col) {
+        // Sheets strips a leading apostrophe and stores the rest as text; an
+        // unguarded leading "=" becomes a formula, which must never happen.
+        if (typeof value === 'string' && value.charAt(0) === "'") return value.slice(1);
+        if (typeof value === 'string' && value.charAt(0) === '=') sheet.formulas.push({ row, col, value });
+        return value;
+      },
+      appendRow(values) {
+        const r = sheet.rows.length + 1;
+        values.forEach((v) => {
+          if (typeof v === 'string' && v.length > 50000) throw new Error('Cell over 50,000 characters');
+        });
+        sheet.rows.push(values.map((v, i) => sheet.store(v, r, i + 1)));
+        return sheet;
+      },
+      getLastRow() { return sheet.rows.length; },
+      getName() { return sheet.name; },
+      deleteRow(row) { sheet.rows.splice(row - 1, 1); return sheet; },
+      setFrozenRows() { return sheet; },
+      getDataRange() {
+        const w = sheet.width();
+        return { getValues: () => sheet.rows.map((r) => pad(r, w)) };
+      },
+      getRange(a, b, c, d) {
+        if (typeof a === 'string') return { setNumberFormat() { return this; } };
+        const row = a, col = b, numRows = c || 1, numCols = d || 1;
+        return {
+          getValue: () => cell(row, col),
+          setValue: (v) => { setCell(row, col, v); },
+          getValues: () => {
+            const out = [];
+            for (let i = 0; i < numRows; i++) {
+              const line = [];
+              for (let j = 0; j < numCols; j++) line.push(cell(row + i, col + j));
+              out.push(line);
+            }
+            return out;
+          },
+          setValues: (values) => {
+            values.forEach((line, i) => line.forEach((v, j) => setCell(row + i, col + j, v)));
+          }
+        };
+      }
+    };
+    function cell(row, col) {
+      const r = sheet.rows[row - 1];
+      return r && r[col - 1] !== undefined ? r[col - 1] : '';
+    }
+    function setCell(row, col, v) {
+      while (sheet.rows.length < row) sheet.rows.push([]);
+      const r = sheet.rows[row - 1];
+      while (r.length < col) r.push('');
+      r[col - 1] = sheet.store(v, row, col);
+    }
+    return sheet;
+  }
+
+  function pad(r, w) {
+    const out = r.slice();
+    while (out.length < w) out.push('');
+    return out;
+  }
+
+  // ---------------------------------------------------------- services
+  const services = {
+    Date: FakeDate,
+    console: {
+      log: (...a) => env.logs.push(a.join(' ')),
+      error: (...a) => env.logs.push('ERROR ' + a.join(' '))
+    },
+    PropertiesService: { getScriptProperties: () => scriptProperties },
+    CacheService: { getScriptCache: () => scriptCache },
+    LockService: { getScriptLock: () => ({ waitLock() {}, tryLock() { return true; }, releaseLock() {} }) },
+    Session: {
+      getActiveUser: () => ({ getEmail: () => env.activeUser || '' }),
+      getEffectiveUser: () => ({ getEmail: () => env.owner }),
+      getScriptTimeZone: () => 'America/Los_Angeles'
+    },
+    Utilities: {
+      getUuid: () => crypto.randomUUID(),
+      formatDate: (date) => new RealDate(date.getTime()).toISOString(),
+      newBlob: (data, contentType, name) => ({ data, contentType, name, getDataAsString: () => data })
+    },
+    SpreadsheetApp: {
+      openById: (id) => {
+        const ss = spreadsheets.get(id);
+        if (!ss) throw new Error('No spreadsheet ' + id);
+        return ss;
+      },
+      create: (name) => makeSpreadsheet(name)
+    },
+    MailApp: {
+      sendEmail: (message) => {
+        if (env.mailQuota <= 0) throw new Error('Service invoked too many times: email');
+        env.mailQuota -= String(message.to).split(',').length;
+        env.outbox.push(message);
+      },
+      getRemainingDailyQuota: () => env.mailQuota
+    },
+    UrlFetchApp: {
+      fetch: (url, opts) => {
+        const body = JSON.parse(opts.payload);
+        const call = { url, prompt: body.contents[0].parts[0].text, schema: body.generationConfig.responseSchema };
+        env.geminiCalls.push(call);
+        const result = env.gemini(call);
+        if (result && result.status) {
+          return { getResponseCode: () => result.status, getContentText: () => result.text || '' };
+        }
+        const text = JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify(result) }] } }] });
+        return { getResponseCode: () => 200, getContentText: () => text };
+      }
+    },
+    ScriptApp: {
+      getService: () => ({ getUrl: () => DEPLOY_URL }),
+      getProjectTriggers: () => env.triggers.slice(),
+      deleteTrigger: (t) => { env.triggers = env.triggers.filter((x) => x !== t); },
+      newTrigger: (handler) => {
+        const t = { handler, getHandlerFunction: () => handler };
+        const chain = { timeBased: () => chain, everyMinutes: (n) => { t.minutes = n; return chain; }, create: () => { env.triggers.push(t); return t; } };
+        return chain;
+      }
+    },
+    ContentService: {
+      MimeType: { JSON: 'application/json' },
+      createTextOutput: (text) => {
+        const out = { text, mime: null, setMimeType(m) { out.mime = m; return out; }, json: () => JSON.parse(text) };
+        return out;
+      }
+    },
+    HtmlService: {
+      XFrameOptionsMode: { ALLOWALL: 'ALLOWALL' },
+      createTemplateFromFile: (file) => {
+        const template = {
+          evaluate: () => {
+            const out = {
+              file,
+              boot: template.boot,
+              data: JSON.parse(template.boot),
+              title: '',
+              setTitle(t) { out.title = t; return out; },
+              addMetaTag() { return out; },
+              setXFrameOptionsMode() { return out; },
+              setFaviconUrl(url) {
+                if (env.faviconError) throw new Error(env.faviconError);
+                out.favicon = url;
+                return out;
+              }
+            };
+            return out;
+          }
+        };
+        return template;
+      },
+      createHtmlOutputFromFile: () => ({ getContent: () => '' })
+    }
+  };
+
+  const names = Object.keys(services);
+  const factory = new Function(...names,
+    SOURCE + '\nreturn {' + FUNCTION_NAMES.join(',') + ', APP: APP, CONFIG: CONFIG, COLS: COLS, HEADERS: HEADERS, TOPIC_HEADERS: TOPIC_HEADERS};');
+  const app = factory(...names.map((n) => services[n]));
+
+  // ---------------------------------------------------------- helpers
+  const h = {
+    app,
+    env,
+    props: scriptProperties,
+    cache: scriptCache,
+    as(email) { env.activeUser = email; return h; },
+    anonymous() { env.activeUser = ''; return h; },
+    advance(seconds) { clock.now += seconds * 1000; return h; },
+    spreadsheet() { return spreadsheets.get(scriptProperties.getProperty('SHEET_ID')); },
+    questions() { return h.spreadsheet().getSheetByName('Questions'); },
+    topics() { return h.spreadsheet().getSheetByName('Topics'); },
+    assets() { return h.spreadsheet().getSheetByName('Assets'); },
+
+    /** POSTs to doPost the way scripts/loadtest.js does. */
+    post(body) {
+      const was = env.activeUser;
+      env.activeUser = '';
+      const out = app.doPost({ postData: { contents: typeof body === 'string' ? body : JSON.stringify(body) } });
+      env.activeUser = was;
+      return out.json();
+    },
+
+    /** Builds the pre-sessions (v3) spreadsheet layout, before setUp has run. */
+    legacySheet(rows) {
+      const ss = makeSpreadsheet('Question Desk — submissions');
+      scriptProperties.setProperty('SHEET_ID', ss.getId());
+      const sheet = ss.insertSheet('Questions');
+      sheet.appendRow(['ID', 'Submitted', 'Device', 'Question', 'Status', 'Topic', 'Language', 'Translation']);
+      rows.forEach((r) => sheet.appendRow(r));
+      return sheet;
+    },
+
+    /** Fresh install: setUp as owner, Gemini key set, moderators on the roster. */
+    install(opts) {
+      opts = opts || {};
+      const was = env.activeUser;
+      env.activeUser = env.owner;
+      app.setUp();
+      scriptProperties.setProperty('GEMINI_API_KEY', 'test-key');
+      (opts.moderators || []).forEach((m) => app.addPerson('moderator', m));
+      (opts.admins || []).forEach((m) => app.addPerson('admin', m));
+      env.activeUser = was;
+      return h;
+    },
+
+    /** Creates a session as the owner and returns the stored session object. */
+    session(fields) {
+      const was = env.activeUser;
+      env.activeUser = env.owner;
+      const before = new Set(app.allSessions_().map((s) => s.id));
+      app.saveSession(Object.assign({ name: 'Test session', access: 'room', theme: 'dark', maxLength: 300 }, fields || {}));
+      const created = app.allSessions_().find((s) => !before.has(s.id));
+      if (fields && fields.active) app.setSessionActive(created.id, true);
+      env.activeUser = was;
+      return app.getSession_(created.id);
+    },
+
+    /** Joins a session the way a phone does and returns the device id. */
+    join(session) {
+      const was = env.activeUser;
+      let credential;
+      if (session.access === 'link') {
+        credential = app.getSession_(session.id).linkKey;
+      } else {
+        env.activeUser = env.owner;
+        credential = new URL(app.getRoomScreen(session.id).url).searchParams.get('t');
+      }
+      env.activeUser = '';
+      const res = app.claimDevice(session.id, credential);
+      env.activeUser = was;
+      if (!res.ok) throw new Error('join failed: ' + res.reason);
+      return { deviceId: res.deviceId, credential };
+    },
+
+    /** Submits as an anonymous participant. */
+    ask(session, device, text) {
+      const was = env.activeUser;
+      env.activeUser = '';
+      const res = app.submitQuestion(session.id, device.deviceId, text, device.credential);
+      env.activeUser = was;
+      return res;
+    }
+  };
+  return h;
+}
+
+/** Stub Gemini: labels each question by its first word, translation = text. */
+function defaultGemini(call) {
+  if (call.schema.properties.assignments) {
+    const lines = call.prompt.split('New questions:\n')[1].split('\n\nDo not invent')[0].split('\n');
+    const assignments = lines.filter(Boolean).map((line) => {
+      const idx = line.indexOf(': ');
+      const id = line.slice(0, idx);
+      const text = line.slice(idx + 2);
+      return { id, topic: 'About ' + text.split(' ')[0].toLowerCase(), language: 'English', translation: text };
+    });
+    const topics = Array.from(new Set(assignments.map((a) => a.topic)));
+    return {
+      assignments,
+      labels: topics.map((topic) => ({ topic, translations: { ko: '[ko] ' + topic, es: '[es] ' + topic } }))
+    };
+  }
+  if (call.schema.properties.question) {
+    return { question: 'What does everyone want to know?', translations: { ko: '[ko] merged', es: '[es] merged' } };
+  }
+  return { ok: true };
+}
+
+module.exports = { createApp, OWNER, DEPLOY_URL, PUBLIC_URL };

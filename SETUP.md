@@ -12,41 +12,88 @@ grouped into topics by Gemini instead of as one long undifferentiated list.
 
 ## Install
 
-1. Go to script.google.com and create a new project.
-2. Create these files and paste in the contents:
-   - `Code.gs`
-   - `Ask.html`
-   - `Present.html`
-   - `Moderate.html`
-   - `Denied.html`
-3. Open **Project Settings → Script Properties** and add:
-   - `GEMINI_API_KEY` — your AI Studio key
-   - `MODERATORS` — comma-separated emails allowed to see the queue
-   - `SESSION_HEADING` — optional, the heading shown to participants
-4. Run `setUp()` once from the editor. Approve the permission prompts. It creates the
-   submissions spreadsheet, installs the clustering trigger, and logs the sheet URL.
-5. **Deploy → New deployment → Web app**:
+1. Push the code with clasp (see "Working on this locally" below). Pasting files into
+   the editor also works: `Code.gs` (from `Code.js`), `Ask.html`, `Present.html`,
+   `Moderate.html`, `Admin.html`, `Denied.html`, and `appsscript.json`.
+2. Open **Project Settings → Script Properties** and add `GEMINI_API_KEY` — your AI
+   Studio key. Everything else is managed on the Admin page.
+3. Run `setUp()` once from the editor. Approve the permission prompts, including
+   "send email as you". It creates the submissions spreadsheet, installs the
+   clustering trigger, and moves any questions from an older single-session install
+   into a session called "First session". Run it again whenever an update adds a
+   permission.
+4. **Deploy → New deployment → Web app**:
    - Execute as: **Me**
    - Who has access: **Anyone**
-6. Copy the deployment URL.
+5. Copy the deployment URL and open `…/exec?view=admin`, signed in as the script owner.
+
+## Admin page
+
+- **People** — add administrators and moderators. Both must be accounts in your
+  Workspace domain: Google does not tell the app who is signed in from any other
+  domain, so an outside moderator would always be turned away.
+- **Sessions** — create a session, choose how people join, pick its moderators, and
+  decide whether its summary is emailed when it ends. Activate it when doors open;
+  deactivate to pause it between days; **End session** when it is over for good.
+  Optionally schedule it to start and end on its own (checked every minute), and give
+  it its own organization name, accent color and logo for a partner event. Sessions
+  that are not running can be deleted with all their questions.
+  - **In-room QR** — the room screen code changes every 150 seconds. Only people who
+    can see the screen can ask.
+  - **Shareable link** — a fixed link and QR you can email or print. Anyone with the
+    link can ask. **Replace participant link** cuts off copies that have spread.
+- **Email links** sends the participant link (link sessions) or room screen / queue
+  links to anyone; each recipient gets their own email. **Email moderators** sends the
+  room screen and queue links to the session's moderators.
+- **Branding** — organization name, logo (resized in the browser before upload),
+  accent color, welcome text, footer, room screen background colors, tab icon (a link
+  to an image on your website), and the app address used in QR codes and emails.
+- **Health & testing** — run a health check (Gemini key and model, trigger, sheet,
+  email quota, app address) and start or finish a load test. Admins are emailed
+  automatically if question grouping fails three minutes in a row, and again when it
+  recovers.
+- The header shows the running **version** with a link to its release notes.
+
+The app's main address (`…/exec` with nothing after it) is a branded landing page:
+your logo, welcome text and "scan the code in the room". Signed-in staff also see
+their open sessions and, for administrators, a link to the Admin page.
 
 ## Running an event
 
+Open the session's **Links** on the Admin page:
+
 | View | URL | Who opens it |
 |---|---|---|
-| Room screen | `.../exec?view=present` | Whoever runs the projector |
-| Facilitator queue | `.../exec?view=moderate` | Moderator, signed in |
-| Participant page | reached only by scanning the QR | Audience |
+| Room screen | `…/exec?view=present&s=<session>` | Projector, signed in as a moderator or admin |
+| Facilitator queue | `…/exec?view=moderate&s=<session>` | Moderator, signed in |
+| Participant page | the QR on the room screen, or the shareable link | Audience |
 
-Put the present view on the screen before doors open. The QR regenerates every
-150 seconds; a scan trades that short-lived token for a device token stored in the
-participant's browser, so people who scanned earlier keep working while a URL
-forwarded outside the room goes dead.
+Put the room screen up before doors open. It follows the session live: it shows the
+code when the session is active, "Questions open soon" when it isn't, and switches
+light/dark if an admin changes the theme. Press **T** on the room screen to flip the
+theme locally if the projector washes out.
+
+Several sessions can run at once (breakout rooms); each has its own code, queue,
+cooldown and question cap.
+
+When a session ends, a final grouping pass translates anything still waiting, and —
+if the session asks for it — its moderators get an email with topics, merged
+questions, every question with its original wording, and a CSV. Ended sessions can
+be re-sent from the Admin page with **Email summary**.
 
 Questions land in the sheet within a second. The trigger clusters them every minute,
 or hit **Group now** to force it. **Merge into one question** asks Gemini to collapse
 a topic into a single question to read aloud — that is the part that saves the
 facilitator the most time.
+
+**Now answering** on a topic puts it on the room screen and at the top of everyone's
+phone, in English, Korean and Spanish, with the merged question if there is one.
+Press it again (**Stop showing**) to clear it.
+
+Participants who have joined also see the list of topics — the short topic labels,
+never anyone's actual question — in their own language, and can tap **Me too** on
+any of them. The queue shows "+N me too" per topic and sorts by questions plus
+support, so the facilitator sees what the room most wants answered.
 
 ## Working on this locally instead
 
@@ -61,27 +108,54 @@ clasp login
 You also need to switch on the Apps Script API once, at
 script.google.com/home/usersettings — clasp fails with a confusing error if you skip it.
 
-Then either clone what you already deployed:
+Then either point this folder at what you already deployed:
 
 ```bash
-clasp clone <scriptId>        # scriptId is in the editor URL
+cp .clasp.json.example .clasp.json   # set scriptId (Project Settings in the editor)
 ```
 
-or push this folder up as a new project:
+or create a new project from this folder:
 
 ```bash
-clasp create --title "Question Desk" --type webapp
-clasp push
-clasp deploy
+clasp create-script --type standalone --title "Question Desk"
+git checkout appsscript.json         # clasp create overwrites the manifest
+clasp push --force
 ```
 
-Two gotchas:
+For releases, copy `.deploy.env.example` to `.deploy.env` and set the web app's
+deployment ID (Deploy → Manage deployments) and, if you use named clasp logins, the
+account name. Both `.clasp.json` and `.deploy.env` are git-ignored; they identify your
+install and never belong in the repository.
 
-- Rename `Code.gs` to `Code.js` locally. clasp treats `.js` as server code and
-  uploads it as `.gs`; the HTML files keep their extension.
+Gotchas:
+
+- Server code is `Code.js` locally. clasp uploads it as `.gs`; the HTML files keep
+  their extension. `.claspignore` is an allowlist — add any new page to it.
 - `clasp push` **overwrites** the remote project, and `clasp pull` overwrites your
-  local files. There is no merge. Pick one side as the source of truth — local, if
-  you are using git — and never edit in the web editor once you have.
+  local files. There is no merge. Local, in git, is the source of truth — never edit
+  in the web editor.
+- `clasp create` replaces `appsscript.json` with a default that drops the web app and
+  scope settings. Restore it from git before the first push.
+- A push only updates the project's draft (HEAD). The live URL serves a pinned
+  version until the deployment is updated.
+
+### Tests and shipping
+
+```bash
+node --test tests/*.test.js          # ~140 functional tests, about a second
+node scripts/check-secrets.js        # keys, IDs and real email addresses
+scripts/ship.sh "what changed"       # scan → tests → push → version → redeploy → tag → GitHub release
+```
+
+Before shipping, bump `APP.version` at the top of `Code.js` and add a dated section to
+`CHANGELOG.md`; `ship.sh` refuses a version that has already been released and uses
+that section as the GitHub release notes the Admin page links to.
+
+The tests run the real `Code.js` against fake Apps Script services, so roles,
+sessions, tokens, limits, clustering, emails and the setup migration are checked
+without deploying. A git pre-commit hook runs them automatically. They can't check
+real concurrency or how pages look on a phone — still do a scan on mobile data after
+every ship.
 
 Command names shifted in clasp 3.x (`create-script`, `create-deployment`), so if a
 command comes back unknown, run `clasp --help` and use what it lists.
@@ -108,8 +182,9 @@ Spanish question about the same thing land in the same group instead of forming 
 parallel topics that never meet. Set `CONFIG.moderatorLanguage` if English isn't
 your facilitator's working language.
 
-`SESSION_HEADING` is a single string, so it appears in whatever language you write
-it. Either write it in all three, or leave it unset to use the default.
+A session's participant heading is a single string, so it appears in whatever
+language you write it. Either write it in all three, or leave it blank to use the
+default.
 
 One caution worth taking seriously: the facilitator will be reading a machine
 translation aloud to a room that contains native speakers of the original. For a
@@ -123,8 +198,10 @@ but that's an instruction, not a guarantee.
 - **Per-device cooldown, 5 minutes.** Stops double-taps and casual repeat posting.
   It is beatable by re-scanning in incognito — but only by someone sitting in the
   room looking at the screen, since the entry token is short-lived.
-- **Room-wide cap, 15 questions a minute.** Identity-free flood protection. Excess
+- **Per-session cap, 15 questions a minute.** Identity-free flood protection. Excess
   submissions get a "try again in a moment" message rather than being dropped.
+- **Question length.** 300 characters by default, adjustable per session up to 1024.
+  Oversized submissions are rejected before the server does any work on them.
 - **Pause submissions.** Manual kill switch for the facilitator.
 - **Clustering.** The real spam defense. Twenty questions from one person collapse
   into one topic card the facilitator dismisses once.
@@ -134,17 +211,30 @@ establish who a person is. Treat the cooldown as friction, not enforcement.
 
 ## Config
 
-Everything tunable is in the `CONFIG` object at the top of `Code.gs`:
-cooldown length, room cap, QR rotation interval, character limit, model. Set
-`requireEntryToken: false` if you would rather print the QR on a flyer and drop
-the room scoping.
+Everything tunable is in the `CONFIG` object at the top of `Code.js`:
+cooldown length, per-session question cap, QR rotation interval, default and maximum
+question length (300 and 1024), model. Per-session choices — how people join, screen
+theme, question length — are set on the Admin page. For a flyer QR, create the
+session as a shareable link.
 
 ## Before you go live
 
 Load-test it. An anonymous web app runs every request as the owner, and Apps Script
 caps simultaneous executions, so a full room submitting at once is the failure mode
-to rule out — not the daily quotas, which you will not come near. Open the participant
-URL on a dozen phones and have everyone submit on a count of three.
+to rule out — not the daily quotas, which you will not come near.
+
+1. Admin page → **Health & testing** → **Start load test**. It creates a throwaway
+   session and switches on a keyed test endpoint for one hour.
+2. Copy the command it shows and run it from this folder, with `--count` set to your
+   largest room:
+   `node scripts/loadtest.js --url "https://script.google.com/macros/s/…/exec" --key … --count 60`
+3. Read the report: every submission should be `ok`. `busy` means requests queued more
+   than 10 seconds; HTTP or network errors mean Apps Script refused concurrent
+   executions.
+4. **Finish and delete test data.**
+
+Then do the human version: a dozen phones on mobile data, everyone submits on a count
+of three.
 
 Worth knowing: `gemini-3.5-flash` is current as of now, but Google retires model IDs
 on a schedule. If clustering silently stops working months from now, check the
