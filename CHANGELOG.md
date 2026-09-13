@@ -4,6 +4,45 @@ All notable changes to Question Desk. Versions follow [Semantic Versioning](http
 Each release is tagged `vX.Y.Z` and published as a GitHub release by `scripts/ship.sh`,
 which reads the notes for that version from this file.
 
+## [2.3.0] - 2026-09-12
+
+### Added
+- **Clock on the room screen** with the time the code last updated. If updates stop for
+  a minute, the screen says so and fades the code, instead of silently showing an expired one.
+- **Dismissed questions are kept** in a *Dismissed* section at the bottom of the QA
+  Facilitator queue, each with **Restore**.
+- **Browser tests in WebKit and Chromium** (`npm run test:browsers`): room screen at
+  projector, slide, square and tall sizes (one QR code, fully visible, nothing
+  overlapping, clock ticking), queue buttons responding before the server, and the
+  participant page on an iPhone. Run in CI and before every release.
+- **Live check after every release** (`scripts/smoke-live.js`): loads the deployed app as
+  an iPhone (WebKit) and in Chromium, in both address forms, and prints the rollback
+  command if Google returns an error page.
+
+### Changed
+- **Queue buttons respond instantly.** The page updates at once and saves in the
+  background; each save opens the spreadsheet once and reads each sheet at most once
+  (previously 5+ seconds per click).
+- **Answered questions sink** to the bottom of their topic, and fully answered topics to
+  the bottom of the queue.
+- The queue button is now **Answer now** (and **Stop answering**). The room screen and
+  phones still show "Now answering".
+- The room screen checks for changes every 5 seconds (was 20); phones every 15 seconds
+  (was 30), with a 5-second topic cache.
+- **Room screen links use the public address**, so they open for guests and venue
+  browsers signed into their own Google accounts.
+- The room screen adapts to its box: text beside the code when wide, above it when
+  square or tall — for any monitor, projector or slide shape.
+- The PowerPoint add-in inserts sized to fill a 16:9 slide and no longer saves a snapshot
+  image that could show an old code.
+
+### Fixed
+- The QR code is drawn as a single SVG. PowerPoint for Mac's built-in browser could show
+  the library's canvas and image stacked, one cut off.
+- Google's "Sorry, unable to open the file at this time" on the room screen for browsers
+  signed into a personal Google account (the room screen link was the domain form).
+- The room screen's hover label ("Question Desk room screen") no longer shows on slides.
+
 ## [2.2.0] - 2026-09-12
 
 ### Added
@@ -118,6 +157,7 @@ which reads the notes for that version from this file.
 - "Merge into one question" for reading a topic aloud.
 - Participant page in English, Korean and Spanish.
 
+[2.3.0]: https://github.com/djsincla/question-desk/releases/tag/v2.3.0
 [2.2.0]: https://github.com/djsincla/question-desk/releases/tag/v2.2.0
 [2.1.1]: https://github.com/djsincla/question-desk/releases/tag/v2.1.1
 [2.1.0]: https://github.com/djsincla/question-desk/releases/tag/v2.1.0

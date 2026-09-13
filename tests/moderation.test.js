@@ -156,3 +156,57 @@ test('pausing is per session', () => {
   assert.equal(h.app.getBoard(a.id).open, false);
   assert.equal(h.app.getBoard(b.id).open, true);
 });
+
+// ------------------------------------------------------------ speed and ordering
+
+test('a queue button opens the spreadsheet once and reads each sheet at most once', () => {
+  const { h, a } = setup();
+  for (let i = 0; i < 5; i++) h.ask(a, h.join(a), 'Parking question ' + i);
+  h.app.clusterQuestions();
+  h.as(MOD);
+  const id = h.questions().rows[1][0];
+
+  const measure = (fn) => { h.env.opens = 0; h.env.sheetReads = 0; fn(); return [h.env.opens, h.env.sheetReads]; };
+  const [opens, reads] = measure(() => h.app.setTopicShown(a.id, 'About parking', true));
+  assert.equal(opens, 1, 'setTopicShown opens the spreadsheet once');
+  assert.ok(reads <= 3, 'setTopicShown reads ' + reads + ' times (questions, topics, and topics again under the lock)');
+  assert.deepEqual(measure(() => h.app.getBoard(a.id)), [1, 2], 'getBoard: one open, questions + topics');
+  const [o2, r2] = measure(() => h.app.setStatus(a.id, [id], 'answered'));
+  assert.equal(o2, 1);
+  assert.ok(r2 <= 3, 'setStatus reads ' + r2);
+});
+
+test('answered questions and topics sink to the bottom; dismissed ones are kept and restorable', () => {
+  const { h, a } = setup();
+  h.ask(a, h.join(a), 'Parking one'); h.advance(5);
+  h.ask(a, h.join(a), 'Parking two'); h.advance(5);
+  h.ask(a, h.join(a), 'Funding one'); h.advance(5);
+  h.ask(a, h.join(a), 'Funding two'); h.advance(5);
+  h.ask(a, h.join(a), 'Funding three');
+  h.app.clusterQuestions();
+  h.as(MOD);
+  const idOf = (text) => h.questions().rows.find((r) => r[3] === text)[0];
+
+  let board = h.app.setStatus(a.id, [idOf('Funding one')], 'answered');
+  const funding = board.topics.find((t) => t.topic === 'About funding');
+  assert.deepEqual(funding.questions.map((q) => q.text), ['Funding two', 'Funding three', 'Funding one'], 'answered sinks within its topic');
+
+  board = h.app.setStatus(a.id, [idOf('Funding two'), idOf('Funding three')], 'answered');
+  assert.deepEqual(board.topics.map((t) => [t.topic, t.answered]), [['About parking', false], ['About funding', true]], 'fully answered topic sinks');
+
+  board = h.app.setStatus(a.id, [idOf('Parking two')], 'dismissed');
+  assert.deepEqual(board.dismissed.map((q) => q.text), ['Parking two']);
+  assert.deepEqual(board.topics[0].questions.map((q) => q.text), ['Parking one']);
+
+  board = h.app.setStatus(a.id, [idOf('Parking two')], 'new');
+  assert.deepEqual(board.dismissed, [], 'restored');
+  assert.deepEqual(board.topics[0].questions.map((q) => q.text), ['Parking one', 'Parking two']);
+});
+
+test('the room screen checks for changes every 5 seconds', () => {
+  const h = createApp().install();
+  const room = h.session({ name: 'Room', active: true });
+  const link = h.session({ name: 'Link', access: 'link', active: true });
+  assert.ok(h.app.getRoomScreen(room.id).refreshInSeconds <= 5);
+  assert.equal(h.app.getRoomScreen(link.id).refreshInSeconds, 5);
+});

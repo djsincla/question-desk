@@ -9,7 +9,7 @@
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:type="ContentApp">
   <Id>cbe57d61-2cd8-4fdf-ae94-438fc403a58e</Id>
-  <Version>2.2.0.0</Version>
+  <Version>2.3.0.0</Version>
   <ProviderName>Question Desk</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
   <DisplayName DefaultValue="Question Desk QR" />
@@ -25,9 +25,11 @@
   </Hosts>
   <DefaultSettings>
     <SourceLocation DefaultValue="https://djsincla.github.io/question-desk/addin/index.html" />
-    <RequestedWidth>480</RequestedWidth>
-    <RequestedHeight>520</RequestedHeight>
+    <!-- A standard 16:9 slide is 960 x 540 points: the box fills the slide when inserted. -->
+    <RequestedWidth>960</RequestedWidth>
+    <RequestedHeight>540</RequestedHeight>
   </DefaultSettings>
   <Permissions>ReadWriteDocument</Permissions>
-  <AllowSnapshot>true</AllowSnapshot>
+  <!-- No saved picture of the slide: a stored image would show an expired code. -->
+  <AllowSnapshot>false</AllowSnapshot>
 </OfficeApp>

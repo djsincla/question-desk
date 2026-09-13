@@ -70,6 +70,7 @@ test('manifest is a PowerPoint content add-in served from GitHub Pages, versione
   const positions = order.map((tag) => manifest.indexOf('<' + tag));
   positions.forEach((p, i) => assert.ok(p > 0 && (i === 0 || p > positions[i - 1]), order[i] + ' out of order'));
   assert.ok(fs.existsSync(path.join(ROOT, 'docs/.nojekyll')));
+  assert.match(manifest, /<RequestedWidth>960<\/RequestedWidth>\s*<RequestedHeight>540<\/RequestedHeight>/, 'fills a 16:9 slide');
 });
 
 test('the add-in page only ever frames an address produced by RoomUrl', () => {

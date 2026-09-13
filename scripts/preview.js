@@ -150,7 +150,9 @@ function shim(as, params) {
     '})();</script>';
 }
 
-function serve(port) {
+/** options.rpcDelayMs slows every server call, to prove pages don't wait for the server. */
+function serve(port, options) {
+  options = options || {};
   const { h, live } = buildDemo();
   const server = http.createServer((req, res) => {
     const url = new URL(req.url, 'http://localhost');
@@ -167,8 +169,11 @@ function serve(port) {
         } catch (err) {
           out = { error: err.message };
         }
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(out === undefined ? {} : out));
+        const reply = () => {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(out === undefined ? {} : out));
+        };
+        if (options.rpcDelayMs) setTimeout(reply, options.rpcDelayMs); else reply();
       });
       return;
     }

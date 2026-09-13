@@ -154,7 +154,8 @@ Gotchas:
 ### Tests and shipping
 
 ```bash
-node --test tests/*.test.js          # ~140 functional tests, about a second
+node --test tests/*.test.js          # ~180 functional tests, about a second
+npm run test:browsers                # WebKit + Chromium page tests (npm install first)
 node scripts/check-secrets.js        # keys, IDs and real email addresses
 scripts/ship.sh "what changed"       # scan → tests → push → version → redeploy → tag → GitHub release
 ```

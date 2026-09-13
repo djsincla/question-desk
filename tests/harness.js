@@ -33,6 +33,8 @@ function createApp(options) {
     mailQuota: 100,
     faviconError: null,
     propertyReads: 0,
+    opens: 0,
+    sheetReads: 0,
     triggers: [],
     logs: []
   };
@@ -132,6 +134,7 @@ function createApp(options) {
       deleteRow(row) { sheet.rows.splice(row - 1, 1); return sheet; },
       setFrozenRows() { return sheet; },
       getDataRange() {
+        env.sheetReads++;
         const w = sheet.width();
         return { getValues: () => sheet.rows.map((r) => pad(r, w)) };
       },
@@ -197,6 +200,7 @@ function createApp(options) {
     },
     SpreadsheetApp: {
       openById: (id) => {
+        env.opens++;
         const ss = spreadsheets.get(id);
         if (!ss) throw new Error('No spreadsheet ' + id);
         return ss;
@@ -272,7 +276,14 @@ function createApp(options) {
   const names = Object.keys(services);
   const factory = new Function(...names,
     SOURCE + '\nreturn {' + FUNCTION_NAMES.join(',') + ', APP: APP, CONFIG: CONFIG, COLS: COLS, HEADERS: HEADERS, TOPIC_HEADERS: TOPIC_HEADERS};');
-  const app = factory(...names.map((n) => services[n]));
+  const raw = factory(...names.map((n) => services[n]));
+  // Each call from a test is one Apps Script execution: globals (EXEC_) start fresh.
+  const app = {};
+  Object.keys(raw).forEach((k) => {
+    app[k] = typeof raw[k] === 'function' && k !== 'resetExecution_'
+      ? function () { raw.resetExecution_(); return raw[k].apply(null, arguments); }
+      : raw[k];
+  });
 
   // ---------------------------------------------------------- helpers
   const h = {

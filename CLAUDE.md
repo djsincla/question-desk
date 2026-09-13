@@ -60,10 +60,11 @@ does not carry the query string. That exact bug shipped once (v2): every QR scan
   `getRoomScreen()` need no sign-in, so any browser or Google account can show it. Only
   Admin and the queue are gated. For in-room sessions this means the rotating code is as
   private as the room screen link; do not reintroduce a sign-in or key without asking.
-- Staff links (room screen, queue, admin) use the address exactly as Google reports it —
-  do not rewrite them. Participant links and QR codes use `participantBaseUrl_()`, which
-  converts either domain-scoped form to `/macros/s/…` so other Google accounts aren't
-  asked to sign in.
+- Participant links, QR codes and the room screen link use `participantBaseUrl_()`, which
+  converts either domain-scoped form to `/macros/s/…`. Guests and venue browsers are
+  signed into their own Google accounts, and the domain form fails for them with Google's
+  "Sorry, unable to open the file at this time". Queue and admin links keep the reported
+  form (they need a staff sign-in anyway).
 - Ending or deleting a session requires the session name typed back
   (`requireTypedName_`, case and spacing forgiven). Session order is `order` on each
   session, set by `reorderSessions()`; new sessions go on top.
@@ -187,8 +188,23 @@ instruction in any prompt edits.
   moderation, topics, email, branding, operations, home, setup, repo). Fix a bug by
   first writing the test that fails. `tests/loadtest-script.test.js` runs the real
   load-test script against a local HTTP server backed by `doPost`.
-- The fakes cannot tell you about real Apps Script concurrency, real Gemini output, or
-  how the pages render. After shipping, do the phone scan test on mobile data.
+- `npm run test:browsers` (Playwright, dev-only) renders pages from `scripts/preview.js`
+  in **WebKit and Chromium**: room screen at many sizes and layouts (exactly one QR SVG,
+  fully on screen, no overlapping parts, clock ticking), queue buttons updating before a
+  deliberately slow server, iPhone participant page. Every visual change needs a check
+  here — Node tests can't see layout. PowerPoint's own web view still isn't covered;
+  test slides on a real Mac and Windows machine.
+- `scripts/smoke-live.js` checks the deployed app anonymously (WebKit iPhone + Chromium,
+  public and domain address forms). `ship.sh` runs it after deploying and prints a
+  rollback command on failure. It cannot simulate a browser signed into other Google
+  accounts.
+- Queue actions are optimistic in `Moderate.html` (`act`, `send`): change `state`, redraw,
+  then save; polls don't overwrite while a save is in flight. Server reads go through the
+  per-execution cache (`questionValues_`, `topicValues_`); writes must call
+  `questionsChanged_()` / `topicsChanged_()`. `tests/harness.js` resets it per call.
+- Present.html's CSS order matters: base rules, then the clock, then the
+  `@media (max-aspect-ratio: 5/4)` stacked layout last. The QR code is one SVG built from
+  qrcode.js's model — never let the library draw its canvas/img pair into the page.
 - Releases: bump `APP.version` in `Code.js` (semver) and add a dated `CHANGELOG.md`
   section. `scripts/ship.sh "what changed"` then runs the secret scan and tests, pushes,
   creates an Apps Script version, redeploys the same live URL, tags `v<APP.version>`,

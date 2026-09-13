@@ -45,6 +45,16 @@ echo "==> Tests"
 node --test tests/*.test.js > "${TMPDIR:-/tmp}/qd-test-$$.log" 2>&1 || { cat "${TMPDIR:-/tmp}/qd-test-$$.log"; rm -f "${TMPDIR:-/tmp}/qd-test-$$.log"; echo "Tests failed; nothing shipped." >&2; exit 1; }
 grep -E "^ℹ (tests|pass|fail)" "${TMPDIR:-/tmp}/qd-test-$$.log"; rm -f "${TMPDIR:-/tmp}/qd-test-$$.log"
 
+echo "==> Browser tests (WebKit and Chromium)"
+if [ ! -d node_modules/playwright ]; then
+  echo "Browser tests need Playwright: npm install && npx playwright install webkit chromium" >&2
+  exit 1
+fi
+npm run -s test:browsers > "${TMPDIR:-/tmp}/qd-browser-$$.log" 2>&1 || { grep -E "^✖|Assertion|Error" "${TMPDIR:-/tmp}/qd-browser-$$.log" | head -20; rm -f "${TMPDIR:-/tmp}/qd-browser-$$.log"; echo "Browser tests failed; nothing shipped." >&2; exit 1; }
+grep -E "^ℹ (tests|pass|fail)" "${TMPDIR:-/tmp}/qd-browser-$$.log"; rm -f "${TMPDIR:-/tmp}/qd-browser-$$.log"
+
+PREVIOUS=$(clasp list-deployments $USER_ARGS 2>/dev/null | sed -n "s/^- $DEPLOYMENT_ID @\([0-9][0-9]*\).*/\1/p")
+
 echo "==> Push"
 clasp push --force $USER_ARGS
 
@@ -55,6 +65,13 @@ echo "Created version $VERSION"
 
 echo "==> Deploy"
 clasp update-deployment "$DEPLOYMENT_ID" -V "$VERSION" -d "Question Desk" $USER_ARGS
+
+echo "==> Live check"
+if ! QD_DEPLOYMENT_ID="$DEPLOYMENT_ID" QD_DOMAIN="${QD_DOMAIN:-}" node scripts/smoke-live.js; then
+  echo "The live app did not answer correctly after deploying version $VERSION." >&2
+  [ -n "$PREVIOUS" ] && echo "Roll back with: clasp update-deployment $DEPLOYMENT_ID -V $PREVIOUS -d \"Question Desk\" $USER_ARGS" >&2
+  exit 1
+fi
 
 git tag -a "v$APP_VERSION" -m "Question Desk $APP_VERSION (Apps Script version $VERSION): $DESC"
 echo "Tagged v$APP_VERSION"

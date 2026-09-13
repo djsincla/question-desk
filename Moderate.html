@@ -75,6 +75,10 @@
   .prepared summary { padding: 11px 14px; cursor: pointer; font-weight: 600; background: var(--paper); border-radius: 6px; }
   .prepared summary span { color: var(--muted); font-weight: 400; }
   .prepared li .text { color: var(--ink); }
+  .dismissed-box { margin-top: 28px; }
+  .dismissed-box li .text { color: var(--muted); }
+  .topic.done:not(.live) { opacity: 0.72; }
+  .topic.done:not(.live) > .head { background: #fff; }
   button.danger-solid { background: var(--stop); border-color: var(--stop); color: #fff; }
   .topic > .head {
     display: flex; align-items: center; justify-content: space-between; gap: 12px;
@@ -149,6 +153,11 @@
 </details>
 
 <div id="board"><p class="empty">Waiting for the first question.</p></div>
+
+<details class="prepared dismissed-box" id="dismissed" hidden>
+  <summary>Dismissed <span id="dismissedCount"></span></summary>
+  <ul id="dismissedList"></ul>
+</details>
 
 <div class="modal" id="dialog" hidden>
   <form id="dialogForm" role="dialog" aria-modal="true" aria-labelledby="dialogTitle">
@@ -230,7 +239,91 @@
     if (done) done();
   });
 
-  function draw(data) {
+  // ------------------------------------------------------------ instant updates
+  //
+  // Every click changes the page immediately, then saves in the background. Apps Script
+  // takes a second or more to answer, so waiting for it made buttons feel broken. While
+  // a save is in flight, background refreshes don't overwrite what the facilitator just did.
+
+  var pending = 0;
+  var topicMeta = {};   // votes and phone approval per topic, to restore topics that emptied
+
+  function send(fn, args) {
+    pending++;
+    var runner = google.script.run
+      .withSuccessHandler(function (fresh) {
+        pending--;
+        if (!pending && fresh && fresh.session) draw(fresh);
+      })
+      .withFailureHandler(function (err) {
+        pending--;
+        tally.textContent = 'That change didn\'t save' + (err && err.message ? ' (' + err.message + ')' : '') + ' — reloading';
+        load(true);
+      });
+    runner[fn].apply(runner, args);
+  }
+
+  function byAnswered(a, b) {
+    return ((a.status === 'answered') - (b.status === 'answered')) || (a.submitted - b.submitted);
+  }
+
+  /** Same ordering as the server: open first, answered below, fully answered topics last. */
+  function normalize(data) {
+    data.dismissed = data.dismissed || [];
+    data.unsorted.sort(byAnswered);
+    data.topics.forEach(function (t) {
+      t.questions.sort(byAnswered);
+      t.count = t.questions.length;
+      t.answered = t.count > 0 && t.questions.every(function (q) { return q.status === 'answered'; });
+      topicMeta[t.topic] = { votes: t.votes, shown: t.shown };
+    });
+    data.topics = data.topics.filter(function (t) { return t.count > 0; });
+    data.topics.sort(function (a, b) { return (a.answered - b.answered) || ((b.count + b.votes) - (a.count + a.votes)); });
+    data.dismissed.sort(function (a, b) { return b.submitted - a.submitted; });
+  }
+
+  function findTopic(name) {
+    for (var i = 0; i < state.topics.length; i++) if (state.topics[i].topic === name) return state.topics[i];
+    return null;
+  }
+
+  function takeQuestion(id) {
+    var lists = [state.unsorted, state.dismissed];
+    state.topics.forEach(function (t) { lists.push(t.questions); });
+    for (var i = 0; i < lists.length; i++) {
+      for (var j = 0; j < lists[i].length; j++) {
+        if (lists[i][j].id === id) return lists[i].splice(j, 1)[0];
+      }
+    }
+    return null;
+  }
+
+  function placeQuestion(q) {
+    if (q.status === 'dismissed') { state.dismissed.push(q); return; }
+    if (!q.topic) { state.unsorted.push(q); return; }
+    var t = findTopic(q.topic);
+    if (!t) {
+      var meta = topicMeta[q.topic] || { votes: 0, shown: false };
+      t = { topic: q.topic, questions: [], count: 0, votes: meta.votes, shown: meta.shown };
+      state.topics.push(t);
+    }
+    t.questions.push(q);
+  }
+
+  function act(ids, status) {
+    ids.forEach(function (id) {
+      var q = takeQuestion(id);
+      if (!q) return;
+      q.status = status;
+      placeQuestion(q);
+    });
+    normalize(state);
+    draw(state, true);
+    send('setStatus', [sid, ids, status]);
+  }
+
+  function draw(data, local) {
+    if (!local) normalize(data);
     state = data;
     ended = data.session.status === 'ended';
     document.getElementById('name').textContent = data.session.name;
@@ -247,6 +340,7 @@
 
     toggle.textContent = data.open ? 'Pause submissions' : 'Reopen submissions';
     drawPrepared(data.prepared || []);
+    drawDismissed(data.dismissed);
 
     var total = data.unsorted.length;
     data.topics.forEach(function (t) { total += t.count; });
@@ -280,12 +374,11 @@
       var add = el('button', 'primary');
       add.textContent = 'Add to queue';
       add.onclick = function () {
-        add.disabled = true;
-        add.textContent = 'Adding…';
-        google.script.run.withSuccessHandler(draw).withFailureHandler(function () {
-          add.disabled = false;
-          add.textContent = 'Add to queue';
-        }).usePrepared(sid, [q.id]);
+        state.prepared = state.prepared.filter(function (p) { return p.id !== q.id; });
+        state.unsorted.push({ id: q.id, text: q.text, lang: '', translation: '', topic: '', status: 'new', submitted: Date.now() });
+        normalize(state);
+        draw(state, true);
+        send('usePrepared', [sid, [q.id]]);
       };
       acts.appendChild(add);
       li.appendChild(acts);
@@ -293,14 +386,43 @@
     });
   }
 
+  function drawDismissed(list) {
+    var box = document.getElementById('dismissed');
+    box.hidden = !list.length;
+    document.getElementById('dismissedCount').textContent = '· ' + list.length;
+    var ul = document.getElementById('dismissedList');
+    ul.innerHTML = '';
+    list.forEach(function (q) {
+      var li = el('li');
+      var text = el('div', 'text');
+      var translated = q.translation && q.translation !== q.text;
+      text.textContent = translated ? q.translation : q.text;
+      if (q.topic) {
+        var where = el('span', 'original');
+        where.textContent = q.topic;
+        text.appendChild(where);
+      }
+      li.appendChild(text);
+      if (!ended) {
+        var acts = el('div', 'acts');
+        var restore = el('button');
+        restore.textContent = 'Restore';
+        restore.onclick = function () { act([q.id], 'new'); };
+        acts.appendChild(restore);
+        li.appendChild(acts);
+      }
+      ul.appendChild(li);
+    });
+  }
+
   function topicBlock(t, mergedText, isLoose, isLive) {
-    var wrap = el('div', isLive ? 'topic live' : 'topic');
+    var wrap = el('div', 'topic' + (isLive ? ' live' : '') + (t.answered ? ' done' : ''));
 
     var head = el('div', 'head');
     var h = el('h2');
     h.textContent = t.topic;
     var c = el('span', 'count');
-    c.textContent = t.count + (t.count === 1 ? ' question' : ' questions');
+    c.textContent = t.count + (t.count === 1 ? ' question' : ' questions') + (t.answered ? ' · all answered' : '');
     h.appendChild(document.createTextNode(' '));
     h.appendChild(c);
     if (t.shown) {
@@ -318,13 +440,14 @@
     if (!isLoose && !ended) {
       var acts = el('div', 'acts');
       var live = el('button', isLive ? '' : 'primary');
-      live.textContent = isLive ? 'Stop answering' : 'Now answering';
-      live.title = 'Show this topic on the room screen and participants\' phones';
+      live.textContent = isLive ? 'Stop answering' : 'Answer now';
+      live.title = isLive
+        ? 'Take this topic off the room screen and participants\' phones'
+        : 'Put this topic on the room screen and participants\' phones as the one being answered';
       live.onclick = function () {
-        live.disabled = true;
-        google.script.run.withSuccessHandler(draw).withFailureHandler(function () {
-          live.disabled = false;
-        }).setNowAnswering(sid, isLive ? null : t.topic);
+        state.nowAnswering = isLive ? null : t.topic;
+        draw(state, true);
+        send('setNowAnswering', [sid, isLive ? null : t.topic]);
       };
       acts.appendChild(live);
       var phones = el('button');
@@ -333,19 +456,19 @@
         ? 'Remove this topic from participants\' phones'
         : 'Let participants see this topic label and tap Me too';
       phones.onclick = function () {
-        phones.disabled = true;
-        google.script.run.withSuccessHandler(draw).withFailureHandler(function () {
-          phones.disabled = false;
-        }).setTopicShown(sid, t.topic, !t.shown);
+        t.shown = !t.shown;
+        topicMeta[t.topic] = { votes: t.votes, shown: t.shown };
+        draw(state, true);
+        send('setTopicShown', [sid, t.topic, t.shown]);
       };
       acts.appendChild(phones);
       var merge = el('button');
       merge.textContent = mergedText ? 'Rewrite as one' : 'Merge into one question';
       merge.onclick = function () {
         merge.disabled = true;
-        merge.textContent = 'Merging…';
+        merge.textContent = 'Merging…';   // Gemini writes this, so it takes a few seconds
         google.script.run.withSuccessHandler(function (res) {
-          if (res.ok) { state.merged[t.topic] = res.question; draw(state); }
+          if (res.ok) { state.merged[t.topic] = res.question; draw(state, true); }
           else { merge.disabled = false; merge.textContent = 'Merge failed — retry'; }
         }).withFailureHandler(function () {
           merge.disabled = false; merge.textContent = 'Merge failed — retry';
@@ -355,7 +478,7 @@
       dismissAll.textContent = 'Dismiss all';
       dismissAll.onclick = function () {
         ask('Dismiss this topic?', 'All ' + t.count + (t.count === 1 ? ' question' : ' questions') + ' under "' + t.topic +
-          '" will be removed from the queue and from participants\' phones.', 'Dismiss all', function () {
+          '" move to Dismissed at the bottom of the page and come off participants\' phones. You can restore them.', 'Dismiss all', function () {
           act(t.questions.map(function (q) { return q.id; }), 'dismissed');
         });
       };
@@ -375,7 +498,7 @@
     }
 
     var list = el('ul');
-    t.questions.sort(function (a, b) { return a.submitted - b.submitted; }).forEach(function (q) {
+    t.questions.forEach(function (q) {
       var li = el('li', q.status === 'answered' ? 'answered' : '');
       var text = el('div', 'text');
 
@@ -404,7 +527,7 @@
 
       var acts2 = el('div', 'acts');
       var done = el('button');
-      done.textContent = q.status === 'answered' ? 'Undo' : 'Answered';
+      done.textContent = q.status === 'answered' ? 'Reopen' : 'Answered';
       done.onclick = function () { act([q.id], q.status === 'answered' ? 'new' : 'answered'); };
       var drop = el('button', 'quiet');
       drop.textContent = 'Dismiss';
@@ -423,12 +546,10 @@
     return n;
   }
 
-  function act(ids, status) {
-    google.script.run.withSuccessHandler(draw).setStatus(sid, ids, status);
-  }
-
   toggle.onclick = function () {
-    google.script.run.withSuccessHandler(draw).setBoardOpen(sid, !state.open);
+    state.open = !state.open;
+    draw(state, true);
+    send('setBoardOpen', [sid, state.open]);
   };
 
   document.getElementById('cluster').onclick = function () {
@@ -438,24 +559,27 @@
     google.script.run.withSuccessHandler(function () {
       b.disabled = false;
       b.textContent = 'Group now';
-      load();
+      load(true);
     }).withFailureHandler(function () {
       b.disabled = false;
       b.textContent = 'Grouping failed — retry';
     }).groupNow(sid);
   };
 
-  document.getElementById('refresh').onclick = load;
+  document.getElementById('refresh').onclick = function () { load(true); };
 
-  function load() {
-    if (ended) return;
-    google.script.run.withSuccessHandler(draw).withFailureHandler(function (err) {
+  function load(force) {
+    if (ended && !force) return;
+    google.script.run.withSuccessHandler(function (fresh) {
+      if (pending && !force) return;   // a save is in flight; its answer will redraw
+      draw(fresh);
+    }).withFailureHandler(function (err) {
       tally.textContent = err && err.message ? err.message : 'Lost connection — retrying';
     }).getBoard(sid);
   }
 
-  load();
-  setInterval(load, 8000);
+  load(true);
+  setInterval(load, 5000);
 </script>
 </body>
 </html>

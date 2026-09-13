@@ -124,7 +124,7 @@ test('queue and admin still require an authorized account', () => {
   });
 });
 
-test('participant links use the public address; staff links stay as Google reports them', () => {
+test('participant and room screen links use the public address; staff links stay as Google reports them', () => {
   const h = createApp().install();
   const s = h.session({ name: 'Addresses', access: 'link', active: true });
   const room = h.session({ name: 'Room', access: 'room', active: true });
@@ -138,7 +138,7 @@ test('participant links use the public address; staff links stay as Google repor
     const links = h.app.sessionLinks_(h.app.getSession_(s.id));
     assert.equal(links.participant.split('?')[0], PUBLIC, 'participant link from ' + reported);
     assert.equal(h.app.getRoomScreen(room.id).url.split('?')[0], PUBLIC, 'QR code from ' + reported);
-    assert.equal(links.present, staffBase + '?view=present&s=' + s.id, 'room screen link unchanged from ' + reported);
+    assert.equal(links.present, PUBLIC + '?view=present&s=' + s.id, 'room screen link is public from ' + reported);
     assert.equal(links.moderate.split('?')[0], staffBase, 'queue link unchanged from ' + reported);
   });
 });

@@ -57,7 +57,8 @@ Mac and the web for the people it's assigned to.
    (The room screen link works too.)
 2. On your slide: **Insert → My Add-ins → Question Desk QR**. Paste the link and press
    **Show on slide**.
-3. Move and resize the box. Start the slideshow: the code updates on its own.
+3. The box fills a standard widescreen slide when inserted; drag its handles to resize it
+   (for example, to leave room for your own title). Start the slideshow: the code updates on its own.
 4. To change the session, click **Change session** in the top corner while editing.
    It never shows during the slideshow.
 

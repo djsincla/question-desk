@@ -17,7 +17,7 @@
 
 /** Bump with every release; scripts/ship.sh tags git and publishes release notes from CHANGELOG.md. */
 const APP = {
-  version: '2.2.0',
+  version: '2.3.0',
   repo: 'https://github.com/djsincla/question-desk'
 };
 
@@ -38,7 +38,7 @@ const CONFIG = {
   deviceTokenSeconds: 21600,      // 6h — CacheService maximum
   clusterBatchSize: 25,
   maxPrepared: 100,               // prepared questions per session
-  topicCacheSeconds: 15,          // participant topic lists; a full room polls this
+  topicCacheSeconds: 5,           // participant topic lists; a full room polls this (phones every 15 s)
   logoMaxChars: 60000,            // base64 data URL; pages load on weak venue wifi
   maxRecipients: 50,
   alertAfterFailures: 3,          // consecutive failed grouping runs before admins are emailed
@@ -158,7 +158,7 @@ function notice_(mode, view) {
         return {
           label: s.name,
           note: s.status === 'active' ? 'Active' : 'Not active',
-          href: base + '?view=' + view + '&s=' + s.id
+          href: view === 'present' ? sessionLinks_(s).present : base + '?view=' + view + '&s=' + s.id
         };
       });
     return page_('Denied.html', 'Choose a session', {
@@ -321,7 +321,9 @@ function baseUrlDetected_() {
 function sessionLinks_(session) {
   const base = baseUrl_();
   return {
-    present: base + '?view=present&s=' + session.id,
+    // Public form: the room screen needs no sign-in and must open whatever Google
+    // accounts the browser is signed into (the domain form can say "unable to open the file").
+    present: participantBaseUrl_() + '?view=present&s=' + session.id,
     moderate: base + '?view=moderate&s=' + session.id,
     // For the PowerPoint add-in: public address (slides can't sign in to Google), QR only.
     slide: participantBaseUrl_() + '?view=present&s=' + session.id + '&layout=qr',
@@ -469,6 +471,7 @@ function submitQuestion_(sid, deviceId, text, credential, skipRoomCap) {
     questionSheet_().appendRow([
       id, new Date(), deviceId || 'unknown', sheetSafe_(clean), 'new', '', '', '', sid
     ]);
+    questionsChanged_();
     if (deviceId) {
       // Store when the phone asked, not when its wait ends, so a session's wait can
       // be changed mid-event and apply to phones already waiting.
@@ -664,7 +667,7 @@ function getRoomScreen(sid) {
     brand: brand,
     nowAnswering: session.nowAnswering ? nowAnsweringView_(session, topicRecords_(sid)) : null,
     url: null,
-    refreshInSeconds: 20
+    refreshInSeconds: 5
   };
   if (session.status !== 'active') return screen;
 
@@ -674,7 +677,7 @@ function getRoomScreen(sid) {
   } else {
     const tok = roomToken_(sid);
     screen.url = base + '?s=' + sid + '&t=' + tok.token;
-    screen.refreshInSeconds = Math.min(20, tok.expiresIn + 1);
+    screen.refreshInSeconds = Math.min(5, tok.expiresIn + 1);
   }
   return screen;
 }
@@ -696,20 +699,31 @@ function getBoard(sid) {
   const topics = {};
   const loose = [];
 
+  const dismissed = [];
   rows.forEach(function (q) {
-    if (q.status === 'dismissed') return;
+    if (q.status === 'dismissed') { dismissed.push(q); return; }
     if (!q.topic) { loose.push(q); return; }
     if (!topics[q.topic]) topics[q.topic] = [];
     topics[q.topic].push(q);
   });
 
+  // Open questions first, answered ones sink to the bottom (kept so they can be reopened).
+  const byAnswered = function (a, b) {
+    return (a.status === 'answered') - (b.status === 'answered') || a.submitted - b.submitted;
+  };
+  loose.sort(byAnswered);
+
   const records = topicRecords_(sid);
   const grouped = Object.keys(topics).map(function (name) {
+    const list = topics[name].sort(byAnswered);
     return {
-      topic: name, questions: topics[name], count: topics[name].length, votes: votes[name] || 0,
+      topic: name, questions: list, count: list.length, votes: votes[name] || 0,
+      answered: list.every(function (q) { return q.status === 'answered'; }),
       shown: !!(records[name] && records[name].shown)
     };
-  }).sort(function (a, b) { return (b.count + b.votes) - (a.count + a.votes); });
+  }).sort(function (a, b) {
+    return (a.answered - b.answered) || (b.count + b.votes) - (a.count + a.votes);
+  });
 
   const merged = {};
   Object.keys(records).forEach(function (t) { if (records[t].merged) merged[t] = records[t].merged; });
@@ -729,6 +743,7 @@ function getBoard(sid) {
     open: session.open !== false,
     nowAnswering: session.nowAnswering ? session.nowAnswering.topic : null,
     merged: merged,
+    dismissed: dismissed.sort(function (a, b) { return b.submitted - a.submitted; }),
     prepared: sessionRows_(sid, true)
       .filter(function (q) { return q.status === 'prepared'; })
       .map(function (q) { return { id: q.id, text: q.text }; })
@@ -751,6 +766,7 @@ function setStatus(sid, ids, status) {
         sheet.getRange(i + 1, COLS.status).setValue(status);
       }
     }
+    questionsChanged_();
   });
   invalidateTopics_(sid);
   return getBoard(sid);
@@ -801,6 +817,7 @@ function usePrepared(sid, ids) {
         added++;
       }
     }
+    questionsChanged_();
   });
   if (!added) throw new Error('Those prepared questions were already added or removed.');
   invalidateTopics_(sid);
@@ -829,7 +846,7 @@ function adminState() {
   const me = requireAdmin_();
   const counts = {};
   const prepared = {};
-  const values = questionSheet_().getDataRange().getValues();
+  const values = questionValues_();
   for (let i = 1; i < values.length; i++) {
     const sid = String(values[i][COLS.session - 1]);
     if (values[i][COLS.status - 1] === 'prepared') {
@@ -971,6 +988,7 @@ function setPrepared_(sid, list) {
     list.forEach(function (text) {
       sheet.appendRow([newId_(8), new Date(), 'prepared', sheetSafe_(text), 'prepared', '', '', '', sid]);
     });
+    questionsChanged_();
   });
 }
 
@@ -1099,6 +1117,8 @@ function deleteSession_(sid) {
       }
     });
     ['SESSION_', 'TOKEN_', 'VOTES_'].forEach(function (p) { props_().deleteProperty(p + sid); });
+    questionsChanged_();
+    topicsChanged_();
   });
   setAsset_(sid, '');
   invalidateTopics_(sid);
@@ -1705,7 +1725,8 @@ function clusterQuestions() {
  */
 function clusterSession_(sid) {
   const sheet = questionSheet_();
-  const values = sheet.getDataRange().getValues();
+  questionsChanged_();
+  const values = questionValues_();
   const pending = [];
   const existing = {};
 
@@ -1797,6 +1818,7 @@ function clusterSession_(sid) {
         .setValues([[sheetSafe_(a.topic), sheetSafe_(a.language || ''), sheetSafe_(a.translation || '')]]);
       written++;
     });
+    questionsChanged_();
   });
 
   if (result.labels && result.labels.length) {
@@ -1926,9 +1948,42 @@ function geminiRequest_(prompt, schema) {
 
 // ---------------------------------------------------------------- plumbing
 
-function spreadsheet_() {
-  return SpreadsheetApp.openById(props_().getProperty('SHEET_ID'));
+/*
+ * Per-execution cache. Apps Script starts every request with fresh globals, so this
+ * only avoids repeating work inside one request: opening the spreadsheet costs
+ * hundreds of milliseconds, and a button click used to open it and read the whole
+ * question sheet several times. Anything that writes must call the matching *Changed_().
+ */
+let EXEC_ = {};
+
+function resetExecution_() {
+  EXEC_ = {};
 }
+
+function spreadsheet_() {
+  const id = props_().getProperty('SHEET_ID');
+  if (!EXEC_.ss || EXEC_.ssId !== id) {
+    EXEC_.ss = SpreadsheetApp.openById(id);
+    EXEC_.ssId = id;
+  }
+  return EXEC_.ss;
+}
+
+function questionValues_() {
+  if (!EXEC_.questions) EXEC_.questions = questionSheet_().getDataRange().getValues();
+  return EXEC_.questions;
+}
+
+function topicValues_() {
+  if (!EXEC_.topics) {
+    const sheet = topicSheet_();
+    EXEC_.topics = sheet ? sheet.getDataRange().getValues() : [[]];
+  }
+  return EXEC_.topics;
+}
+
+function questionsChanged_() { delete EXEC_.questions; }
+function topicsChanged_() { delete EXEC_.topics; }
 
 function questionSheet_() {
   return spreadsheet_().getSheetByName(CONFIG.sheetName);
@@ -1948,7 +2003,7 @@ function assetSheet_() {
  * until used they are not questions anyone asked.
  */
 function sessionRows_(sid, includePrepared) {
-  return questionSheet_().getDataRange().getValues().slice(1)
+  return questionValues_().slice(1)
     .filter(function (r) {
       return String(r[COLS.session - 1]) === sid && (includePrepared || r[COLS.status - 1] !== 'prepared');
     })
@@ -1968,9 +2023,7 @@ function sessionRows_(sid, includePrepared) {
 /** { topic: { merged, labels, mergedLabels } } for one session, from the Topics sheet. */
 function topicRecords_(sid) {
   const out = {};
-  const sheet = topicSheet_();
-  if (!sheet) return out;
-  sheet.getDataRange().getValues().slice(1).forEach(function (r) {
+  topicValues_().slice(1).forEach(function (r) {
     if (String(r[0]) !== sid) return;
     out[String(r[1])] = {
       merged: r[2] ? String(r[2]) : '',
@@ -2016,6 +2069,7 @@ function upsertTopics_(sid, updates, onlyMissingLabels) {
         sheet.getRange(row, 6).setValue(JSON.stringify(u.mergedLabels || {}));
       }
     });
+    topicsChanged_();
   });
 }
 
