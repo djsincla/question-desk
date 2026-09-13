@@ -272,7 +272,7 @@
     </div>
     <div class="panel">
       <h2>QA Facilitators</h2>
-      <p class="hint" style="margin-top:0">Can open the room screen and queue for sessions they are assigned to.</p>
+      <p class="hint" style="margin-top:0">Run the queue for the sessions they are assigned to: group, merge, approve topics for phones, and mark questions answered.</p>
       <ul class="people" id="modList"></ul>
       <form class="adder" data-role="moderator">
         <input type="email" placeholder="name@domain.org" aria-label="QA Facilitator email">
@@ -280,6 +280,16 @@
       </form>
     </div>
   </div>
+  <form class="panel" id="summaryForm">
+    <h2>Summary email — default recipients</h2>
+    <p class="hint" style="margin-top:0">Who gets a session's questions summary when it ends, unless the session sets its own recipients on its form.</p>
+    <label class="choice"><input type="checkbox" id="d-summary-facilitators"><span>The session's QA Facilitators</span></label>
+    <label class="field"><span>Also send to</span>
+      <textarea id="d-summary-extra" rows="2" placeholder="board@example.org"></textarea>
+      <div class="hint">Any email address, including people outside your organization.</div>
+    </label>
+    <button type="submit" class="primary">Save default recipients</button>
+  </form>
 </section>
 
 <!-- Branding & settings -->
@@ -342,16 +352,6 @@
     </div>
   </div>
 
-  <form class="panel" id="summaryForm">
-    <h2>Summary email — default recipients</h2>
-    <p class="hint" style="margin-top:0">Who gets a session's questions summary unless the session sets its own recipients.</p>
-    <label class="choice"><input type="checkbox" id="d-summary-facilitators"><span>The session's QA Facilitators</span></label>
-    <label class="field"><span>Also send to</span>
-      <textarea id="d-summary-extra" rows="2" placeholder="board@example.org"></textarea>
-      <div class="hint">Any email address, including people outside your organization.</div>
-    </label>
-    <button type="submit" class="primary">Save default recipients</button>
-  </form>
 </section>
 
 <!-- Health & testing -->

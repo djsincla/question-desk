@@ -4,6 +4,11 @@ All notable changes to Question Desk. Versions follow [Semantic Versioning](http
 Each release is tagged `vX.Y.Z` and published as a GitHub release by `scripts/ship.sh`,
 which reads the notes for that version from this file.
 
+## [2.1.1] - 2026-09-12
+
+### Changed
+- Summary email default recipients moved from the Branding tab to the **People** tab.
+
 ## [2.1.0] - 2026-09-12
 
 ### Added
@@ -99,6 +104,7 @@ which reads the notes for that version from this file.
 - "Merge into one question" for reading a topic aloud.
 - Participant page in English, Korean and Spanish.
 
+[2.1.1]: https://github.com/djsincla/question-desk/releases/tag/v2.1.1
 [2.1.0]: https://github.com/djsincla/question-desk/releases/tag/v2.1.0
 [2.0.0]: https://github.com/djsincla/question-desk/releases/tag/v2.0.0
 [1.0.0]: https://github.com/djsincla/question-desk/releases/tag/v1.0.0

@@ -43,6 +43,7 @@ function shots(ctx) {
     { name: 'facilitator-queue', url: () => '/?view=moderate&s=' + s + '&as=mod', size: [1280, 1000] },
     { name: 'landing-page', url: () => '/', size: [1280, 800] },
     { name: 'admin-sessions', url: () => '/?view=admin&as=owner', size: [1280, 1000] },
+    { name: 'admin-people', url: () => '/?view=admin&as=owner#click=people', size: [1280, 800] },
     { name: 'admin-branding', url: () => '/?view=admin&as=owner#click=branding', size: [1280, 1100] },
     { name: 'admin-health', url: () => '/?view=admin&as=owner#click=health,runHealth', size: [1280, 800] }
   ];

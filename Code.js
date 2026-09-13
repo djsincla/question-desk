@@ -17,7 +17,7 @@
 
 /** Bump with every release; scripts/ship.sh tags git and publishes release notes from CHANGELOG.md. */
 const APP = {
-  version: '2.1.0',
+  version: '2.1.1',
   repo: 'https://github.com/djsincla/question-desk'
 };
 

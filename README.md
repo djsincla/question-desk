@@ -54,7 +54,10 @@ read aloud, Me too counts, show-on-phones approval, and prepared questions.
     <td width="50%"><img src="docs/screenshots/admin-health.png" alt="Admin health check"></td>
   </tr>
   <tr>
+    <td><img src="docs/screenshots/admin-people.png" alt="Admin people tab with summary recipients"></td>
     <td><img src="docs/screenshots/landing-page.png" alt="Landing page"></td>
+  </tr>
+  <tr>
     <td><img src="docs/screenshots/room-screen.png" alt="Room screen"></td>
   </tr>
 </table>

@@ -29,7 +29,8 @@ grouped into topics by Gemini instead of as one long undifferentiated list.
 
 ## Admin page
 
-- **People** — add administrators and QA Facilitators. Both must be accounts in your
+- **People** — add administrators and QA Facilitators, and choose who receives session
+  summary emails by default. Both must be accounts in your
   Workspace domain: Google does not tell the app who is signed in from any other
   domain, so an outside QA Facilitator would always be turned away.
 - **Sessions** — create a session, choose how people join, pick its QA Facilitators, and
@@ -84,7 +85,7 @@ When a session ends, a final grouping pass translates anything still waiting, an
 if the session asks for it — the summary is emailed with topics, merged questions, and
 every question in its original wording next to the English translation, plus a CSV.
 By default it goes to the session's QA Facilitators; set different default recipients on
-the Branding tab, or custom recipients on a session's form. Ended sessions can
+the People tab, or custom recipients on a session's form. Ended sessions can
 be re-sent from the Admin page with **Email summary**.
 
 Questions land in the sheet within a second. The trigger clusters them every minute,
