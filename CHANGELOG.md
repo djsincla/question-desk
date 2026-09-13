@@ -4,6 +4,69 @@ All notable changes to Question Desk. Versions follow [Semantic Versioning](http
 Each release is tagged `vX.Y.Z` and published as a GitHub release by `scripts/ship.sh`,
 which reads the notes for that version from this file.
 
+## [2.5.0] - 2026-09-13
+
+Fixes from a full code review.
+
+### Fixed
+- **Room screen:** "Questions are paused", "Waiting for this session to start" and the
+  connection warnings never showed (a page variable clashed with a browser built-in).
+- **Security:**
+  - The grouping trigger function could be called by anyone, spending Gemini quota. It now
+    runs only for its trigger or an administrator.
+  - A room code photographed before the room screen was closed worked again for a few
+    minutes when the screen reopened.
+  - The Admin page and queue could be framed by other websites.
+  - The QR code library is now checked against its published integrity hash.
+  - Each question goes to Gemini as its own JSON line with a clear instruction to ignore
+    instructions inside it.
+  - Me too taps have a room-wide per-minute cap.
+- **Sessions and email:**
+  - A scheduled end time that has already passed is refused instead of ending a live
+    session for good.
+  - A summary email that fails when a session ends (for example, out of email quota) is
+    retried every 30 minutes for a day. The session's line on the Admin page says so.
+  - Summary emails go to each recipient separately, so outside recipients don't see
+    everyone's address.
+  - A Korean or Spanish question Gemini didn't translate is marked "not translated" in the
+    summary instead of passing as English.
+  - A question submitted as a session ended can no longer slip in afterwards.
+- **Grouping:**
+  - Questions Gemini keeps skipping no longer block every question behind them, and the
+    health check reports it.
+  - "Group now" and the every-minute run no longer group the same questions twice.
+  - Logos of a certain size could be stored as a broken formula.
+- **QA Facilitator queue:**
+  - A background refresh that started before a click could undo it on screen for a few
+    seconds.
+  - The ⋯ menu, "Merging…" state and keyboard focus survive the 5-second refresh (no more
+    double merges).
+  - Failed saves show a message for 10 seconds instead of a flash.
+- **Participant page:**
+  - Unlocks by itself when a paused or not-yet-started session opens, and locks when the
+    session ends.
+  - A raised wait between questions no longer erases what someone is typing.
+  - "Sent" stays on screen when there's no wait.
+  - Switching language re-translates a locked message.
+  - A refresh can no longer un-tick a Me too tap.
+- **Admin:**
+  - Saving a session no longer replaces its prepared questions unless they were edited.
+  - The wait field accepts any number of seconds.
+  - "Ending…" and "Checking…" reset after a failure.
+  - A rejected summary recipient address stays in the box.
+  - A slow logo load can't show on another session's form.
+- **Guest page and add-in:** links with tracking tags (fbclid, utm_…), `&amp;` or a
+  `#fragment` (from social media, newsletters, Outlook or Teams) now work.
+
+### Changed
+- The release check confirms the new version is the one serving and that server calls
+  answer, and always checks the guest page. `ship.sh` refuses to ship a commit that isn't
+  on GitHub, shows clasp's error when versioning fails, and cleans up if pushing the tag
+  fails.
+- The secret scanner reports files it can't read, handles accented file names, and
+  catches Apps Script project links and OAuth client secrets.
+- The load test rejects invalid `--count` and `--rounds`.
+
 ## [2.4.4] - 2026-09-13
 
 ### Changed
@@ -252,6 +315,7 @@ which reads the notes for that version from this file.
 - "Merge into one question" for reading a topic aloud.
 - Participant page in English, Korean and Spanish.
 
+[2.5.0]: https://github.com/djsincla/question-desk/releases/tag/v2.5.0
 [2.4.4]: https://github.com/djsincla/question-desk/releases/tag/v2.4.4
 [2.4.3]: https://github.com/djsincla/question-desk/releases/tag/v2.4.3
 [2.4.2]: https://github.com/djsincla/question-desk/releases/tag/v2.4.2

@@ -27,7 +27,8 @@ function serverCalls(js) {
     /google\.script\.run\s*\.\s*([A-Za-z0-9_]+)\s*\(/g,
     /\}\s*\)\s*\.\s*([A-Za-z0-9_]+)\s*\(/g,
     /withSuccessHandler\(\s*[A-Za-z0-9_]+\s*\)\s*\.\s*([A-Za-z0-9_]+)\s*\(/g,
-    /\bcall\(\s*'([A-Za-z0-9_]+)'/g
+    /\bcall\(\s*'([A-Za-z0-9_]+)'/g,
+    /\bsend\(\s*'([A-Za-z0-9_]+)'/g          // Moderate's optimistic save helper
   ];
   patterns.forEach((re) => {
     for (const m of js.matchAll(re)) {
@@ -56,6 +57,18 @@ for (const page of PAGES) {
       assert.doesNotMatch(code, /\b(let|const|class)\s/, page + ' uses let/const/class');
       assert.doesNotMatch(code, /`/, page + ' uses a template literal');
       assert.doesNotMatch(code, /\basync\b|\bawait\b/, page + ' uses async/await');
+    });
+  });
+
+  test(page + ': no top-level variable shadows a built-in window property', () => {
+    // A top-level `var status` is window.status, which turns anything stored into a string:
+    // the room screen's status line silently never showed because of exactly that.
+    const RESERVED = /^(status|name|top|parent|self|length|origin|closed|opener|frames|history|location|event|screen|external|performance|crypto|close|open|print|stop|focus|blur|find|alert|menubar|toolbar|scrollbars|personalbar|locationbar|statusbar|frameElement|navigator|document|window|onload|onerror)$/;
+    scripts.forEach((js) => {
+      // Top level of the page script: two-space indented declarations (functions are indented further).
+      for (const m of js.matchAll(/^ {0,2}(?:var|function)\s+([A-Za-z_$][\w$]*)/gm)) {
+        assert.doesNotMatch(m[1], RESERVED, page + ' declares top-level ' + m[1] + ', which is a window property');
+      }
     });
   });
 

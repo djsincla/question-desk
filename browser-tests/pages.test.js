@@ -32,12 +32,12 @@ test.after(async () => {
 });
 
 /** Opens a page, failing the test on any script error. */
-async function open(engineName, url, contextOptions) {
+async function open(engineName, url, contextOptions, onBase) {
   const context = await browsers[engineName].newContext(contextOptions || {});
   const page = await context.newPage();
   const errors = [];
   page.on('pageerror', (err) => errors.push(err.message));
-  await page.goto(base + url);
+  await page.goto((onBase || base) + url);
   return { page, context, errors };
 }
 
@@ -121,7 +121,11 @@ for (const [engineName] of ENGINES) {
   });
 
   test(`${engineName}: queue buttons respond before the server does`, async () => {
-    const { page, context, errors } = await open(engineName, '/?view=moderate&s=' + ctx.live.id + '&as=mod', { viewport: { width: 1280, height: 900 } });
+    // Its own demo data: this test answers, dismisses and changes Now answering, which must
+    // not change what the room screen tests (in the other engine) get to see.
+    const own = await serve(0, { rpcDelayMs: 1200 });
+    const { page, context, errors } = await open(engineName, '/?view=moderate&s=' + own.live.id + '&as=mod', { viewport: { width: 1280, height: 900 } },
+      'http://127.0.0.1:' + own.server.address().port);
     try {
       await page.waitForSelector('.topic', { timeout: 15000 });
       const topic = page.locator('.topic', { hasText: 'IEP and school support' });
@@ -156,7 +160,6 @@ for (const [engineName] of ENGINES) {
       assert.ok(await topic.locator('li.answered .done-tag').first().isVisible(), 'answered rows are tagged');
 
       // Answer now pins that topic to the top, and Stop answering is right there.
-      // (Both engines share the demo data, so pick a topic that isn't live yet.)
       const other = page.locator('#board .topic:not(.live)', { has: page.locator('button', { hasText: 'Answer now' }) }).nth(1);
       const name = (await other.locator('h2').evaluate((h) => h.firstChild.textContent)).trim();
       await other.locator('button', { hasText: 'Answer now' }).click();
@@ -179,6 +182,7 @@ for (const [engineName] of ENGINES) {
       assert.deepEqual(errors, []);
     } finally {
       await context.close();
+      own.server.close();
     }
   });
 }

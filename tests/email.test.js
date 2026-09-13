@@ -19,9 +19,9 @@ test('ending a session emails its moderators a summary with a CSV', () => {
 
   const res = h.app.endSession(s.id, h.app.getSession_(s.id).name);
   assert.equal(res.emailed, 2);
-  assert.equal(h.env.outbox.length, 1);
+  // One message per recipient, so nobody sees the other addresses.
+  assert.deepEqual(h.env.outbox.map((m) => m.to), [MOD, MOD2]);
   const mail = h.env.outbox[0];
-  assert.equal(mail.to, MOD + ',' + MOD2);
   assert.equal(mail.name, 'Example Society');
   assert.match(mail.subject, /Family night — questions summary/);
   assert.match(mail.htmlBody, /2 questions in 2 topics/);
@@ -146,7 +146,7 @@ test('by default the summary goes to the session\'s QA Facilitators', () => {
   const s = h.session({ name: 'Default', access: 'link', active: true, moderators: [MOD, MOD2], emailOnEnd: true });
   assert.deepEqual(h.app.adminState().sessions[0].summaryTo, [MOD, MOD2]);
   h.app.endSession(s.id, 'Default');
-  assert.equal(h.env.outbox[0].to, MOD + ',' + MOD2);
+  assert.deepEqual(h.env.outbox.map((m) => m.to), [MOD, MOD2]);
 });
 
 test('the organization default can add outside addresses or drop facilitators', () => {
@@ -155,12 +155,13 @@ test('the organization default can add outside addresses or drop facilitators', 
   const s = h.session({ name: 'Board copy', access: 'link', active: true, moderators: [MOD], emailOnEnd: true });
   assert.deepEqual(h.app.adminState().summaryDefaults, { facilitators: true, extra: ['board@partner.test', 'chair@partner.test'] });
   h.app.endSession(s.id, 'Board copy');
-  assert.equal(h.env.outbox[0].to, [MOD, 'board@partner.test', 'chair@partner.test'].join(','));
+  assert.deepEqual(h.env.outbox.map((m) => m.to), [MOD, 'board@partner.test', 'chair@partner.test']);
+  h.env.outbox.length = 0;
 
   h.app.saveSummaryDefaults({ facilitators: false, extra: 'records@example.org' });
   const t = h.session({ name: 'Records only', access: 'link', active: true, moderators: [MOD], emailOnEnd: true });
   h.app.endSession(t.id, 'Records only');
-  assert.equal(h.env.outbox[1].to, 'records@example.org');
+  assert.deepEqual(h.env.outbox.map((m) => m.to), ['records@example.org']);
 
   h.app.saveSummaryDefaults({ facilitators: false, extra: [] });
   const quiet = h.session({ name: 'Nobody by default', access: 'link', active: true, moderators: [MOD], emailOnEnd: true });
@@ -193,10 +194,11 @@ test('Email summary resends to the resolved recipients unless others are typed',
   const s = h.app.allSessions_()[0];
   h.app.setSessionActive(s.id, true);
   h.app.endSession(s.id, 'Resend');
+  h.env.outbox.length = 0;
   h.app.emailSummary(s.id);
-  assert.equal(h.env.outbox[0].to, MOD + ',x@partner.test');
+  assert.deepEqual(h.env.outbox.map((m) => m.to), [MOD, 'x@partner.test']);
   h.app.emailSummary(s.id, ['someone@partner.test']);
-  assert.equal(h.env.outbox[1].to, 'someone@partner.test');
+  assert.equal(h.env.outbox[2].to, 'someone@partner.test');
 });
 
 test('only admins change summary recipients', () => {
@@ -214,15 +216,15 @@ test('the summary keeps original wording and the English translation for every q
     const lines = call.prompt.split('New questions:\n')[1].split('\n\nDo not invent')[0].split('\n').filter(Boolean);
     return {
       assignments: lines.map((line) => {
-        const id = line.slice(0, 8);
-        const korean = /주차/.test(line);
+        const { id, text } = JSON.parse(line);
+        const korean = /주차/.test(text);
         return { id, topic: 'Parking', language: korean ? 'Korean' : 'English',
-                 translation: korean ? 'There is not enough parking' : line.slice(10) };
+                 translation: korean ? 'There is not enough parking' : text };
       }),
       labels: [{ topic: 'Parking', translations: { ko: '주차', es: 'Estacionamiento' } }]
     };
   };
-  h.app.clusterQuestions();
+  h.app.clusterAll_();
   h.as(MOD).app.setTopicShown(s.id, 'Parking', true);
   h.as(h.env.owner).app.endSession(s.id, 'Languages');
 
@@ -259,7 +261,7 @@ test('original wording is never overwritten by grouping, approval, answering or 
   h.ask(h.app.getSession_(s.id), h.join(h.app.getSession_(s.id)), 'Asked original wording here');
   h.as(MOD);
   h.app.usePrepared(s.id, [h.app.getBoard(s.id).prepared[0].id]);
-  h.app.clusterQuestions();
+  h.app.clusterAll_();
   const board = h.app.getBoard(s.id);
   board.topics.forEach((t) => h.app.setTopicShown(s.id, t.topic, true));
   h.app.setStatus(s.id, board.topics[0].questions.map((q) => q.id), 'answered');

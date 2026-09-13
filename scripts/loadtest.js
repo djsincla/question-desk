@@ -26,6 +26,11 @@ function args(argv) {
   out.count = Number(out.count);
   out.rounds = Number(out.rounds);
   out.pause = Number(out.pause);
+  // "--count forty" or "--rounds 0" would otherwise report "0 of 0 succeeded" and exit 0.
+  ['count', 'rounds'].forEach((name) => {
+    if (!Number.isInteger(out[name]) || out[name] < 1) { console.error('--' + name + ' must be a whole number of at least 1.'); process.exit(2); }
+  });
+  if (!(out.pause >= 0)) { console.error('--pause must be a number of seconds.'); process.exit(2); }
   return out;
 }
 

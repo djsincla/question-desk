@@ -20,7 +20,8 @@
   var GUEST = /^https:\/\/[^\s?#]+\?([^#]*)$/;
 
   function parse(input) {
-    var text = String(input || '').trim();
+    // Links pasted from Outlook or Teams can carry &amp;; a #fragment is never part of the link.
+    var text = String(input || '').trim().replace(/&amp;/g, '&').replace(/#.*$/, '');
     var match = text.match(PATTERN);
     if (!match) {
       var guest = text.match(GUEST);

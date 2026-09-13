@@ -2,7 +2,8 @@
 <html>
 <head>
 <base target="_top">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<!-- integrity: a tampered copy on the CDN can't put a different address in the room's QR code. -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" integrity="sha512-CNgIRecGo7nphbeZ04Sc13ka07paqdeTu0WR1IM4kNcpmBAUSHSQX0FslNhTDadL4O5SAGapGt4FodqL8My0mA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <style>
   [hidden] { display: none !important; }
   * { box-sizing: border-box; }
@@ -187,7 +188,8 @@
 
   var box = document.getElementById('code');
   var waiting = document.getElementById('waiting');
-  var status = document.getElementById('status');
+  // Not "status": a top-level var named status is window.status, which only holds text.
+  var statusLine = document.getElementById('status');
   var shownUrl = '';
   var theme = BOOT.theme || 'dark';
   var brand = BOOT.brand;
@@ -344,21 +346,21 @@
       if (screen.status === 'ended') {
         ended = true;
         showWaiting('This session has ended');
-        status.textContent = '';
+        statusLine.textContent = '';
       } else if (screen.status !== 'active' || !screen.url) {
         showWaiting('Questions open soon');
-        status.textContent = 'Waiting for this session to start';
+        statusLine.textContent = 'Waiting for this session to start';
       } else {
         render(screen.url);
         waiting.hidden = true;
         box.hidden = false;
-        status.textContent = screen.open ? 'Code refreshes automatically' : 'Questions are paused';
+        statusLine.textContent = screen.open ? 'Code refreshes automatically' : 'Questions are paused';
       }
       tick();
       if (!ended) schedule(screen.refreshInSeconds);
     }).withFailureHandler(function () {
       if (id !== requestId) return;
-      status.textContent = 'Lost connection — retrying';
+      statusLine.textContent = 'Lost connection — retrying';
       schedule(15);
     }).getRoomScreen(BOOT.sid, BOOT.layout);
   }
@@ -374,11 +376,11 @@
     clock.textContent = clockText(now) + (lastOk ? ' · code updated ' + clockText(lastOk) : '');
     clock.className = stale ? 'clock stale' : 'clock';
     if (stale) {
-      status.textContent = 'Not updating — check the internet connection. This code may have expired.';
-      status.className = 'status stale';
+      statusLine.textContent = 'Not updating — check the internet connection. This code may have expired.';
+      statusLine.className = 'status stale';
       box.style.opacity = '0.35';
     } else {
-      status.className = 'status';
+      statusLine.className = 'status';
       box.style.opacity = '';
     }
   }

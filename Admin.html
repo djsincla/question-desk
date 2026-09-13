@@ -185,7 +185,7 @@
 
     <div class="row">
       <label class="field"><span>Time between questions (seconds, per phone)</span>
-        <input type="number" id="f-cooldown" min="0" step="30">
+        <input type="number" id="f-cooldown" min="0" step="1">
         <div class="hint" id="cooldownHint"></div>
       </label>
       <label class="field"><span>Longest question allowed (characters)</span>
@@ -528,7 +528,9 @@
   });
 
   /** Calls a server function; disables `button` while it runs. */
-  function call(fn, args, onOk, button) {
+  var loadedPrepared = '';   // the prepared questions as the session form opened with them
+
+  function call(fn, args, onOk, button, onFail) {
     if (button) button.disabled = true;
     var runner = google.script.run
       .withSuccessHandler(function (res) {
@@ -538,6 +540,7 @@
       .withFailureHandler(function (err) {
         if (button) button.disabled = false;
         toast(err && err.message ? err.message : 'Something went wrong.', true);
+        if (onFail) onFail(err);
       });
     runner[fn].apply(runner, args);
   }
@@ -663,6 +666,7 @@
     if (s.status !== 'ended' && s.scheduledStart && !s.scheduleStarted) meta.push('starts ' + fmtDate(s.scheduledStart));
     if (s.status !== 'ended' && s.scheduledEnd) meta.push('ends ' + fmtDate(s.scheduledEnd));
     if (s.brand && s.brand.orgName) meta.push('branded for ' + s.brand.orgName);
+    if (s.summaryPending && !s.summarySent) meta.push('summary email not sent yet (' + s.summaryPending.error + ') — retrying every 30 minutes, or use Email summary');
     var gp = s.guestPage || {};
     if (gp.room || gp.slide) meta.push('guest page for ' + (gp.room && gp.slide ? 'room screen and slide' : gp.room ? 'room screen' : 'slide'));
     if (s.summarySent) meta.push('summary emailed ' + fmtDate(s.summarySent));
@@ -726,7 +730,7 @@
           call('endSession', [s.id, typed], function (res) {
             render(res.state);
             toast('Session ended' + (res.emailed ? ' — summary emailed to ' + res.emailed : '') + (res.note ? '. ' + res.note : ''), !!res.note);
-          }, end);
+          }, end, function () { end.textContent = 'End session'; });
         });
       };
       acts.appendChild(end);
@@ -899,6 +903,7 @@
     $('maxHint').textContent = 'Between 50 and ' + state.limits.maxLengthCeiling + '. Shorter questions are easier to read aloud.';
     $('f-email').checked = s.id ? !!s.emailOnEnd : true;
     $('f-prepared').value = (s.prepared || []).join('\n');
+    loadedPrepared = $('f-prepared').value;
     var guest = s.guestPage || {};
     $('f-guest-room').checked = !!guest.room;
     $('f-guest-slide').checked = !!guest.slide;
@@ -924,7 +929,11 @@
     $('f-logo-box').hidden = !s.id;
     $('f-logo-later').hidden = !!s.id;
     renderSessionLogo('');
-    if (s.id && s.hasLogo) call('getSessionLogo', [s.id], renderSessionLogo);
+    if (s.id && s.hasLogo) {
+      call('getSessionLogo', [s.id], function (logo) {
+        if (editingId === s.id) renderSessionLogo(logo);   // a slow reply for another session is ignored
+      });
+    }
 
     var box = $('f-mods');
     box.innerHTML = '';
@@ -1021,7 +1030,9 @@
       theme: radio('theme'),
       maxLength: $('f-max').value,
       cooldownSeconds: $('f-cooldown').value,
-      prepared: $('f-prepared').value,
+      // Sent only when edited: saving replaces unused prepared questions with new ids, which
+      // would break "Add to queue" on an open queue and could revive one just added there.
+      prepared: $('f-prepared').value !== loadedPrepared ? $('f-prepared').value : undefined,
       guestPage: { room: $('f-guest-room').checked, slide: $('f-guest-slide').checked, url: $('f-guest-url').value },
       summary: radio('summaryMode') === 'custom'
         ? { mode: 'custom', facilitators: $('f-summary-facilitators').checked, extra: $('f-summary-extra').value }
@@ -1191,6 +1202,7 @@
   $('runHealth').onclick = function () {
     var table = $('checks');
     table.innerHTML = '<tr><td></td><td>Checking…</td></tr>';
+    var failed = function () { table.innerHTML = '<tr><td class="bad">✗</td><td>The health check could not run. Try again.</td></tr>'; };
     call('runHealthCheck', [], function (res) {
       table.innerHTML = '';
       res.checks.forEach(function (c) {
@@ -1204,7 +1216,7 @@
       });
       var bad = res.checks.filter(function (c) { return !c.ok; }).length;
       toast(bad ? bad + ' check(s) need attention' : 'All checks passed', bad > 0);
-    }, this);
+    }, this, failed);
   };
 
   $('startLoad').onclick = function () {
@@ -1232,11 +1244,12 @@
   };
 
   // Summary recipients: a list like administrators and QA Facilitators; every change saves.
-  function saveSummary(extra, message, button) {
+  function saveSummary(extra, message, button, done) {
     // Only the list is edited here; whether session QA Facilitators also get it is left as saved.
     call('saveSummaryDefaults', [{ facilitators: state.summaryDefaults.facilitators !== false, extra: extra }], function (res) {
       render(res);
       toast(message);
+      if (done) done();
     }, button);
   }
 
@@ -1275,8 +1288,8 @@
     if (!email) return;
     var extra = (state.summaryDefaults.extra || []).slice();
     if (extra.indexOf(email) === -1) extra.push(email);
-    saveSummary(extra, 'Added ' + email, this.querySelector('button'));
-    input.value = '';
+    // Cleared only once saved, so a rejected address can be fixed instead of retyped.
+    saveSummary(extra, 'Added ' + email, this.querySelector('button'), function () { input.value = ''; });
   });
 
   $('b-accent-pick').addEventListener('input', function () { $('b-accent').value = this.value; });

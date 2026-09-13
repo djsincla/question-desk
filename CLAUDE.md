@@ -89,6 +89,14 @@ does not carry the query string. That exact bug shipped once (v2): every QR scan
   `requireSession_()`; internal helpers end in `_` (Apps Script refuses to call those).
   `setUp()` is admin-only for this reason. Trigger handlers cannot rely on
   `getActiveUser()`, so scheduled work calls unchecked `_` variants (`endSession_`).
+  The trigger handler itself must stay public, so `clusterQuestions(e)` checks
+  `e.triggerUid` against the project's triggers (or an admin) before calling `clusterAll_()`;
+  tests call `clusterAll_()` directly.
+- Only guest-facing pages (Ask, Present, Denied) set `ALLOWALL` framing; Admin and the queue
+  keep Google's default so other sites can't frame them.
+- Pages must not declare top-level names that are window properties (`status`, `name`,
+  `top`, …): `var status` silently became a string and hid the room screen's status line.
+  `tests/pages.test.js` checks this.
 
 ## Me too, Now answering, schedule, health, load test
 
@@ -101,7 +109,15 @@ does not carry the query string. That exact bug shipped once (v2): every QR scan
   `CONFIG.topicCacheSeconds`; `invalidateTopics_()` after anything that changes it.
   Votes are `VOTES_<id>` in Script Properties; each device's own votes are in cache.
 - The every-minute `clusterQuestions` trigger also runs `runSchedule_()`. A schedule
-  starts a session once (`scheduleStarted`), so a manual deactivate sticks.
+  starts a session once (`scheduleStarted`), so a manual deactivate sticks. A scheduled end
+  in the past is refused on save. A summary that fails when a session ends is kept as
+  `summaryPending` and retried every 30 minutes for a day.
+- Grouping: one run per session at a time (`grouping:<id>` cache flag); questions go to
+  Gemini as one JSON object per line; a question Gemini answered for but skipped 3 times
+  (`tries:<qid>`) is left for the facilitator. Outages and bad keys don't count as tries.
+- Room codes: `previous` is only carried over (and honored) if it was on screen within the
+  last rotation, so a code photographed before the screen was closed stays dead.
+- Me too has a room-wide per-minute cap (`CONFIG.meTooLimitPerMinute`).
 - `noteGroupingResult_()` counts consecutive grouping failures and emails admins after
   `CONFIG.alertAfterFailures`, then again on recovery. Idle minutes are not recorded.
 - `doPost` is the load-test endpoint. It does nothing unless an admin started a load

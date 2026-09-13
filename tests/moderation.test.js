@@ -23,7 +23,7 @@ test('the board only shows its own session, grouped after clustering', () => {
   assert.equal(board.unsorted.length, 2);
   assert.equal(board.topics.length, 0);
 
-  h.app.clusterQuestions();
+  h.app.clusterAll_();
   board = h.app.getBoard(a.id);
   assert.deepEqual(board.topics.map((t) => [t.topic, t.count]), [['About parking', 2]]);
   assert.equal(board.unsorted.length, 0);
@@ -33,11 +33,11 @@ test('the board only shows its own session, grouped after clustering', () => {
 test('clustering sends each session only its own existing topic labels', () => {
   const { h, a, b } = setup();
   h.ask(a, h.join(a), 'Parking is a problem');
-  h.app.clusterQuestions();
+  h.app.clusterAll_();
   h.env.geminiCalls.length = 0;
 
   h.ask(b, h.join(b), 'Transport options?');
-  h.app.clusterQuestions();
+  h.app.clusterAll_();
   assert.equal(h.env.geminiCalls.length, 1);
   assert.match(h.env.geminiCalls[0].prompt, /Existing topic labels:\n\(none yet\)/);
   assert.doesNotMatch(h.env.geminiCalls[0].prompt, /About parking/);
@@ -49,7 +49,7 @@ test('the trigger skips inactive and ended sessions', () => {
   h.app.setSessionActive(a.id, false);
   h.ask(b, h.join(b), 'Question in B');
   h.env.geminiCalls.length = 0;
-  h.app.clusterQuestions();
+  h.app.clusterAll_();
   assert.equal(h.env.geminiCalls.length, 1);
   assert.match(h.env.geminiCalls[0].prompt, /Question in B/);
 });
@@ -61,7 +61,7 @@ test('a Gemini failure in one session does not stop the others', () => {
   const normal = h.env.gemini;
   h.env.gemini = (call) => (/Breaks Gemini/.test(call.prompt) ? { status: 404, text: 'model not found' } : normal(call));
 
-  h.app.clusterQuestions();
+  h.app.clusterAll_();
   h.as(MOD);
   assert.equal(h.app.getBoard(a.id).unsorted.length, 1);
   assert.equal(h.app.getBoard(b.id).topics.length, 1);
@@ -82,10 +82,10 @@ test('clustering output that looks like a formula is stored as text', () => {
   const { h, a } = setup();
   h.ask(a, h.join(a), 'Something ordinary');
   h.env.gemini = (call) => {
-    const id = call.prompt.match(/\n([a-f0-9]{8}): /)[1];
+    const id = call.prompt.match(/"id":"([a-f0-9]{8})"/)[1];
     return { assignments: [{ id, topic: '=cmd()', language: '+English', translation: '@translated' }] };
   };
-  h.app.clusterQuestions();
+  h.app.clusterAll_();
   assert.deepEqual(h.questions().formulas, []);
   h.as(MOD);
   assert.equal(h.app.getBoard(a.id).topics[0].topic, '=cmd()');
@@ -123,7 +123,7 @@ test('merged questions are stored per session and topic', () => {
   const { h, a, b } = setup();
   h.ask(a, h.join(a), 'Parking is a problem');
   h.ask(b, h.join(b), 'Parking in B too');
-  h.app.clusterQuestions();
+  h.app.clusterAll_();
 
   h.as(MOD);
   h.env.gemini = () => ({ question: 'What is being done about parking in A?' });
@@ -140,7 +140,7 @@ test('merged questions are stored per session and topic', () => {
 test('merge and translate prompts keep the do-not-soften instruction', () => {
   const { h, a } = setup();
   h.ask(a, h.join(a), 'Leadership ignored us');
-  h.app.clusterQuestions();
+  h.app.clusterAll_();
   h.as(MOD);
   h.app.mergeTopic(a.id, 'About leadership');
   const [cluster, merge] = h.env.geminiCalls;
@@ -162,7 +162,7 @@ test('pausing is per session', () => {
 test('a queue button opens the spreadsheet once and reads each sheet at most once', () => {
   const { h, a } = setup();
   for (let i = 0; i < 5; i++) h.ask(a, h.join(a), 'Parking question ' + i);
-  h.app.clusterQuestions();
+  h.app.clusterAll_();
   h.as(MOD);
   const id = h.questions().rows[1][0];
 
@@ -183,7 +183,7 @@ test('answered questions and topics sink to the bottom; dismissed ones are kept 
   h.ask(a, h.join(a), 'Funding one'); h.advance(5);
   h.ask(a, h.join(a), 'Funding two'); h.advance(5);
   h.ask(a, h.join(a), 'Funding three');
-  h.app.clusterQuestions();
+  h.app.clusterAll_();
   h.as(MOD);
   const idOf = (text) => h.questions().rows.find((r) => r[3] === text)[0];
 

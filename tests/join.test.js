@@ -28,7 +28,6 @@ test('anything but a Question Desk guest page is refused', () => {
     '?d=' + D + '&view=present&s=2b338480&t=0123456789ab',
     '?d=' + D + '&s=2b338480&t=0123456789ab&layout=qr',
     '?d=' + D + '&s=ZZZ&t=0123456789ab',
-    '?d=' + D + '&s=2b338480&t=0123456789ab&next=https://evil.example',    // unknown parameter
     '?d=' + D + '/../../evil&view=present&s=2b338480',
     '?d=' + D + '&view=present&s=2b338480"><script>'
   ].forEach((q) => assert.equal(JoinUrl.target(q), null, q));
@@ -41,4 +40,15 @@ test('the wrapper page only embeds what JoinUrl allows and sends no referrer', (
   assert.match(html, /var url = JoinUrl\.target\(location\.search\);/);
   assert.deepEqual(Array.from(html.matchAll(/setAttribute\('src', (\w+)\)/g), (m) => m[1]), ['url']);
   assert.doesNotMatch(html, /AKfycb/, 'no deployment id in the repository');
+});
+
+test('tracking tags, &amp; and #fragments added by apps and newsletters do not break a guest link', () => {
+  const direct = 'https://script.google.com/macros/s/' + D + '/exec?s=2b338480&k=0123456789abcdef';
+  [
+    '?d=' + D + '&s=2b338480&k=0123456789abcdef&fbclid=IwAR0abc',
+    '?utm_source=newsletter&d=' + D + '&s=2b338480&k=0123456789abcdef&utm_medium=email',
+    '?d=' + D + '&amp;s=2b338480&amp;k=0123456789abcdef',
+    '?d=' + D + '&s=2b338480&k=0123456789abcdef#section',
+    '?d=' + D + '&s=2b338480&k=0123456789abcdef&next=https://evil.example'
+  ].forEach((q) => assert.equal(JoinUrl.target(q), direct, q));
 });

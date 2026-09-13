@@ -233,7 +233,7 @@ function createApp(options) {
       getProjectTriggers: () => env.triggers.slice(),
       deleteTrigger: (t) => { env.triggers = env.triggers.filter((x) => x !== t); },
       newTrigger: (handler) => {
-        const t = { handler, getHandlerFunction: () => handler };
+        const t = { handler, getHandlerFunction: () => handler, getUniqueId: () => 'trigger-' + handler };
         const chain = { timeBased: () => chain, everyMinutes: (n) => { t.minutes = n; return chain; }, create: () => { env.triggers.push(t); return t; } };
         return chain;
       }
@@ -257,7 +257,7 @@ function createApp(options) {
               title: '',
               setTitle(t) { out.title = t; return out; },
               addMetaTag() { return out; },
-              setXFrameOptionsMode() { return out; },
+              setXFrameOptionsMode(mode) { out.xframe = mode; return out; },
               setFaviconUrl(url) {
                 if (env.faviconError) throw new Error(env.faviconError);
                 out.favicon = url;
@@ -377,9 +377,7 @@ function defaultGemini(call) {
   if (call.schema.properties.assignments) {
     const lines = call.prompt.split('New questions:\n')[1].split('\n\nDo not invent')[0].split('\n');
     const assignments = lines.filter(Boolean).map((line) => {
-      const idx = line.indexOf(': ');
-      const id = line.slice(0, idx);
-      const text = line.slice(idx + 2);
+      const { id, text } = JSON.parse(line);
       return { id, topic: 'About ' + text.split(' ')[0].toLowerCase(), language: 'English', translation: text };
     });
     const topics = Array.from(new Set(assignments.map((a) => a.topic)));

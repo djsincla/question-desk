@@ -23,7 +23,8 @@
 
   function parseQuery(search) {
     var out = {};
-    String(search || '').replace(/^\?/, '').split('&').forEach(function (pair) {
+    // Links pasted from Outlook or Teams can carry &amp; and a #fragment.
+    String(search || '').replace(/^\?/, '').replace(/#.*$/, '').replace(/&amp;/g, '&').split('&').forEach(function (pair) {
       if (!pair) return;
       var eq = pair.indexOf('=');
       try {
@@ -37,7 +38,9 @@
   function target(search) {
     var p = parseQuery(search);
     for (var name in p) {
-      if (!RULES[name] || !RULES[name].test(p[name])) return null;
+      // Unknown names (fbclid, utm_source… added by social media and newsletters) are ignored:
+      // the embedded address is rebuilt from the checked names only, so they never reach it.
+      if (RULES[name] && !RULES[name].test(p[name])) return null;
     }
     if (!p.d || !p.s) return null;
     var room = p.view === 'present';

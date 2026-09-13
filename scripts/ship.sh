@@ -34,6 +34,14 @@ if git rev-parse -q --verify "refs/tags/v$APP_VERSION" >/dev/null; then
   echo "v$APP_VERSION is already released. Bump APP.version in Code.js and add a CHANGELOG.md entry." >&2
   exit 1
 fi
+# GitHub Pages serves the guest page and the PowerPoint add-in from main: they must match.
+if git remote get-url origin >/dev/null 2>&1 && [ "${QD_ALLOW_UNPUSHED:-}" != "1" ]; then
+  git fetch -q origin main || { echo "Could not reach GitHub to check main is pushed." >&2; exit 1; }
+  if [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]; then
+    echo "This commit isn't on GitHub's main yet. Push first, so the guest page and add-in match this release." >&2
+    exit 1
+  fi
+fi
 NOTES=$(awk -v v="$APP_VERSION" '$0 ~ "^## \\[" v "\\]" {on=1; next} /^## \[/ {on=0} on' CHANGELOG.md)
 [ -n "$NOTES" ] || { echo "CHANGELOG.md has no section for $APP_VERSION." >&2; exit 1; }
 echo "Shipping Question Desk $APP_VERSION"
@@ -59,8 +67,9 @@ echo "==> Push"
 clasp push --force $USER_ARGS
 
 echo "==> Version"
-VERSION=$(clasp create-version "$APP_VERSION: $DESC" $USER_ARGS 2>/dev/null | sed -n 's/^Created version \([0-9][0-9]*\).*/\1/p')
-[ -n "$VERSION" ] || { echo "Could not read the new version number." >&2; exit 1; }
+CREATED=$(clasp create-version "$APP_VERSION: $DESC" $USER_ARGS 2>&1) || true
+VERSION=$(printf '%s\n' "$CREATED" | sed -n 's/^Created version \([0-9][0-9]*\).*/\1/p')
+[ -n "$VERSION" ] || { printf '%s\n' "$CREATED" >&2; echo "Could not create an Apps Script version (clasp output above)." >&2; exit 1; }
 echo "Created version $VERSION"
 
 echo "==> Deploy"
@@ -77,7 +86,12 @@ git tag -a "v$APP_VERSION" -m "Question Desk $APP_VERSION (Apps Script version $
 echo "Tagged v$APP_VERSION"
 
 if git remote get-url origin >/dev/null 2>&1; then
-  git push origin "v$APP_VERSION"
+  if ! git push origin "v$APP_VERSION"; then
+    # Otherwise a re-run refuses ("already released") and the GitHub release never gets made.
+    git tag -d "v$APP_VERSION" >/dev/null
+    echo "The app is live, but pushing the tag failed; removed the local tag. Re-run to tag and release." >&2
+    exit 1
+  fi
   if command -v gh >/dev/null 2>&1; then
     if gh release view "v$APP_VERSION" >/dev/null 2>&1; then
       echo "GitHub release v$APP_VERSION already exists."

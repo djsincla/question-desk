@@ -142,3 +142,35 @@ test('participant and room screen links use the public address; staff links stay
     assert.equal(links.moderate.split('?')[0], staffBase, 'queue link unchanged from ' + reported);
   });
 });
+
+test('the grouping trigger function runs only for its trigger or an administrator', () => {
+  const h = createApp().install({ moderators: [MOD] });
+  h.app.setUp();
+  const s = h.session({ name: 'Grouping', access: 'link', active: true, moderators: [MOD] });
+  h.ask(s, h.join(s), 'Parking is a problem');
+  h.env.geminiCalls.length = 0;
+
+  // Every public function is callable from any page, so anonymous callers must be refused.
+  h.anonymous();
+  assert.throws(() => h.app.clusterQuestions(), /Not allowed/);
+  assert.throws(() => h.app.clusterQuestions({ triggerUid: 'made-up' }), /Not allowed/);
+  h.as(MOD);
+  assert.throws(() => h.app.clusterQuestions(), /Not allowed/);
+  assert.equal(h.env.geminiCalls.length, 0, 'no Gemini calls from refused callers');
+
+  h.anonymous();
+  assert.equal(h.app.clusterQuestions({ triggerUid: 'trigger-clusterQuestions' }), 1, 'the real trigger runs');
+  h.as(OWNER);
+  assert.doesNotThrow(() => h.app.clusterQuestions());
+});
+
+test('only guest pages can be framed by other sites', () => {
+  const h = createApp().install({ moderators: [MOD] });
+  const s = h.session({ name: 'Frames', access: 'link', active: true, moderators: [MOD] });
+  const key = h.app.getSession_(s.id).linkKey;
+  assert.equal(h.app.doGet({ parameter: { view: 'admin' } }).xframe, undefined, 'admin keeps Google\'s default');
+  assert.equal(h.app.doGet({ parameter: { view: 'moderate', s: s.id } }).xframe, undefined, 'queue keeps Google\'s default');
+  h.anonymous();
+  assert.equal(h.app.doGet({ parameter: { s: s.id, k: key } }).xframe, 'ALLOWALL', 'participant page');
+  assert.equal(h.app.doGet({ parameter: { view: 'present', s: s.id } }).xframe, 'ALLOWALL', 'room screen');
+});

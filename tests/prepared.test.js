@@ -24,7 +24,7 @@ test('prepared questions load with the session and wait out of sight', () => {
   assert.deepEqual(board.prepared.map((q) => q.text), ['What is the plan for respite hours?', 'How do families join the advisory board?']);
   assert.equal(board.unsorted.length + board.topics.length, 0, 'not in the queue');
 
-  h.app.clusterQuestions();
+  h.app.clusterAll_();
   assert.equal(h.env.geminiCalls.length, 0, 'not sent for grouping');
   const d = h.join(s);
   assert.deepEqual(h.anonymous().app.getTopics(s.id, d.deviceId).topics, [], 'not on phones');
@@ -40,7 +40,7 @@ test('a QA Facilitator adds prepared questions to the queue when needed', () => 
   assert.deepEqual(board.unsorted.map((q) => q.text), ['Parking for families with wheelchairs?']);
   assert.equal(board.unsorted[0].submitted, h.env.clock.now, 'timestamped when added');
 
-  h.app.clusterQuestions();
+  h.app.clusterAll_();
   assert.deepEqual(h.app.getBoard(s.id).topics.map((t) => t.topic), ['About parking'], 'grouped like any question');
   assert.throws(() => h.app.usePrepared(s.id, [first.id]), /already added or removed/);
 });

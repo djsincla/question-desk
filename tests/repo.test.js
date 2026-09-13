@@ -40,7 +40,11 @@ test('secret scanner catches keys, tokens, deployment IDs and real emails', () =
     ['AKfy' + 'cbw' + 'X'.repeat(40), 'Apps Script deployment ID'],
     ['"script' + 'Id": "1abc_real_id"', 'Apps Script project ID'],
     ['-----BEGIN ' + 'PRIVATE KEY-----', 'Private key'],
-    ['someone' + '@' + 'realcompany.com', 'Email address']
+    ['someone' + '@' + 'realcompany.com', 'Email address'],
+    ['someone' + '@' + 'anthropic.com', 'Email address'],
+    ['boss' + '@' + 'domain.org', 'Email address'],
+    ['https://script.google.com/' + 'd/' + '1AbCdEfGhIjKlMnOpQrStUvWxYz0123/edit', 'Apps Script project ID'],
+    ['GOC' + 'SPX-' + 'a'.repeat(28), 'OAuth client secret']
   ];
   samples.forEach(([text, name]) => {
     const found = secrets.scanText('x ' + text + ' y', 'sample');
@@ -52,6 +56,12 @@ test('secret scanner allows placeholders', () => {
   const ok = 'mod@example.org owner@example.com a@b.test name@domain.org noreply@anthropic.com ' +
     '1+x@users.noreply.github.com "scriptId": "YOUR_SCRIPT_ID"';
   assert.deepEqual(secrets.scanText(ok, 'sample'), []);
+});
+
+test('secret scanner reports a file it cannot read instead of skipping it', () => {
+  const findings = secrets.scanFiles(['notés.md'], () => { throw new Error('ENOENT'); });
+  assert.equal(findings.length, 1);
+  assert.match(findings[0].name, /Could not read/);
 });
 
 test('local config files can never be committed', () => {

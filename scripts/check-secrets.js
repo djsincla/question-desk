@@ -22,11 +22,13 @@ const PATTERNS = [
   ['Private key', /-----BEGIN [A-Z ]*PRIVATE KEY-----/g],
   ['Apps Script deployment ID', /\bAKfycb[A-Za-z0-9_-]{30,}/g],
   ['Apps Script project ID', /"scriptId"\s*:\s*"(?!YOUR_SCRIPT_ID)[^"]+"/g],
+  ['Apps Script project ID', /script\.google\.com\/(?:d|home\/projects)\/[A-Za-z0-9_-]{20,}/g],
+  ['OAuth client secret', /\bGOCSPX-[A-Za-z0-9_-]{20,}/g],
   ['Email address', /[A-Za-z0-9._%+-]+@(?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,}/g]
 ];
 
 // Placeholder and machine domains that are fine to publish.
-const ALLOWED_EMAIL = /@(?:example\.(?:org|com|net)|[a-z0-9-]+\.test|domain\.org|anthropic\.com|users\.noreply\.github\.com)$/i;
+const ALLOWED_EMAIL = /^(?:[A-Za-z0-9._%+-]+@(?:example\.(?:org|com|net)|[a-z0-9-]+\.test|users\.noreply\.github\.com)|name@domain\.org|noreply@anthropic\.com)$/i;
 
 const FORBIDDEN_FILES = [/(^|\/)\.clasp\.json$/, /(^|\/)\.clasprc\.json$/, /(^|\/)\.deploy\.env$/, /(^|\/)\.env(\..*)?$/, /\.pem$/, /\.p12$/];
 
@@ -57,7 +59,13 @@ function scanFiles(files, read) {
     }
     if (/^LICENSE$/.test(file)) return;
     let text;
-    try { text = read(file); } catch (err) { return; }
+    try {
+      text = read(file);
+    } catch (err) {
+      // Never skip silently: an unreadable file is exactly where a secret could hide.
+      findings.push({ where: file, line: 0, name: 'Could not read file to scan it', match: String(err.message).split('\n')[0].slice(0, 60) });
+      return;
+    }
     if (text.indexOf(String.fromCharCode(0)) !== -1) return; // binary
     findings = findings.concat(scanText(text, file));
   });
@@ -68,7 +76,8 @@ function main() {
   const mode = process.argv[2] || '--tracked';
   let findings;
   if (mode === '--staged') {
-    const files = git(['diff', '--cached', '--name-only', '--diff-filter=ACMR']).split('\n').filter(Boolean);
+    // -z: paths with spaces or accents come back unquoted.
+    const files = git(['diff', '--cached', '--name-only', '-z', '--diff-filter=ACMR']).split('\0').filter(Boolean);
     findings = scanFiles(files, (f) => git(['show', ':' + f]));
   } else if (mode === '--history') {
     const log = git(['log', '--all', '-p', '--format=commit %H%nAuthor: %an <%ae>%n%n%B']);
@@ -76,7 +85,7 @@ function main() {
       // The license text's own URLs and placeholders are not findings.
       .replace(/^[+-] .*apache\.org.*$/gm, '')).join('\n'), 'git history');
   } else {
-    const files = git(['ls-files']).split('\n').filter(Boolean);
+    const files = git(['ls-files', '-z']).split('\0').filter(Boolean).filter((f) => require('node:fs').existsSync(f));
     findings = scanFiles(files, (f) => require('node:fs').readFileSync(f, 'utf8'));
   }
 

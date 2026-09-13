@@ -56,8 +56,7 @@ function demoGemini(call) {
     const assignments = [];
     const used = new Set();
     lines.forEach((line) => {
-      const id = line.slice(0, line.indexOf(': '));
-      const text = line.slice(line.indexOf(': ') + 2);
+      const { id, text } = JSON.parse(line);
       const q = QUESTIONS.find((row) => row[0] === text);
       if (!q || !q[3]) return;
       used.add(q[3]);
@@ -112,7 +111,7 @@ function buildDemo() {
                'How can families give feedback between meetings?'] });
   QUESTIONS.forEach((q) => { h.ask(live, h.join(live), q[0]); h.advance(20); });
   h.ask(live, h.join(live), 'Follow my page for free giveaways!!!');
-  h.app.clusterQuestions();
+  h.app.clusterAll_();
   h.as(USERS.mod);
   h.app.setStatus(live.id, [h.questions().rows.find((r) => /giveaways/.test(r[3]))[0]], 'dismissed');
   h.app.setStatus(live.id, [h.questions().rows.find((r) => r[3] === QUESTIONS[9][0])[0]], 'answered');

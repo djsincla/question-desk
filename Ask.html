@@ -266,6 +266,9 @@
     document.getElementById('nowTag').textContent = T('nowAnswering');
     if (typeof renderTopics === 'function' && lastTopics) renderTopics(lastTopics);
     if (!q.disabled && !ticker) send.textContent = T('send');
+    // Locked pages and notes already on screen switch language too.
+    if (typeof stopped !== 'undefined' && stopped) refuse(stopped);
+    else if (typeof noteKey !== 'undefined' && noteKey && !note.hidden) sayKey(noteKey, noteTone);
 
     var buttons = document.querySelectorAll('.langs button');
     for (var i = 0; i < buttons.length; i++) {
@@ -290,10 +293,21 @@
   var note = document.getElementById('note');
   var noteText = document.getElementById('noteText');
 
+  var noteKey = null, noteTone = '';
+  var stopped = null;   // why the page is locked (closed, inactive, ended, …), or null
+
   function say(text, tone) {
+    noteKey = null;
     noteText.textContent = text;
     note.className = 'note ' + (tone || '');
     note.hidden = false;
+  }
+
+  /** A note from STRINGS, remembered so a language switch can re-translate it. */
+  function sayKey(key, tone) {
+    say(T(key), tone);
+    noteKey = key;
+    noteTone = tone;
   }
 
   function lock(reason) {
@@ -302,22 +316,46 @@
     send.textContent = reason;
   }
 
-  function stop(reason) {
-    if (reason === 'ended') { lock(T('endedBtn')); say(T('ended'), 'stop'); }
-    else if (reason === 'inactive') { lock(T('inactiveBtn')); say(T('inactive'), 'hold'); }
-    else if (reason === 'closed') { lock(T('closedBtn')); say(T('closed'), 'stop'); }
-    else if (reason === 'notFound') { lock(T('expiredBtn')); say(T('notFound'), 'stop'); }
-    else if (access === 'link') { lock(T('linkExpiredBtn')); say(T('linkExpired'), 'stop'); }
-    else { lock(T('expiredBtn')); say(T('expired'), 'stop'); }
+  function refuse(reason) {
+    stopped = reason;
+    if (reason === 'ended') {
+      clearInterval(ticker); clearInterval(syncTimer); ticker = null;
+      lock(T('endedBtn')); sayKey('ended', 'stop');
+    }
+    else if (reason === 'inactive') { lock(T('inactiveBtn')); sayKey('inactive', 'hold'); }
+    else if (reason === 'closed') { lock(T('closedBtn')); sayKey('closed', 'stop'); }
+    else if (reason === 'notFound') { lock(T('expiredBtn')); sayKey('notFound', 'stop'); }
+    else if (access === 'link') { lock(T('linkExpiredBtn')); sayKey('linkExpired', 'stop'); }
+    else { lock(T('expiredBtn')); sayKey('expired', 'stop'); }
+  }
+
+  /** Follows the session while the page is open: paused, resumed, started or ended. */
+  function followSession(status, open) {
+    if (status === 'ended') { if (stopped !== 'ended') refuse('ended'); return; }
+    if (stopped === 'closed' || stopped === 'inactive') {
+      if (status === 'active' && open) {
+        stopped = null;
+        q.disabled = false;
+        send.textContent = T('send');
+        sayKey('again', 'good');
+        updateMeter();
+      } else if (status === 'active' && stopped === 'inactive') {
+        refuse('closed');
+      }
+      return;
+    }
+    if (stopped || ticker) return;   // a countdown ends on its own; other locks need a new link
+    if (status !== 'active') refuse('inactive');
+    else if (!open) refuse('closed');
   }
 
   var remaining = 0;
   var syncTimer = null;
 
-  function countdown(seconds) {
+  function countdown(seconds, afterSend) {
     clearInterval(ticker);
     remaining = seconds;
-    q.value = '';
+    if (afterSend) q.value = '';   // a changed wait mid-typing keeps what they wrote
     q.disabled = true;
     send.disabled = true;
     updateMeter();
@@ -327,10 +365,11 @@
         clearInterval(ticker);
         clearInterval(syncTimer);
         ticker = null;
+        if (stopped) return;
         q.disabled = false;
         send.textContent = T('send');
         updateMeter();
-        say(T('again'), 'good');
+        sayKey('again', 'good');
         return;
       }
       var m = Math.floor(remaining / 60), s = remaining % 60;
@@ -353,8 +392,8 @@
     if (typeof serverSeconds !== 'number') return;
     if (ticker) {
       if (Math.abs(serverSeconds - remaining) > 2) remaining = serverSeconds;
-    } else if (serverSeconds > 0 && !q.disabled) {
-      countdown(serverSeconds);
+    } else if (serverSeconds > 0 && !q.disabled && !stopped) {
+      countdown(serverSeconds, false);
     }
   }
 
@@ -382,15 +421,21 @@
       .withSuccessHandler(function (res) {
         if (res.ok) {
           addSent(text);
-          say(T('sent'), 'good');
-          countdown(res.cooldownSeconds);
+          sayKey('sent', 'good');
+          if (res.cooldownSeconds > 0) {
+            countdown(res.cooldownSeconds, true);
+          } else {
+            q.value = '';          // no wait: keep "Sent" showing and let them ask again
+            send.textContent = T('send');
+            updateMeter();
+          }
           return;
         }
         if (res.reason === 'cooldown') {
-          say(T('cooldown'), 'hold');
-          countdown(res.waitSeconds || 60);
+          sayKey('cooldown', 'hold');
+          countdown(res.waitSeconds || 60, false);
         } else if (['expired', 'closed', 'ended', 'inactive', 'notFound'].indexOf(res.reason) !== -1) {
-          stop(res.reason);
+          refuse(res.reason);
         } else if (res.reason === 'busy') {
           recover(T('busy'));
         } else if (res.reason === 'tooShort') {
@@ -492,6 +537,7 @@
         b.setAttribute('aria-pressed', t.mine ? 'true' : 'false');
         b.onclick = function () {
           // Optimistic: flip now, reconcile with the server's answer.
+          voteSeq++;
           t.mine = !t.mine;
           t.count += t.mine ? 1 : -1;
           renderTopics(lastTopics);
@@ -505,11 +551,17 @@
     });
   }
 
+  var voteSeq = 0;   // bumps on every Me too tap
+
   function loadTopics() {
     if (!deviceId) return;
+    var seqAtStart = voteSeq;
     google.script.run.withSuccessHandler(function (res) {
       if (!res.ok) return;
       syncCooldown(res.cooldownRemaining);
+      followSession(res.status, res.open);
+      // Read before a Me too tap landed: showing it would undo the tap on screen.
+      if (seqAtStart !== voteSeq) return;
       renderTopics(res);
       if (res.status === 'ended') clearInterval(topicTimer);
     }).getTopics(sid, deviceId);
@@ -527,9 +579,9 @@
     maxLength = state.maxLength;
     q.setAttribute('maxlength', String(maxLength + 100));
     startTopics();
-    if (state.status !== 'active') { stop(state.status === 'ended' ? 'ended' : 'inactive'); return; }
-    if (!state.open) { stop('closed'); return; }
-    if (state.cooldownRemaining > 0) { countdown(state.cooldownRemaining); return; }
+    if (state.status !== 'active') { refuse(state.status === 'ended' ? 'ended' : 'inactive'); return; }
+    if (!state.open) { refuse('closed'); return; }
+    if (state.cooldownRemaining > 0) { countdown(state.cooldownRemaining, false); return; }
     updateMeter();
   }
 
@@ -546,13 +598,13 @@
       if (button) setLang(button.dataset.lang);
     });
 
-    if (!sid) { stop('notFound'); return; }
+    if (!sid) { refuse('notFound'); return; }
 
     try { deviceId = localStorage.getItem(KEY); } catch (e) { deviceId = null; }
 
     function claim() {
       google.script.run.withSuccessHandler(function (res) {
-        if (!res.ok) { stop(res.reason); return; }
+        if (!res.ok) { refuse(res.reason); return; }
         deviceId = res.deviceId;
         try { localStorage.setItem(KEY, deviceId); } catch (e) {}
         applyState(res.state);
@@ -564,12 +616,12 @@
     if (!deviceId) { claim(); return; }
 
     google.script.run.withSuccessHandler(function (state) {
-      if (!state.found) { stop('notFound'); return; }
+      if (!state.found) { refuse('notFound'); return; }
       access = state.access;
       // Device token lapsed (6h) or was never valid: join again if this URL still carries a credential.
       if (!state.deviceValid && state.status !== 'ended') {
         if (credential) { claim(); return; }
-        stop('expired');
+        refuse('expired');
         return;
       }
       applyState(state);

@@ -158,3 +158,12 @@ test('putting the guest page address in the Google address field is refused with
   assert.equal(h.app.adminState().guestPageUrl, 'https://djsincla.github.io/question-desk/join/');
   assert.equal(h.app.brand_(null).orgName, 'After');
 });
+
+test('a logo split across cells never stores a chunk the sheet would read as a formula', () => {
+  const h = createApp().install();
+  const logo = fakePng(45000) + '==';   // the second cell would start with "="
+  h.app.saveLogo(logo);
+  assert.deepEqual(h.assets().formulas, []);
+  h.cache.remove('asset:logo');
+  assert.equal(h.app.brand_(null).logo, logo);
+});

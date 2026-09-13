@@ -281,10 +281,20 @@
   // a save is in flight, background refreshes don't overwrite what the facilitator just did.
 
   var pending = 0;
+  var saves = 0;        // bumps on every save, so a refresh that read the sheet before it is ignored
   var topicMeta = {};   // votes and phone approval per topic, to restore topics that emptied
+  var merging = {};     // topic -> 'busy' or 'failed', kept across redraws
+  var lastRaw = null;   // the last board drawn from the server, to skip identical refreshes
+  var saveError = null; // { text, until }
+
+  function showError(text) {
+    saveError = { text: text, until: Date.now() + 10000 };
+    showUpdated();
+  }
 
   function send(fn, args) {
     pending++;
+    saves++;
     var runner = google.script.run
       .withSuccessHandler(function (fresh) {
         pending--;
@@ -292,7 +302,7 @@
       })
       .withFailureHandler(function (err) {
         pending--;
-        tally.textContent = 'That change didn\'t save' + (err && err.message ? ' (' + err.message + ')' : '') + ' — reloading';
+        showError('That change didn\'t save' + (err && err.message ? ' (' + err.message + ')' : '') + ' — reloaded the queue');
         load(true);
       });
     runner[fn].apply(runner, args);
@@ -362,6 +372,7 @@
 
   function draw(data, local) {
     if (!local) normalize(data);
+    if (local) lastRaw = null;   // the next refresh redraws even if it matches the old one
     state = data;
     ended = data.session.status === 'ended';
     document.getElementById('name').textContent = data.session.name;
@@ -391,10 +402,32 @@
       return;
     }
 
+    // Rebuilding the board would close an open ⋯ menu and drop keyboard focus: put them back.
+    var openMenu = board.querySelector('details.more[open]');
+    openMenu = openMenu && openMenu.getAttribute('data-topic');
+    var active = document.activeElement;
+    var focusTopic = active && board.contains(active) && active.closest('.topic') ? active.closest('.topic').getAttribute('data-topic') : null;
+    var focusKey = focusTopic !== null ? (active.getAttribute('data-key') || active.textContent) : null;
+
     board.innerHTML = '';
     data.topics.forEach(function (t) { board.appendChild(topicBlock(t, data.merged[t.topic], false, data.nowAnswering === t.topic)); });
     if (data.unsorted.length) {
       board.appendChild(topicBlock({ topic: 'Not yet grouped', questions: data.unsorted, count: data.unsorted.length }, null, true));
+    }
+
+    var blocks = board.querySelectorAll('.topic');
+    for (var i = 0; i < blocks.length; i++) {
+      var name = blocks[i].getAttribute('data-topic');
+      if (openMenu !== null && name === openMenu) {
+        var menu = blocks[i].querySelector('details.more');
+        if (menu) menu.open = true;
+      }
+      if (focusTopic !== null && name === focusTopic) {
+        var candidates = blocks[i].querySelectorAll('button, summary');
+        for (var j = 0; j < candidates.length; j++) {
+          if ((candidates[j].getAttribute('data-key') || candidates[j].textContent) === focusKey) { candidates[j].focus(); break; }
+        }
+      }
     }
   }
 
@@ -456,6 +489,7 @@
 
   function topicBlock(t, mergedText, isLoose, isLive) {
     var wrap = el('div', 'topic' + (isLive ? ' live' : '') + (t.answered ? ' done' : ''));
+    wrap.setAttribute('data-topic', isLoose ? '' : t.topic);
 
     var head = el('div', 'head');
     var h = el('h2');
@@ -509,20 +543,26 @@
 
       var merge = el('button');
       merge.type = 'button';
-      merge.textContent = mergedText ? 'Rewrite merged question' : 'Merge into one question';
+      merge.setAttribute('data-key', 'merge');
+      merge.textContent = merging[t.topic] === 'busy' ? 'Merging…'
+        : merging[t.topic] === 'failed' ? 'Merge failed — retry'
+        : mergedText ? 'Rewrite merged question' : 'Merge into one question';
+      merge.disabled = merging[t.topic] === 'busy';   // survives the 5-second refresh, so no double Gemini call
       merge.onclick = function () {
+        merging[t.topic] = 'busy';
         merge.disabled = true;
         merge.textContent = 'Merging…';   // Gemini writes this, so it takes a few seconds
         google.script.run.withSuccessHandler(function (res) {
-          if (res.ok) { state.merged[t.topic] = res.question; draw(state, true); }
-          else { merge.disabled = false; merge.textContent = 'Merge failed — retry'; }
+          if (res.ok) { delete merging[t.topic]; state.merged[t.topic] = res.question; draw(state, true); }
+          else { merging[t.topic] = 'failed'; draw(state, true); }
         }).withFailureHandler(function () {
-          merge.disabled = false; merge.textContent = 'Merge failed — retry';
+          merging[t.topic] = 'failed'; draw(state, true);
         }).mergeTopic(sid, t.topic);
       };
       acts.appendChild(merge);
 
       var more = el('details', 'more');
+      more.setAttribute('data-topic', t.topic);
       var summary = el('summary');
       summary.textContent = '⋯';
       summary.setAttribute('aria-label', 'More actions for ' + t.topic);
@@ -617,6 +657,7 @@
   }
 
   toggle.onclick = function () {
+    if (!state) return;   // not loaded yet
     state.open = !state.open;
     draw(state, true);
     send('setBoardOpen', [sid, state.open]);
@@ -639,9 +680,15 @@
 
   function load(force) {
     if (ended && !force) return;
+    var savesAtStart = saves;
     google.script.run.withSuccessHandler(function (fresh) {
       lastLoaded = Date.now();
+      showUpdated();
       if (pending && !force) return;   // a save is in flight; its answer will redraw
+      if (savesAtStart !== saves) return;   // read before a save landed; it would undo the click on screen
+      var raw = JSON.stringify(fresh);
+      if (raw === lastRaw && !force) return;   // nothing changed: leave menus, focus and scroll alone
+      lastRaw = raw;
       draw(fresh);
     }).withFailureHandler(function (err) {
       tally.textContent = err && err.message ? err.message : 'Lost connection — retrying';
@@ -650,15 +697,21 @@
 
   // Shows the queue is live; warns if refreshes stop arriving.
   var lastLoaded = 0;
-  setInterval(function () {
+  function showUpdated() {
     var el2 = document.getElementById('updated');
+    if (saveError && Date.now() < saveError.until) {
+      el2.className = 'updated stale';
+      el2.textContent = saveError.text;
+      return;
+    }
     if (!lastLoaded) { el2.textContent = 'Loading…'; return; }
     var stale = !ended && Date.now() - lastLoaded > 20000;
     el2.className = stale ? 'updated stale' : 'updated';
     el2.textContent = stale
       ? 'Not updating — check the connection'
       : 'Updated ' + new Date(lastLoaded).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' });
-  }, 1000);
+  }
+  setInterval(showUpdated, 1000);
 
   load(true);
   setInterval(load, 5000);

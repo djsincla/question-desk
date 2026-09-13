@@ -18,7 +18,9 @@ test('any form of a session link becomes the public, QR-only slide address', () 
     'https://script.google.com/a/example.org/macros/s/AbC_12-x/exec?view=present&s=1a2b3c4d',
     '  https://script.google.com/macros/s/AbC_12-x/exec?view=present&s=1a2b3c4d&layout=qr  ',
     'https://script.google.com/macros/s/AbC_12-x/exec?view=moderate&s=1a2b3c4d',
-    'https://script.google.com/macros/s/AbC_12-x/exec?s=1a2b3c4d&k=0123456789abcdef'
+    'https://script.google.com/macros/s/AbC_12-x/exec?s=1a2b3c4d&k=0123456789abcdef',
+    'https://script.google.com/macros/s/AbC_12-x/exec?view=present&amp;s=1a2b3c4d',   // pasted from Outlook/Teams
+    'https://script.google.com/macros/s/AbC_12-x/exec?view=present&s=1a2b3c4d#top'
   ];
   forms.forEach((link) => {
     assert.equal(RoomUrl.forSlide(link), PUBLIC + '?view=present&s=1a2b3c4d&layout=qr', link);

@@ -266,3 +266,21 @@ test('waits stored by 2.0 (as an end time) are still honored after upgrading', (
   h.cache.put('cool:' + s.id + ':' + d.deviceId, String(h.env.clock.now + 200 * 1000), 300);
   assert.equal(h.anonymous().app.getSessionState(s.id, d.deviceId).cooldownRemaining, 200);
 });
+
+test('an old room code stays dead when the room screen comes back after a break', () => {
+  const h = createApp().install();
+  const s = h.session({ name: 'Break', active: true });
+  h.anonymous();
+  const old = token(h.app.getRoomScreen(s.id).url);
+
+  // Normal rotation: the code that was just on screen still works for one more window.
+  h.advance(160);
+  token(h.app.getRoomScreen(s.id).url);
+  assert.equal(h.app.claimDevice(s.id, old).ok, true, 'a scan during rotation still works');
+
+  // The screen is closed for hours; a photo of an old code must not work when it reopens.
+  const photographed = token(h.app.getRoomScreen(s.id).url);
+  h.advance(6 * 3600);
+  token(h.app.getRoomScreen(s.id).url);
+  assert.equal(h.app.claimDevice(s.id, photographed).ok, false);
+});
