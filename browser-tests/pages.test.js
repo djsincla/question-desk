@@ -14,7 +14,7 @@ const { webkit, chromium, devices } = require('playwright');
 const { serve, USERS } = require('../scripts/preview');
 
 const ENGINES = [['webkit', webkit], ['chromium', chromium]];
-const ROOM_SIZES = [[1600, 900], [1280, 720], [1024, 768], [960, 540], [760, 760], [540, 900]];
+const ROOM_SIZES = [[1600, 900], [1280, 720], [1024, 768], [960, 540], [640, 560], [760, 760], [600, 700], [540, 900], [480, 360]];
 
 let ctx;
 let base;

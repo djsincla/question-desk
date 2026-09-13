@@ -4,6 +4,15 @@ All notable changes to Question Desk. Versions follow [Semantic Versioning](http
 Each release is tagged `vX.Y.Z` and published as a GitHub release by `scripts/ship.sh`,
 which reads the notes for that version from this file.
 
+## [2.3.1] - 2026-09-12
+
+### Fixed
+- In a square slide box, the QR-only view could push the top of the code off the box on
+  computers with larger default fonts (found by the new browser tests on Linux). Wide
+  boxes now put the caption beside the code; square and tall boxes leave room for it.
+- Room screen text scales with the box's height as well as its width, and very small
+  boxes drop the footer and extra lines instead of overlapping.
+
 ## [2.3.0] - 2026-09-12
 
 ### Added
@@ -157,6 +166,7 @@ which reads the notes for that version from this file.
 - "Merge into one question" for reading a topic aloud.
 - Participant page in English, Korean and Spanish.
 
+[2.3.1]: https://github.com/djsincla/question-desk/releases/tag/v2.3.1
 [2.3.0]: https://github.com/djsincla/question-desk/releases/tag/v2.3.0
 [2.2.0]: https://github.com/djsincla/question-desk/releases/tag/v2.2.0
 [2.1.1]: https://github.com/djsincla/question-desk/releases/tag/v2.1.1
