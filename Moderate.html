@@ -38,7 +38,11 @@
   .modal { position: fixed; inset: 0; background: rgba(15, 23, 32, 0.45); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); display: flex; align-items: flex-start; justify-content: center; padding: 10vh 16px; z-index: 10; }
   .modal form { background: var(--card); border-radius: var(--radius); padding: 20px; width: 100%; max-width: 28rem; box-shadow: var(--shadow-lg); animation: qd-rise 0.2s var(--ease); }
   .modal h2 { font-size: 1.05rem; margin: 0 0 8px; }
-  .modal p { margin: 0 0 16px; color: var(--muted); }
+  .modal p { margin: 0 0 16px; color: var(--muted); white-space: pre-line; }
+  .nav { align-items: center; }
+  li.selected { background: var(--action-soft); box-shadow: inset 3px 0 0 var(--action); }
+  li.selected:hover { background: var(--action-soft); }
+  kbd { font: 600 0.8rem ui-monospace, Menlo, monospace; border: 1px solid var(--rule-strong); border-bottom-width: 2px; border-radius: 5px; padding: 1px 6px; background: var(--card); color: var(--ink); }
   .modal .row { display: flex; gap: 8px; }
   .prepared { border: 1px dashed var(--rule-strong); border-radius: var(--radius); margin-bottom: 18px; background: var(--card); }
   .prepared summary { padding: 11px 14px; cursor: pointer; font-weight: 600; border-radius: var(--radius); }
@@ -143,6 +147,8 @@
   <div class="nav">
     <span class="tally" id="tally">Loading…</span>
     <a id="roomLink" target="_blank" rel="noopener">Room screen</a>
+    <a id="panelLink" target="_blank" rel="noopener" title="The question being answered, large, for the panel table">Panelist view</a>
+    <button type="button" class="quiet small" id="keysHelp" title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts">⌨</button>
     <a id="adminLink" target="_top" hidden>Admin</a>
   </div>
 </header>
@@ -235,6 +241,7 @@
     document.getElementById('dialogBody').textContent = body;
     document.getElementById('dialogOk').textContent = okLabel;
     dialogDone = onOk;
+    document.getElementById('dialogCancel').hidden = false;
     document.getElementById('dialog').hidden = false;
     document.getElementById('dialogOk').focus();
   }
@@ -356,6 +363,7 @@
     pill.textContent = data.session.status === 'active' ? 'Active' : ended ? 'Ended' : 'Not active';
     pill.className = 'pill ' + data.session.status;
     document.getElementById('roomLink').href = data.session.links.present;
+    document.getElementById('panelLink').href = data.session.links.panel;
     var adminLink = document.getElementById('adminLink');
     adminLink.href = data.adminUrl;
     adminLink.hidden = !data.isAdmin;
@@ -404,6 +412,8 @@
         }
       }
     }
+    markSelected(false);
+    tickTimers();
   }
 
   function drawPrepared(list) {
@@ -497,6 +507,7 @@
     if (isLive) {
       var tag = el('span', 'live-tag');
       tag.textContent = 'Answering now';
+      if (state && state.nowAnsweringSince) tag.setAttribute('data-since', String(state.nowAnsweringSince));
       h.appendChild(tag);
     }
     head.appendChild(h);
@@ -511,6 +522,7 @@
         : 'Put this topic on the room screen and participants\' phones as the one being answered';
       live.onclick = function () {
         state.nowAnswering = isLive ? null : t.topic;
+        state.nowAnsweringSince = isLive ? null : Date.now();
         normalize(state);
         draw(state, true);
         send('setNowAnswering', [sid, isLive ? null : t.topic]);
@@ -595,6 +607,7 @@
     var list = el('ul');
     t.questions.forEach(function (q) {
       var li = el('li', q.status === 'answered' ? 'answered' : '');
+      li.setAttribute('data-id', q.id);
       var text = el('div', 'text');
 
       var translated = q.translation && q.translation !== q.text;
@@ -710,6 +723,108 @@
       : 'Updated ' + new Date(lastLoaded).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' });
   }
   setInterval(showUpdated, 1000);
+
+  // ------------------------------------------------------------ timer for the live topic
+
+  function tickTimers() {
+    var tags = board.querySelectorAll('.live-tag[data-since]');
+    for (var i = 0; i < tags.length; i++) {
+      var secs = Math.max(0, Math.floor((Date.now() - Number(tags[i].getAttribute('data-since'))) / 1000));
+      var m = Math.floor(secs / 60), r = secs % 60;
+      tags[i].textContent = 'Answering now · ' + m + ':' + (r < 10 ? '0' : '') + r;
+    }
+  }
+  setInterval(tickTimers, 1000);
+
+  // ------------------------------------------------------------ keyboard shortcuts
+
+  var selectedId = null;
+
+  function questionRows() {
+    return Array.prototype.slice.call(board.querySelectorAll('li[data-id]'));
+  }
+
+  function markSelected(scroll) {
+    var rows = questionRows();
+    rows.forEach(function (row) {
+      var on = row.getAttribute('data-id') === selectedId;
+      row.classList.toggle('selected', on);
+      if (on && scroll && row.scrollIntoView) row.scrollIntoView({ block: 'nearest' });
+    });
+  }
+
+  function selectedRow() {
+    return selectedId ? board.querySelector('li[data-id="' + selectedId + '"]') : null;
+  }
+
+  function moveSelection(delta) {
+    var rows = questionRows();
+    if (!rows.length) return;
+    var at = -1;
+    for (var i = 0; i < rows.length; i++) if (rows[i].getAttribute('data-id') === selectedId) at = i;
+    var next = at === -1 ? (delta > 0 ? 0 : rows.length - 1) : Math.min(rows.length - 1, Math.max(0, at + delta));
+    selectedId = rows[next].getAttribute('data-id');
+    markSelected(true);
+  }
+
+  /** Clicks a button in the selected question's row, or in its topic's header. */
+  function press(where, test) {
+    var row = selectedRow();
+    if (!row) { moveSelection(1); return; }
+    var scope = where === 'row' ? row : row.closest('.topic').querySelector('.head');
+    if (!scope) return;
+    var buttons = scope.querySelectorAll('button');
+    for (var i = 0; i < buttons.length; i++) {
+      if (!buttons[i].disabled && test(buttons[i])) { buttons[i].click(); return true; }
+    }
+    return false;
+  }
+
+  var SHORTCUTS = [
+    ['J or ↓', 'Next question'], ['K or ↑', 'Previous question'],
+    ['A', 'Answered (or Reopen)'], ['D', 'Dismiss'],
+    ['N', 'Answer now / Stop answering for its topic'], ['P', 'Show on or hide from phones'],
+    ['M', 'Merge the topic into one question'], ['G', 'Group now'],
+    ['O', 'Show original wording'], ['Esc', 'Clear the selection'], ['?', 'This list']
+  ];
+
+  document.getElementById('keysHelp').onclick = function () {
+    ask('Keyboard shortcuts', SHORTCUTS.map(function (k) { return k[0] + '  —  ' + k[1]; }).join('\n'), 'Got it', function () {});
+    document.getElementById('dialogCancel').hidden = true;
+  };
+
+  document.addEventListener('keydown', function (e) {
+    if (e.metaKey || e.ctrlKey || e.altKey || ended) return;
+    var t = e.target;
+    // Typing fields keep their keys; checkboxes and buttons don't need them.
+    if (t && ((t.tagName === 'INPUT' && !/^(checkbox|radio|button|submit)$/i.test(t.type)) || /^(TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable)) return;
+    if (!document.getElementById('dialog').hidden) return;
+    var key = e.key;
+    var handled = true;
+    if (key === 'j' || key === 'ArrowDown') moveSelection(1);
+    else if (key === 'k' || key === 'ArrowUp') moveSelection(-1);
+    else if (key === 'a' || key === 'd') {
+      var row = selectedRow();
+      var reopening = row && row.classList.contains('answered') && key === 'a';
+      // Triage flow: after answering or dismissing, move on to the next question.
+      var rows = questionRows();
+      var at = row ? rows.indexOf(row) : -1;
+      var nextId = !reopening && at !== -1 && rows[at + 1] ? rows[at + 1].getAttribute('data-id') : selectedId;
+      if (press('row', function (b) { return key === 'a' ? /^(Answered|Reopen)$/.test(b.textContent) : b.textContent === 'Dismiss'; })) {
+        selectedId = nextId;
+        markSelected(true);
+      }
+    }
+    else if (key === 'n') press('topic', function (b) { return /^(Answer now|Stop answering)$/.test(b.textContent); });
+    else if (key === 'p') press('topic', function (b) { return /phones/i.test(b.textContent); });
+    else if (key === 'm') press('topic', function (b) { return b.getAttribute('data-key') === 'merge'; });
+    else if (key === 'g') document.getElementById('cluster').click();
+    else if (key === 'o') document.getElementById('originals').click();
+    else if (key === '?') document.getElementById('keysHelp').click();
+    else if (key === 'Escape') { selectedId = null; markSelected(false); handled = false; }
+    else handled = false;
+    if (handled) e.preventDefault();
+  });
 
   load(true);
   setInterval(load, 5000);

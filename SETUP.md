@@ -95,8 +95,9 @@ Open the session's **Links** on the Admin page:
 
 | View | URL | Who opens it |
 |---|---|---|
-| Room screen | `…/exec?view=present&s=<session>` | Projector — no sign-in needed, any browser |
-| Facilitator queue | `…/exec?view=moderate&s=<session>` | QA Facilitator, signed in |
+| Room screen | `…/exec?view=present&s=<session>&r=<key>` | Projector — no sign-in needed, any browser |
+| Panelist view | `…/exec?view=panel&s=<session>&r=<key>` | A tablet or laptop on the panel table: the question being answered, large, with a timer |
+| Facilitator queue | `…/exec?view=moderate&s=<session>` | QA Facilitator, signed in. Press **?** for keyboard shortcuts |
 | Participant page | the QR on the room screen, or the shareable link | Audience |
 
 Put the room screen up before doors open. It follows the session live: it shows the

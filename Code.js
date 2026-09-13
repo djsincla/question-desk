@@ -17,7 +17,7 @@
 
 /** Bump with every release; scripts/ship.sh tags git and publishes release notes from CHANGELOG.md. */
 const APP = {
-  version: '2.10.0',
+  version: '2.11.0',
   repo: 'https://github.com/djsincla/question-desk'
 };
 
@@ -98,6 +98,18 @@ function doGet(e) {
     return notice_('pick', view);
   }
 
+  // Panelist view: the question being answered, large, for a tablet on the panel table.
+  // Same key as the room screen: it shows nothing the room screen doesn't.
+  if (view === 'panel') {
+    const panel = getSession_(sid);
+    if (panel && (screenKeyValid_(panel, p.r) || canModerate_(panel, currentEmail_()))) {
+      return page_('Panel.html', panel.name + ' — panel', { sid: panel.id, key: screenKeyFor_(panel), theme: panel.theme }, panel);
+    }
+    if (panel) return notice_('oldScreenLink');
+    if (!currentEmail_()) return notice_('noSession');
+    return notice_('pick', view);
+  }
+
   if (view === 'moderate') {
     const email = currentEmail_();
     if (!email || !(isAdmin_(email) || onRoster_('MODERATORS', email))) return notice_('denied');
@@ -126,7 +138,7 @@ function page_(file, title, boot, session) {
     .replace(/</g, '\\u003c')
     .split(String.fromCharCode(0x2028)).join('\\u2028')
     .split(String.fromCharCode(0x2029)).join('\\u2029');
-  const framable = ['Ask.html', 'Present.html', 'Denied.html'].indexOf(file) !== -1;
+  const framable = ['Ask.html', 'Present.html', 'Panel.html', 'Denied.html'].indexOf(file) !== -1;
   const output = template.evaluate()
     .setTitle(title)
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
@@ -933,6 +945,7 @@ function sessionLinks_(session) {
     // Guest pages: public form, or through the session's guest page (see guestLink_).
     present: guestLink_(session, 'view=present&s=' + session.id + '&r=' + key, 'room'),
     moderate: base + '?view=moderate&s=' + session.id,
+    panel: guestLink_(session, 'view=panel&s=' + session.id + '&r=' + key, 'room'),
     // For the PowerPoint add-in, always direct: the add-in already embeds from outside Google.
     slide: participantBaseUrl_() + '?view=present&s=' + session.id + '&r=' + key + '&layout=qr',
     participant: session.access === 'link'
@@ -1341,7 +1354,8 @@ function nowAnsweringView_(session, records) {
   return {
     topic: now.topic,
     labels: displayLabels_(now.topic, rec.labels),
-    merged: rec.merged ? displayLabels_(rec.merged, rec.mergedLabels) : null
+    merged: rec.merged ? displayLabels_(rec.merged, rec.mergedLabels) : null,
+    since: now.at || null
   };
 }
 
@@ -1452,6 +1466,7 @@ function getBoard(sid) {
     unsorted: loose,
     open: session.open !== false,
     nowAnswering: session.nowAnswering ? session.nowAnswering.topic : null,
+    nowAnsweringSince: session.nowAnswering ? session.nowAnswering.at || null : null,
     merged: merged,
     mergedTranslations: mergedTranslations,
     dismissed: dismissed.sort(function (a, b) { return b.submitted - a.submitted; }),

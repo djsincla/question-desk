@@ -286,3 +286,31 @@ test('sessions saved before the split keep working: Guest page meant both, direc
   assert.ok(h.app.getRoomScreen(ids['Old wrapped'], 'qr').url.startsWith(GUEST + '?d='));
   assert.ok(!h.app.getRoomScreen(ids['Old direct'], 'qr').url.startsWith(GUEST));
 });
+
+test('the panelist view needs the room screen key and shows only what is being answered', () => {
+  const h = createApp().install({ moderators: [MOD] });
+  const s = h.session({ name: 'Panel', access: 'room', active: true, moderators: [MOD] });
+  const r = h.screenKey(s);
+  h.ask(s, h.join(s), 'Parking is a problem');
+  h.app.clusterAll_();
+  h.as(MOD);
+  const topic = h.app.getBoard(s.id).topics[0].topic;
+  h.app.setNowAnswering(s.id, topic);
+  const board = h.app.getBoard(s.id);
+  assert.ok(board.nowAnsweringSince > 0, 'the queue gets when answering started, for its timer');
+  assert.equal(board.session.links.panel, 'https://script.google.com/macros/s/DEPLOYID/exec?view=panel&s=' + s.id + '&r=' + r);
+
+  h.anonymous();
+  const page = h.app.doGet({ parameter: { view: 'panel', s: s.id, r } });
+  assert.equal(page.file, 'Panel.html');
+  assert.equal(page.data.key, r);
+  assert.equal(page.xframe, 'ALLOWALL', 'the guest page can frame it');
+  assert.equal(h.app.doGet({ parameter: { view: 'panel', s: s.id } }).data.heading, 'This room screen link is out of date');
+  const now = h.app.getRoomScreen(s.id, 'panel', r).nowAnswering;
+  assert.equal(now.topic, topic);
+  assert.equal(now.since, board.nowAnsweringSince);
+
+  // Through the guest page too.
+  assert.equal(JoinUrl.target('?d=AKfycb' + 'x'.repeat(30) + '&view=panel&s=' + s.id + '&r=' + r),
+    'https://script.google.com/macros/s/AKfycb' + 'x'.repeat(30) + '/exec?view=panel&s=' + s.id + '&r=' + r);
+});

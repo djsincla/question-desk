@@ -10,6 +10,8 @@ Workspace account. See SETUP.md for install and deployment.
 - `Home.html` — landing page at the bare app address; staff links when signed in
 - `Ask.html` — participant page, localized en/ko/es; Me too topics and Now answering
 - `Present.html` — room screen: QR, Now answering banner, brand colors, light/dark
+- `Panel.html` — panelist view (`view=panel`, room screen key): the question being answered,
+  large, with a timer from `nowAnswering.at`
 - `Moderate.html` — facilitator queue for one session, grouped by topic, Now answering
 - `Admin.html` — sessions (schedule, per-session branding), people, branding, health, load test
 - `Denied.html` — not-allowed page, also the session picker

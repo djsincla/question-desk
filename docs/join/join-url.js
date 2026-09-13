@@ -17,7 +17,7 @@
     t: /^[a-f0-9]{12}$/,
     k: /^[a-f0-9]{16}$/,
     r: /^[a-f0-9]{16}$/,
-    view: /^present$/,
+    view: /^(present|panel)$/,
     layout: /^qr$/,
     lang: /^(en|ko|es)$/
   };
@@ -48,12 +48,12 @@
       if (RULES[name] && !RULES[name].test(p[name])) return null;
     }
     if (!p.d || !p.s) return null;
-    var room = p.view === 'present';
+    var room = p.view === 'present' || p.view === 'panel';
     if (room && (p.t || p.k || !p.r)) return null;
     if (!room && (p.layout || p.r || !(p.t || p.k) || (p.t && p.k))) return null;
 
     var query = room
-      ? 'view=present&s=' + p.s + '&r=' + p.r + (p.layout ? '&layout=qr' : '')
+      ? 'view=' + p.view + '&s=' + p.s + '&r=' + p.r + (p.layout && p.view === 'present' ? '&layout=qr' : '')
       : 's=' + p.s + (p.t ? '&t=' + p.t : '&k=' + p.k) + (p.lang ? '&lang=' + p.lang : '');
     return 'https://script.google.com/macros/s/' + p.d + '/exec?' + query;
   }

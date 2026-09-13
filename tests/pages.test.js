@@ -12,7 +12,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const ROOT = path.join(__dirname, '..');
-const PAGES = ['Ask.html', 'Present.html', 'Moderate.html', 'Denied.html', 'Admin.html', 'Home.html'];
+const PAGES = ['Ask.html', 'Present.html', 'Panel.html', 'Moderate.html', 'Denied.html', 'Admin.html', 'Home.html'];
 const SERVER = fs.readFileSync(path.join(ROOT, 'Code.js'), 'utf8');
 const SERVER_FUNCTIONS = new Set(Array.from(SERVER.matchAll(/^function ([A-Za-z0-9_]+)\s*\(/gm), (m) => m[1]));
 

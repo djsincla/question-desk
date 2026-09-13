@@ -177,3 +177,50 @@ test('chromium: events collapse and expand, one at a time or all, and stay that 
     assert.equal(await page.locator('.event[data-event].collapsed').count(), 0);
   });
 });
+
+test('chromium: queue keyboard shortcuts select, answer and dismiss, and the live topic shows a timer', async () => {
+  await withDemo('chromium', (ctx) => '/?view=moderate&s=' + ctx.live.id + '&as=mod', { viewport: { width: 1280, height: 900 } }, async ({ page }) => {
+    await page.waitForSelector('li[data-id]');
+    await page.waitForFunction(() => /Answering now · \d+:\d{2}/.test((document.querySelector('.live-tag') || {}).textContent || ''), null, { timeout: 5000 });
+
+    await page.keyboard.press('j');
+    const first = await page.getAttribute('li.selected', 'data-id');
+    assert.ok(first, 'J selects the first question');
+    await page.keyboard.press('j');
+    const second = await page.getAttribute('li.selected', 'data-id');
+    assert.notEqual(second, first);
+    await page.keyboard.press('k');
+    assert.equal(await page.getAttribute('li.selected', 'data-id'), first);
+
+    await page.keyboard.press('a');
+    await page.waitForFunction((id) => document.querySelector('li[data-id="' + id + '"]').classList.contains('answered'), first, { timeout: 2000 });
+    assert.notEqual(await page.getAttribute('li.selected', 'data-id'), first, 'moves on after answering');
+
+    const target = await page.getAttribute('li.selected', 'data-id');
+    await page.keyboard.press('d');
+    await page.waitForFunction((id) => !document.querySelector('#board li[data-id="' + id + '"]'), target, { timeout: 2000 });
+
+    // Typing in a field never triggers shortcuts.
+    await page.click('#originals');
+    await page.keyboard.press('?');
+    assert.equal(await page.isVisible('#dialog'), true, '? opens the shortcut list');
+    assert.match(await page.textContent('#dialogBody'), /Dismiss/);
+    await page.keyboard.press('Escape');
+    assert.equal(await page.isVisible('#dialog'), false);
+  });
+});
+
+test('webkit: the panelist view shows the question being answered, large, with a running timer', async () => {
+  await withDemo('webkit', (ctx) => '/?view=panel&s=' + ctx.live.id + '&r=' + ctx.h.screenKey(ctx.live), { viewport: { width: 1024, height: 768 } }, async ({ page, ctx, as }) => {
+    await page.waitForFunction(() => !document.getElementById('live').hidden, null, { timeout: 15000 });
+    assert.match(await page.textContent('#question'), /respite care hours/i);
+    const t1 = await page.textContent('#timer');
+    await page.waitForTimeout(1500);
+    assert.notEqual(await page.textContent('#timer'), t1, 'timer ticks');
+    const size = await page.$eval('#question', (el) => parseFloat(getComputedStyle(el).fontSize));
+    assert.ok(size >= 36, 'large type: ' + size + 'px');
+
+    as('mod', 'setNowAnswering', ctx.live.id, null);
+    await page.waitForFunction(() => document.getElementById('live').hidden && !document.getElementById('waiting').hidden, null, { timeout: 15000 });
+  });
+});

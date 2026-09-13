@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<base target="_top">
+<?!= styles ?>
+<style>
+  /* Panelist view: a tablet or laptop on the panel table. Read-only, large, calm. */
+  html, body { height: 100%; }
+  body {
+    --bg: #10171f;
+    --fg: #ffffff;
+    --soft: #9dabb8;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg);
+    color: var(--fg);
+    padding: 4vh 5vw;
+  }
+  body.light { --bg: #ffffff; --fg: #172230; --soft: #5d6877; }
+  .top { display: flex; align-items: center; justify-content: space-between; gap: 16px; color: var(--soft); font-size: clamp(0.85rem, 1.6vw, 1.1rem); }
+  .top img { max-height: 5vh; max-width: 30vw; }
+  body:not(.light) .top img { background: #fff; padding: 4px 8px; border-radius: 6px; }
+  main { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 2.5vh; max-width: 70rem; margin: 0 auto; width: 100%; }
+  .label { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; font-size: clamp(0.8rem, 1.6vw, 1.1rem); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--soft); }
+  .timer { font-variant-numeric: tabular-nums; letter-spacing: 0; text-transform: none; font-weight: 600; background: var(--action); color: var(--action-ink); border-radius: 999px; padding: 3px 12px; }
+  .timer.long { background: #c77b12; }
+  .topic { font-size: clamp(1.4rem, 3.4vw, 2.6rem); font-weight: 600; line-height: 1.2; margin: 0; color: var(--soft); }
+  .question { font-size: clamp(1.8rem, 5.2vw, 4.4rem); font-weight: 650; line-height: 1.15; margin: 0; text-wrap: balance; letter-spacing: -0.015em; }
+  .waiting { font-size: clamp(1.4rem, 3.6vw, 2.8rem); color: var(--soft); margin: 0; }
+  .foot { display: flex; justify-content: space-between; gap: 16px; color: var(--soft); font-size: clamp(0.8rem, 1.4vw, 1rem); font-variant-numeric: tabular-nums; }
+  .foot .stale { color: #e8a13a; font-weight: 600; }
+  main > * { animation: qd-rise 0.3s var(--ease); }
+</style>
+</head>
+<body>
+<div class="top">
+  <span id="brand"><img id="logo" alt="" hidden><span id="org"></span></span>
+  <span id="session"></span>
+</div>
+
+<main aria-live="polite">
+  <div id="live" hidden>
+    <div class="label"><span>Now answering</span><span class="timer" id="timer" title="Time on this question"></span></div>
+    <p class="topic" id="topic"></p>
+    <p class="question" id="question"></p>
+  </div>
+  <p class="waiting" id="waiting">Waiting for the facilitator to choose a question.</p>
+</main>
+
+<div class="foot">
+  <span id="status">Updates automatically</span>
+  <span id="clock"></span>
+</div>
+
+<script>
+  var BOOT = <?!= boot ?>;
+  var brand = BOOT.brand || {};
+  var since = null;
+  var lastOk = Date.now();
+
+  function $(id) { return document.getElementById(id); }
+
+  if (BOOT.theme === 'light') document.body.className = 'light';
+  if (brand.accent) document.documentElement.style.setProperty('--action', brand.accent);
+  if (brand.logo) { $('logo').src = brand.logo; $('logo').alt = brand.orgName || ''; $('logo').hidden = false; }
+  else $('org').textContent = brand.orgName || '';
+
+  function two(n) { return (n < 10 ? '0' : '') + n; }
+
+  function tick() {
+    var now = new Date();
+    $('clock').textContent = now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    if (since) {
+      var secs = Math.max(0, Math.floor((Date.now() - since) / 1000));
+      var m = Math.floor(secs / 60);
+      $('timer').textContent = m + ':' + two(secs % 60);
+      $('timer').className = m >= 5 ? 'timer long' : 'timer';
+    }
+    var stale = Date.now() - lastOk > 30000;
+    $('status').textContent = stale ? 'Not updating — check the connection' : 'Updates automatically';
+    $('status').className = stale ? 'stale' : '';
+  }
+
+  function show(screen) {
+    lastOk = Date.now();
+    $('session').textContent = screen.heading || '';
+    var now = screen.nowAnswering;
+    $('live').hidden = !now;
+    $('waiting').hidden = !!now;
+    if (screen.status === 'ended') $('waiting').textContent = 'This session has ended. Thank you.';
+    else if (screen.status !== 'active') $('waiting').textContent = 'This session hasn\'t started yet.';
+    else $('waiting').textContent = 'Waiting for the facilitator to choose a question.';
+    if (now) {
+      var en = function (labels) { return labels ? (labels.en || '') : ''; };
+      var merged = now.merged ? en(now.merged) : '';
+      $('topic').textContent = merged ? en(now.labels) : '';
+      $('topic').hidden = !merged;
+      $('question').textContent = merged || en(now.labels);
+      since = now.since || since || Date.now();
+    } else {
+      since = null;
+    }
+    tick();
+  }
+
+  function load() {
+    google.script.run.withSuccessHandler(show).withFailureHandler(function () { tick(); })
+      .getRoomScreen(BOOT.sid, 'panel', BOOT.key);
+  }
+
+  load();
+  setInterval(load, 5000);
+  setInterval(tick, 1000);
+</script>
+</body>
+</html>

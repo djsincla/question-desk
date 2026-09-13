@@ -4,6 +4,21 @@ All notable changes to Question Desk. Versions follow [Semantic Versioning](http
 Each release is tagged `vX.Y.Z` and published as a GitHub release by `scripts/ship.sh`,
 which reads the notes for that version from this file.
 
+## [2.11.0] - 2026-09-13
+
+### Added
+- **Keyboard shortcuts in the QA Facilitator queue.** J/K or ↓/↑ select a question; A marks
+  it answered (or reopens it) and D dismisses it, both moving on to the next question;
+  N is Answer now or Stop answering for its topic; P shows or hides the topic on phones;
+  M merges the topic; G groups now; O shows original wording; Esc clears. Press **?** or
+  the ⌨ button for the list. Shortcuts never fire while typing in a field.
+- **Timer for the topic being answered**: "Answering now · 3:12" on the queue.
+- **Panelist view** (`view=panel`): the question being answered in large type, with its
+  topic, a running timer (amber after 5 minutes), the time and a connection warning.
+  Nothing else — no queue, no QR. For a tablet or laptop on the panel table. Find it under
+  **Links** on the Admin page and in the queue header. It uses the room screen link's key
+  and follows the session's guest page choice for the room screen.
+
 ## [2.10.0] - 2026-09-13
 
 ### Added
@@ -409,6 +424,7 @@ Fixes from a full code review.
 - "Merge into one question" for reading a topic aloud.
 - Participant page in English, Korean and Spanish.
 
+[2.11.0]: https://github.com/djsincla/question-desk/releases/tag/v2.11.0
 [2.10.0]: https://github.com/djsincla/question-desk/releases/tag/v2.10.0
 [2.9.0]: https://github.com/djsincla/question-desk/releases/tag/v2.9.0
 [2.8.0]: https://github.com/djsincla/question-desk/releases/tag/v2.8.0
