@@ -83,6 +83,12 @@ for (const [engineName] of ENGINES) {
           const qr = L.parts['#code'];
           assert.ok(qr.x >= 0 && qr.y >= 0 && qr.x + qr.w <= L.vw + 1 && qr.y + qr.h <= L.vh + 1,
             'QR code fully on screen: ' + JSON.stringify(qr));
+          // Everything shown must be on screen, not just the code: a projector can't scroll.
+          Object.keys(L.parts).forEach((name) => {
+            const r = L.parts[name];
+            assert.ok(r.x >= -1 && r.y >= -1 && r.x + r.w <= L.vw + 1 && r.y + r.h <= L.vh + 1,
+              name + ' is cut off: ' + JSON.stringify(r) + ' in ' + L.vw + 'x' + L.vh);
+          });
           const names = Object.keys(L.parts);
           for (let i = 0; i < names.length; i++) {
             for (let j = i + 1; j < names.length; j++) {

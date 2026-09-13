@@ -109,3 +109,19 @@ test('an admin-set app address in the domain form still gives public guest links
     'the app address setting only accepts the public form');
   assert.ok(link);
 });
+
+test('guests are told what to do if Google refuses to open a page', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const present = fs.readFileSync(path.join(__dirname, '..', 'Present.html'), 'utf8');
+  assert.match(present, /<span lang="en">Page won’t open\? Try a private browsing window\.<\/span>/);
+  assert.match(present, /<span lang="ko">[^<]*시크릿[^<]*<\/span>/);
+  assert.match(present, /<span lang="es">¿No se abre la página\? Prueba en una ventana privada\.<\/span>/);
+  assert.match(present, /class="caption"[^>]*>[\s\S]*?<small class="help">Page won’t open\?/, 'slide caption too');
+
+  const h = createApp().install();
+  const s = h.session({ name: 'Help', access: 'link' });
+  h.app.emailLinks(s.id, { to: 'guest@example.org', participant: true, present: true });
+  assert.match(h.env.outbox[0].htmlBody, /Sorry, unable to open the file&quot;, open it in a private browsing window/);
+  assert.match(h.env.outbox[0].htmlBody, /Use a private browsing window on the projector computer/);
+});

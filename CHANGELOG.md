@@ -4,6 +4,15 @@ All notable changes to Question Desk. Versions follow [Semantic Versioning](http
 Each release is tagged `vX.Y.Z` and published as a GitHub release by `scripts/ship.sh`,
 which reads the notes for that version from this file.
 
+## [2.3.3] - 2026-09-12
+
+### Added
+- Help for Google's "Sorry, unable to open the file at this time", which Google shows
+  before Question Desk runs when a browser is signed into several Google accounts: the
+  room screen (in English, Korean and Spanish) and the slide caption suggest a private
+  browsing window, as do emailed links and the Admin page's Links panel. SETUP.md has a
+  troubleshooting section.
+
 ## [2.3.2] - 2026-09-12
 
 ### Added
@@ -180,6 +189,7 @@ which reads the notes for that version from this file.
 - "Merge into one question" for reading a topic aloud.
 - Participant page in English, Korean and Spanish.
 
+[2.3.3]: https://github.com/djsincla/question-desk/releases/tag/v2.3.3
 [2.3.2]: https://github.com/djsincla/question-desk/releases/tag/v2.3.2
 [2.3.1]: https://github.com/djsincla/question-desk/releases/tag/v2.3.1
 [2.3.0]: https://github.com/djsincla/question-desk/releases/tag/v2.3.0

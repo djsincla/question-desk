@@ -17,7 +17,7 @@
 
 /** Bump with every release; scripts/ship.sh tags git and publishes release notes from CHANGELOG.md. */
 const APP = {
-  version: '2.3.2',
+  version: '2.3.3',
   repo: 'https://github.com/djsincla/question-desk'
 };
 
@@ -1151,11 +1151,11 @@ function emailLinks(sid, options) {
   if (options.participant) {
     if (!links.participant) throw new Error('In-room sessions have no shareable link — people join by scanning the room screen.');
     items.push(['Ask a question', links.participant,
-      'Anyone with this link can submit a question anonymously.']);
+      'Anyone with this link can submit a question anonymously. If it says "Sorry, unable to open the file", open it in a private browsing window.']);
   }
   if (options.present) {
     items.push(['Room screen', links.present,
-      'Open on the projector — no sign-in needed. Anyone with this link can see the join code, so share it only with the people running the room.']);
+      'Open on the projector — no sign-in needed. Anyone with this link can see the join code, so share it only with the people running the room. Use a private browsing window on the projector computer, so no Google sign-in gets in the way.']);
   }
   if (options.moderate) {
     items.push(['QA Facilitator queue', links.moderate,

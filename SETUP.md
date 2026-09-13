@@ -231,6 +231,29 @@ question length (300 and 1024), model. Per-session choices — how people join, 
 theme, question length — are set on the Admin page. For a flyer QR, create the
 session as a shareable link.
 
+## Troubleshooting
+
+### "Sorry, unable to open the file at this time"
+
+This is Google's error page, not Question Desk's. It appears when the browser is **signed
+into more than one Google account** (for example a personal account and the organization's):
+Google tries to open the page as one of them and fails before Question Desk runs, even
+though the page needs no sign-in. The same link works in a private window.
+
+- **Guests:** the room screen and slide caption say "Page won't open? Try a private browsing
+  window" in English, Korean and Spanish. Emailed links carry the same advice.
+- **Projector computer:** open the room screen in a private window (Safari: File → New
+  Private Window; Chrome: New Incognito Window), or in a browser profile with no Google
+  account signed in.
+- **QA Facilitators and administrators:** use a browser or Chrome profile signed into
+  only the organization account, or a private window where you sign in just that one.
+- **Always use links from the Admin page** (Sessions → Links). Old links from an archived
+  deployment show the same error.
+
+Nothing in Apps Script can prevent this for browsers signed into several accounts. The
+long-term fix is serving the guest pages from outside Google's address; see the issues
+on GitHub.
+
 ## Before you go live
 
 Load-test it. An anonymous web app runs every request as the owner, and Apps Script
