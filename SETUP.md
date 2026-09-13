@@ -377,6 +377,33 @@ to rule out — not the daily quotas, which you will not come near.
 Then do the human version: a dozen phones on mobile data, everyone submits on a count
 of three.
 
+### Confirm grouping runs (after any update)
+
+Grouping runs every minute from a trigger. Submit a test question to an active session
+(the participant link, or scan its room screen) and watch the queue: within about a
+minute it should move from *Not yet grouped* into a topic. If it doesn't, run the health
+check (Admin → Health & testing), then `setUp()` in the Apps Script editor.
+
+### Dress rehearsal (the day before, about 15 minutes)
+
+1. **Admin → the event's More → Day-of checklist.** Fix every ✗; decide on every !.
+2. **Projector computer:** open the room screen link from the checklist in the browser
+   you'll present from. Check the code, the clock ticking, and the colors in the room's
+   light (press **T** to try light and high contrast). If it shows "Sorry, unable to open
+   the file", tick **Use the guest page for → Room screen** on the session, or use a
+   private window.
+3. **PowerPoint:** paste the **PowerPoint slide** link into the Question Desk QR add-in on
+   your slide and start the slideshow. The code should keep changing.
+4. **Phones:** scan with at least one iPhone and one Android on mobile data, including a
+   phone signed into several Google accounts. Ask a question in English and one in another
+   of the event's languages, and tap **Me too**.
+5. **Queue:** on the facilitator's laptop, group, merge, **Answer now** (check the room
+   screen and phones follow), mark answered, and try the shortcuts (**?**).
+6. **Panelist view:** open it on the panel's tablet and check it shows what's being
+   answered.
+7. **End:** end the rehearsal session (or duplicate the real one for rehearsing) and check
+   the summary email arrives. Delete rehearsal sessions afterwards.
+
 Worth knowing: `gemini-3.5-flash` is current as of now, but Google retires model IDs
 on a schedule. If clustering silently stops working months from now, check the
 execution log for a 404 and update `CONFIG.model`.

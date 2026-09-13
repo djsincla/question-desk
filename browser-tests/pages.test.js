@@ -131,13 +131,23 @@ for (const [engineName] of ENGINES) {
       const topic = page.locator('.topic', { hasText: 'IEP and school support' });
       const phones = topic.locator('button', { hasText: /phones/ });
       const before = await phones.textContent();
-      const started = Date.now();
+      // Timed inside the page, from the click reaching it to the label changing, so a slow
+      // test machine (the click itself can take a second on CI) doesn't count against it.
+      await page.evaluate((b) => {
+        window.__flip = new Promise((resolve) => {
+          let clickedAt = null;
+          document.addEventListener('click', () => { if (clickedAt === null) clickedAt = performance.now(); }, true);
+          const observer = new MutationObserver(() => {
+            const t = Array.from(document.querySelectorAll('.topic')).find((el) => /IEP and school support/.test(el.textContent));
+            const flipped = t && Array.from(t.querySelectorAll('button')).some((x) => /phones/.test(x.textContent) && x.textContent !== b);
+            if (flipped && clickedAt !== null) { observer.disconnect(); resolve(performance.now() - clickedAt); }
+          });
+          observer.observe(document.getElementById('board'), { subtree: true, childList: true, characterData: true });
+        });
+      }, before);
       await phones.click();
-      await page.waitForFunction((b) => {
-        const t = Array.from(document.querySelectorAll('.topic')).find((el) => /IEP and school support/.test(el.textContent));
-        return t && Array.from(t.querySelectorAll('button')).some((x) => /phones/.test(x.textContent) && x.textContent !== b);
-      }, before, { timeout: 1000 });
-      assert.ok(Date.now() - started < 1000, 'label flipped while the (1.2 s) server call was still running');
+      const flipMs = await page.evaluate(() => window.__flip);
+      assert.ok(flipMs < 600, 'label flipped ' + Math.round(flipMs) + ' ms after the click, while the (1.2 s) server call was still running');
 
       const answered = topic.locator('li').first().locator('button', { hasText: 'Answered' });
       await answered.click();
