@@ -93,6 +93,12 @@ individuals. Instead of pretending to rate-limit people, it relies on:
 
 [`CLAUDE.md`](CLAUDE.md) explains the constraints and design decisions.
 
+## Known issue: "Sorry, unable to open the file at this time"
+
+Google shows this error, before Question Desk runs, to browsers signed into more than one
+Google account. Turn on the **guest page** to avoid it for Safari and Firefox:
+[step-by-step fix](SETUP.md#sorry-unable-to-open-the-file-at-this-time).
+
 ## Getting started
 
 See [`SETUP.md`](SETUP.md) for installation, the Admin page, running an event and

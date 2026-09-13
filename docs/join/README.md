@@ -14,6 +14,9 @@ sign-in at all, so Google treats everyone as an anonymous visitor and the error 
 - The QA Facilitator queue and Admin page are not affected; staff sign in to those.
 - Nothing about your data changes: questions still go straight to your Google account.
 
+Step-by-step instructions, including what to enter in each Admin field and which browsers
+are fixed: [SETUP.md → "Sorry, unable to open the file at this time"](../../SETUP.md#sorry-unable-to-open-the-file-at-this-time).
+
 ## Use it
 
 1. Host the two files in this folder — `index.html` and `join-url.js` — anywhere on the web

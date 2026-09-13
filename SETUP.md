@@ -235,26 +235,76 @@ session as a shareable link.
 
 ### "Sorry, unable to open the file at this time"
 
-This is Google's error page, not Question Desk's. It appears when the browser is **signed
-into more than one Google account** (for example a personal account and the organization's):
-Google tries to open the page as one of them and fails before Question Desk runs, even
-though the page needs no sign-in. The same link works in a private window.
+**What people see:** a Google Drive page that says *"Sorry, unable to open the file at this
+time. Please check the address and try again."* instead of the questions page or room
+screen. It often happens on phones, and the same link works in a private window.
 
-- **Guests:** the room screen and slide caption say "Page won't open? Try a private browsing
-  window" in English, Korean and Spanish. Emailed links carry the same advice.
-- **Projector computer:** open the room screen in a private window (Safari: File → New
-  Private Window; Chrome: New Incognito Window), or in a browser profile with no Google
-  account signed in.
-- **QA Facilitators and administrators:** use a browser or Chrome profile signed into
-  only the organization account, or a private window where you sign in just that one.
-- **Always use links from the Admin page** (Sessions → Links). Old links from an archived
-  deployment show the same error.
+**Why it happens:** the browser is **signed into more than one Google account** (for example
+a personal Gmail account and an organization account). When the browser opens a
+`script.google.com` address, it automatically sends Google all of those sign-ins; Google
+can't decide which account to use and shows its error page **before Question Desk's code
+runs**. Google documents that multiple sign-in "isn't supported for Apps Script, add-ons, or
+web apps". Nothing in Question Desk's code, links or Apps Script settings can prevent it —
+the problem happens in the request the browser makes, not in the page.
 
-Nothing in Apps Script itself can prevent this. The **guest page** avoids it for Safari and
-Firefox: host `docs/join` on your website (or use this project's GitHub Pages copy), set
-**Branding → Guest page address**, and set sessions to **Open guest pages through → Guest
-page**. See [`docs/join/README.md`](docs/join/README.md). Chrome browsers signed into several
-Google accounts can still hit the error.
+**How to confirm it's this:** open the same link in a private browsing window. If it works
+there, it's this problem.
+
+#### The fix: turn on the guest page
+
+The guest page is a small page on another website that shows the Question Desk page inside
+it. Because the Question Desk page is then *embedded* from another site, browsers that block
+third-party cookies send Google **no sign-in at all**, so Google treats everyone as an
+anonymous visitor and can't show the error.
+
+1. **Host the guest page.** Use this project's copy, already live at
+   `https://djsincla.github.io/question-desk/join/`, or copy the two files in
+   [`docs/join`](docs/join/README.md) (`index.html` and `join-url.js`) to a folder on your own
+   website, for example `https://autismla.org/questions/`.
+2. **Admin page → Branding → Guest page address:** enter that folder's address, for example
+   `https://djsincla.github.io/question-desk/join/`. Save branding.
+   - Leave **App address** blank. That field is only for Question Desk's own Google address
+     (`https://script.google.com/macros/s/…/exec`) — never the guest page.
+3. **For each session:** Sessions → **Edit** → **Open guest pages through → Guest page** →
+   **Save session**. (A session can use a different guest page address, such as a partner's
+   website, in the field that appears.)
+4. **Use the new links.** Sessions → **Links** now shows guest page addresses for the room
+   screen and the questions link, and the room screen's QR code points through the guest
+   page. Re-copy any links you saved or emailed before, and reload open room screens.
+5. **Test** in the browser that showed the error: open the room screen link and scan the QR
+   code with a phone that showed it.
+
+**What changes and what doesn't**
+
+| Page | Opens through |
+|---|---|
+| Questions page (QR code, shareable link) | Guest page, for sessions set to use it |
+| Room screen link | Guest page, for sessions set to use it |
+| PowerPoint slide (add-in) | Directly — the add-in already embeds from outside Google |
+| QA Facilitator queue, Admin page | Directly on Google — staff sign in with the organization account |
+
+**Which browsers the guest page fixes**
+
+| Browser | Signed into several Google accounts |
+|---|---|
+| Safari (iPhone, iPad, Mac) | Fixed — blocks third-party cookies by default |
+| Firefox | Fixed — blocks third-party cookies by default |
+| Chrome, Edge, Samsung Internet | May still show the error — these still send third-party cookies by default |
+
+For anyone still affected (usually Chrome): the room screen tells guests, in English, Korean
+and Spanish, to try a private browsing window.
+
+#### Other things to know
+
+- **Projector computer:** open the room screen in a private window, or in a browser profile
+  with no Google account signed in.
+- **QA Facilitators and administrators:** the queue and Admin page need the organization
+  sign-in. Use a browser or Chrome profile signed into only the organization account, or
+  sign in to just that account in a private window.
+- **Old links:** always copy links from Sessions → Links. Links from an archived deployment
+  show the same Google error.
+- **Your own website:** if it sends a `Content-Security-Policy` header, allow
+  `frame-src https://script.google.com https://*.googleusercontent.com`.
 
 ## Before you go live
 
