@@ -143,7 +143,34 @@ for (const [engineName] of ENGINES) {
         return items.length && items[items.length - 1].classList.contains('answered');
       }, null, { timeout: 1000 });
 
-      await page.locator('.topic', { hasText: 'Evaluation waitlists' }).locator('li').first().locator('button', { hasText: 'Dismiss' }).click();
+      // Answered rows: muted text and a tag, never a struck-through Reopen button.
+      const reopen = topic.locator('li.answered button', { hasText: 'Reopen' }).last();
+      // Decorations are drawn from ancestors, so check the button and everything around it.
+      const struck = await reopen.evaluate((b) => {
+        for (let el = b; el && el.tagName !== 'BODY'; el = el.parentElement) {
+          if (getComputedStyle(el).textDecorationLine.indexOf('line-through') !== -1) return el.tagName + '.' + el.className;
+        }
+        return '';
+      });
+      assert.equal(struck, '', 'Reopen is not struck through');
+      assert.ok(await topic.locator('li.answered .done-tag').first().isVisible(), 'answered rows are tagged');
+
+      // Answer now pins that topic to the top, and Stop answering is right there.
+      // (Both engines share the demo data, so pick a topic that isn't live yet.)
+      const other = page.locator('#board .topic:not(.live)', { has: page.locator('button', { hasText: 'Answer now' }) }).nth(1);
+      const name = (await other.locator('h2').evaluate((h) => h.firstChild.textContent)).trim();
+      await other.locator('button', { hasText: 'Answer now' }).click();
+      await page.waitForFunction((n) => document.querySelector('#board .topic h2').firstChild.textContent.trim() === n, name, { timeout: 1000 });
+      assert.ok(await page.locator('#board .topic').first().locator('button', { hasText: 'Stop answering' }).isVisible());
+
+      // Dismiss all lives in the ⋯ menu, not beside everyday buttons.
+      const waitlists = page.locator('.topic', { hasText: 'Evaluation waitlists' });
+      assert.equal(await waitlists.locator('.head .acts > button', { hasText: /Dismiss all/ }).count(), 0);
+      await waitlists.locator('details.more summary').click();
+      assert.ok(await waitlists.locator('details.more button', { hasText: /Dismiss all/ }).isVisible());
+      await waitlists.locator('details.more summary').click();
+
+      await waitlists.locator('li').first().locator('button', { hasText: 'Dismiss' }).click();
       await page.waitForFunction(() => !document.getElementById('dismissed').hidden, null, { timeout: 1000 });
 
       // After the server answers and a refresh runs, the changes are still there.

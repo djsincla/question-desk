@@ -162,7 +162,9 @@ test('the organization default can add outside addresses or drop facilitators', 
   h.app.endSession(t.id, 'Records only');
   assert.equal(h.env.outbox[1].to, 'records@example.org');
 
-  assert.throws(() => h.app.saveSummaryDefaults({ facilitators: false, extra: '' }), /at least one address/);
+  h.app.saveSummaryDefaults({ facilitators: false, extra: [] });
+  const quiet = h.session({ name: 'Nobody by default', access: 'link', active: true, moderators: [MOD], emailOnEnd: true });
+  assert.equal(h.app.endSession(quiet.id, 'Nobody by default').emailed, 0, 'no default recipients means no email');
   assert.throws(() => h.app.saveSummaryDefaults({ extra: 'not an email' }), /Not an email address/);
 });
 

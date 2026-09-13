@@ -17,7 +17,7 @@
 
 /** Bump with every release; scripts/ship.sh tags git and publishes release notes from CHANGELOG.md. */
 const APP = {
-  version: '2.4.1',
+  version: '2.4.2',
   repo: 'https://github.com/djsincla/question-desk'
 };
 
@@ -343,7 +343,15 @@ function sessionLinks_(session) {
 function guestPageFor_(session) {
   const own = session && session.guestPage;
   if (!own || own.mode !== 'wrapper') return '';
-  return own.url || props_().getProperty('GUEST_PAGE_URL') || '';
+  return own.url || orgGuestPage_();
+}
+
+/** This project's public copy of docs/join; works for any Question Desk deployment. */
+const DEFAULT_GUEST_PAGE = 'https://djsincla.github.io/question-desk/join/';
+
+/** The Branding tab's guest page address, or the project's public copy when blank. */
+function orgGuestPage_() {
+  return props_().getProperty('GUEST_PAGE_URL') || DEFAULT_GUEST_PAGE;
 }
 
 /** Address for a guest page (participant page or room screen) with the given query. */
@@ -906,6 +914,7 @@ function adminState() {
     summaryDefaults: summaryDefaults_(),
     publicUrl: props_().getProperty('PUBLIC_URL') || '',
     guestPageUrl: props_().getProperty('GUEST_PAGE_URL') || '',
+    guestPageDefault: DEFAULT_GUEST_PAGE,
     detectedUrl: baseUrlDetected_(),
     geminiKeySet: !!props_().getProperty('GEMINI_API_KEY'),
     sheetUrl: spreadsheet_().getUrl(),
@@ -1029,11 +1038,8 @@ function setPrepared_(sid, list) {
 
 function cleanGuestPageChoice_(input) {
   if (!input || input.mode !== 'wrapper') return { mode: 'direct', url: '' };
-  const url = cleanGuestPageUrl_(input.url);
-  if (!url && !props_().getProperty('GUEST_PAGE_URL')) {
-    throw new Error('Set a guest page address for this session, or an organization default on the Branding tab.');
-  }
-  return { mode: 'wrapper', url: url };
+  // Blank means the Branding tab's address (or the built-in one), looked up when links are made.
+  return { mode: 'wrapper', url: cleanGuestPageUrl_(input.url) };
 }
 
 function optionalTime_(value, label) {
@@ -1297,10 +1303,8 @@ function summaryRecipients_(session) {
 
 function saveSummaryDefaults(input) {
   requireAdmin_();
+  // Nobody at all is allowed: then summaries go only to sessions with their own recipients.
   const clean = cleanSummaryRecipients_(input);
-  if (!clean.facilitators && !clean.extra.length) {
-    throw new Error('Choose QA Facilitators, add at least one address, or both.');
-  }
   props_().setProperty('SUMMARY_DEFAULTS', JSON.stringify(clean));
   return adminState();
 }

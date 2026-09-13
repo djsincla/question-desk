@@ -192,11 +192,23 @@ test('a session can use its own guest page address, and the choice is validated'
     .forEach((url) => assert.throws(() => h.app.saveSession({ name: 'Bad', guestPage: { mode: 'wrapper', url } }), /guest page address must be an https/, url));
   assert.throws(() => h.app.saveBrand({ guestPageUrl: 'http://autismla.example/q' }), /guest page address must be an https/);
 
-  const bare = createApp().install();
-  assert.throws(() => bare.app.saveSession({ name: 'No default', guestPage: { mode: 'wrapper' } }), /Set a guest page address/);
 });
 
-test('clearing the organization guest page address turns it off', () => {
+test('guest page with no address anywhere uses the built-in GitHub Pages copy', () => {
+  // Choosing "Guest page" and leaving the box blank must save, even if Branding is blank too.
+  const bare = createApp().install();
+  bare.app.saveSession({ name: 'No default', access: 'link', guestPage: { mode: 'wrapper', url: '' } });
+  const s = bare.app.adminState().sessions[0];
+  assert.deepEqual(s.guestPage, { mode: 'wrapper', url: '' });
+  assert.equal(bare.app.adminState().guestPageDefault, 'https://djsincla.github.io/question-desk/join/');
+  assert.ok(s.links.participant.startsWith('https://djsincla.github.io/question-desk/join/?d='), s.links.participant);
+
+  // Setting Branding later changes the session's links without editing the session.
+  bare.app.saveBrand({ guestPageUrl: 'https://autismla.example/questions/' });
+  assert.ok(bare.app.adminState().sessions[0].links.participant.startsWith('https://autismla.example/questions/?d='));
+});
+
+test('clearing the organization guest page address falls back to the built-in copy', () => {
   const h = guestSetup();
   h.app.saveBrand({ guestPageUrl: '' });
   assert.equal(h.app.adminState().guestPageUrl, '');

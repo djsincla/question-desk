@@ -300,16 +300,16 @@
       </form>
     </div>
   </div>
-  <form class="panel" id="summaryForm">
-    <h2>Summary email — default recipients</h2>
-    <p class="hint" style="margin-top:0">Who gets a session's questions summary when it ends, unless the session sets its own recipients on its form.</p>
-    <label class="choice"><input type="checkbox" id="d-summary-facilitators"><span>The session's QA Facilitators</span></label>
-    <label class="field"><span>Also send to</span>
-      <textarea id="d-summary-extra" rows="2" placeholder="board@example.org"></textarea>
-      <div class="hint">Any email address, including people outside your organization.</div>
-    </label>
-    <button type="submit" class="primary">Save default recipients</button>
-  </form>
+  <div class="panel" id="summaryPanel">
+    <h2>Summary email recipients</h2>
+    <p class="hint" style="margin-top:0">Who gets a session's questions summary when it ends, unless the session sets its own recipients on its form. Anyone can be added, including people outside your organization.</p>
+    <label class="choice"><input type="checkbox" id="d-summary-facilitators"><span>Each session's QA Facilitators</span></label>
+    <ul class="people" id="summaryList"></ul>
+    <form class="adder" id="summaryAdder">
+      <input type="email" placeholder="name@example.org" aria-label="Summary recipient email">
+      <button type="submit">Add</button>
+    </form>
+  </div>
 </section>
 
 <!-- Branding & settings -->
@@ -353,7 +353,7 @@
       </label>
       <label class="field"><span>Guest page address</span>
         <input type="url" id="b-guest" placeholder="https://djsincla.github.io/question-desk/join/">
-        <div class="hint">Where the guest page files are hosted — this project's GitHub Pages copy above, or your own site such as https://autismla.org/questions/ (copy <a href="https://github.com/djsincla/question-desk/tree/main/docs/join" target="_blank" rel="noopener">docs/join</a> there). Sessions set to open guest pages through it avoid Google's "Sorry, unable to open the file" in Safari and Firefox.</div>
+        <div class="hint">Where the guest page files are hosted — this project's GitHub Pages copy above, or your own site such as https://autismla.org/questions/ (copy <a href="https://github.com/djsincla/question-desk/tree/main/docs/join" target="_blank" rel="noopener">docs/join</a> there). Leave blank to use the GitHub Pages copy. Sessions set to open guest pages through it avoid Google's "Sorry, unable to open the file" in Safari and Firefox.</div>
       </label>
       <details class="field advanced">
         <summary>Advanced</summary>
@@ -663,7 +663,7 @@
     if (s.status !== 'ended' && s.scheduledStart && !s.scheduleStarted) meta.push('starts ' + fmtDate(s.scheduledStart));
     if (s.status !== 'ended' && s.scheduledEnd) meta.push('ends ' + fmtDate(s.scheduledEnd));
     if (s.brand && s.brand.orgName) meta.push('branded for ' + s.brand.orgName);
-    if (s.guestPage && s.guestPage.mode === 'wrapper') meta.push('guest page: ' + (s.guestPage.url || state.guestPageUrl));
+    if (s.guestPage && s.guestPage.mode === 'wrapper') meta.push('guest page: ' + (s.guestPage.url || state.guestPageUrl || state.guestPageDefault));
     if (s.summarySent) meta.push('summary emailed ' + fmtDate(s.summarySent));
     info.appendChild(el('div', 'meta', meta.join(' · ')));
     head.appendChild(info);
@@ -902,7 +902,7 @@
     radio('guestMode', guest ? 'wrapper' : 'direct');
     $('f-guest-url').value = guest ? (guest.url || '') : '';
     $('f-guest-url-box').hidden = !guest;
-    $('f-guest-url').placeholder = state.guestPageUrl ? 'Uses ' + state.guestPageUrl : 'Set a guest page address here or on the Branding tab';
+    $('f-guest-url').placeholder = 'Uses ' + (state.guestPageUrl || state.guestPageDefault);
     var summary = s.summary && s.summary.mode === 'custom' ? s.summary : null;
     radio('summaryMode', summary ? 'custom' : 'default');
     $('f-summary-custom').hidden = !summary;
@@ -1124,7 +1124,7 @@
     });
   }
 
-  var adders = document.querySelectorAll('form.adder');
+  var adders = document.querySelectorAll('form.adder[data-role]');
   for (var a = 0; a < adders.length; a++) {
     adders[a].addEventListener('submit', function (e) {
       e.preventDefault();
@@ -1152,7 +1152,7 @@
     $('b-favicon').value = state.brand.faviconUrl;
     $('b-guest').value = state.guestPageUrl;
     $('d-summary-facilitators').checked = state.summaryDefaults.facilitators !== false;
-    $('d-summary-extra').value = (state.summaryDefaults.extra || []).join(', ');
+    renderSummaryList();
     $('b-url').placeholder = state.detectedUrl;
 
     var preview = $('logoPreview');
@@ -1229,12 +1229,46 @@
     toast(done ? 'Copied' : 'Selected — press Ctrl/Cmd+C to copy');
   };
 
-  $('summaryForm').addEventListener('submit', function (e) {
-    e.preventDefault();
-    call('saveSummaryDefaults', [{ facilitators: $('d-summary-facilitators').checked, extra: $('d-summary-extra').value }], function (res) {
+  // Summary recipients: a list like administrators and QA Facilitators; every change saves.
+  function saveSummary(extra, message, button) {
+    call('saveSummaryDefaults', [{ facilitators: $('d-summary-facilitators').checked, extra: extra }], function (res) {
       render(res);
-      toast('Default recipients saved');
-    }, this.querySelector('button[type=submit]'));
+      toast(message);
+    }, button);
+  }
+
+  function renderSummaryList() {
+    var ul = $('summaryList');
+    var extra = state.summaryDefaults.extra || [];
+    ul.innerHTML = '';
+    if (!extra.length) ul.appendChild(el('li', 'hint', 'No other recipients'));
+    extra.forEach(function (email) {
+      var li = el('li');
+      li.appendChild(el('span', null, email));
+      var rm = el('button', 'quiet', 'Remove');
+      rm.type = 'button';
+      rm.onclick = function () {
+        saveSummary(extra.filter(function (e) { return e !== email; }), 'Removed ' + email, rm);
+      };
+      li.appendChild(rm);
+      ul.appendChild(li);
+    });
+  }
+
+  $('d-summary-facilitators').addEventListener('change', function () {
+    var box = this;
+    saveSummary(state.summaryDefaults.extra || [], box.checked ? 'QA Facilitators will get summaries' : 'QA Facilitators won\'t get summaries');
+  });
+
+  $('summaryAdder').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var input = this.querySelector('input');
+    var email = input.value.trim().toLowerCase();
+    if (!email) return;
+    var extra = (state.summaryDefaults.extra || []).slice();
+    if (extra.indexOf(email) === -1) extra.push(email);
+    saveSummary(extra, 'Added ' + email, this.querySelector('button'));
+    input.value = '';
   });
 
   $('b-accent-pick').addEventListener('input', function () { $('b-accent').value = this.value; });

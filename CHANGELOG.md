@@ -4,6 +4,30 @@ All notable changes to Question Desk. Versions follow [Semantic Versioning](http
 Each release is tagged `vX.Y.Z` and published as a GitHub release by `scripts/ship.sh`,
 which reads the notes for that version from this file.
 
+## [2.4.2] - 2026-09-13
+
+### Fixed
+- Saving a session set to **Guest page** with its address box empty no longer fails when
+  the Branding address is blank or wasn't saved. Blank uses the Branding address, and
+  if that is blank too, this project's GitHub Pages guest page.
+- QA Facilitator queue: the Reopen button on answered questions was struck through.
+
+### Changed
+- QA Facilitator queue is easier to scan:
+  - The topic being answered pins to the top, with an "Answering now" tag.
+  - Topic buttons are ordered Answer now → Show on phones → Merge.
+  - **Dismiss all** moved into a ⋯ menu.
+  - Answered questions show a "✓ Answered" tag instead of strike-through.
+  - Row buttons are smaller, and they wrap under the question on phones.
+- Queue toolbar:
+  - An **Accepting questions / Paused** switch replaces "Pause submissions".
+  - "Show original wording" is a checkbox.
+  - An "Updated" time warns if refreshes stop.
+  - The Refresh button is gone; the queue refreshes every 5 seconds.
+- **People → Summary email recipients** is an add/remove list like QA Facilitators and
+  Administrators, with a checkbox for each session's QA Facilitators. The list may be
+  left empty.
+
 ## [2.4.1] - 2026-09-13
 
 ### Fixed
@@ -211,6 +235,7 @@ which reads the notes for that version from this file.
 - "Merge into one question" for reading a topic aloud.
 - Participant page in English, Korean and Spanish.
 
+[2.4.2]: https://github.com/djsincla/question-desk/releases/tag/v2.4.2
 [2.4.1]: https://github.com/djsincla/question-desk/releases/tag/v2.4.1
 [2.4.0]: https://github.com/djsincla/question-desk/releases/tag/v2.4.0
 [2.3.3]: https://github.com/djsincla/question-desk/releases/tag/v2.3.3
