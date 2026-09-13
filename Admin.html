@@ -151,6 +151,9 @@
   .checklist td.mark.bad { color: var(--stop); }
   .checklist td.mark.warn { color: var(--hold); }
   .checklist .muted { color: var(--muted); }
+  .meter-bar { height: 8px; border-radius: 999px; background: var(--paper); border: 1px solid var(--rule); overflow: hidden; }
+  .meter-bar span { display: block; height: 100%; background: var(--action); border-radius: 999px; transition: width 0.3s var(--ease); }
+  .meter-bar span.high { background: var(--stop); }
   .lang-grid { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 4px 0 12px; }
   .lang-grid label { display: inline-flex; align-items: center; gap: 6px; }
   .lang-grid .native { color: var(--muted); font-size: 0.85rem; }
@@ -562,6 +565,29 @@
         <dt>Emails left today</dt><dd id="s-quota"></dd>
         <dt>Submissions sheet</dt><dd><a id="s-sheet" target="_blank" rel="noopener">Open</a></dd>
       </dl>
+    </div>
+    <div class="panel" id="opsPanel">
+      <h2>Data and reports</h2>
+      <label class="field"><span>Question wording</span>
+        <select id="ops-retention">
+          <option value="0">Keep it</option>
+          <option value="3">Remove it 3 months after a session ends</option>
+          <option value="6">Remove it 6 months after a session ends</option>
+          <option value="12">Remove it 12 months after a session ends</option>
+          <option value="24">Remove it 24 months after a session ends</option>
+        </select>
+        <div class="hint">Removing replaces each question's original wording, its translation and merged questions with a note. Topics, languages, answered status, times and counts stay, so summaries and reports still add up. It can't be undone.</div>
+      </label>
+      <label class="choice"><input type="checkbox" id="ops-weekly"><span>Email administrators a weekly report<small>Mondays after 8 a.m.: grouping, Gemini, email quota and storage health, sessions coming up and just ended, and questions asked.</small></span></label>
+      <div class="field" style="margin-top:12px">
+        <span class="field-label">Settings storage</span>
+        <div class="meter-bar"><span id="ops-storage-bar"></span></div>
+        <div class="hint" id="ops-storage"></div>
+      </div>
+      <div class="actions">
+        <button type="button" class="primary" id="ops-save">Save</button>
+        <button type="button" id="ops-report">Send me the weekly report now</button>
+      </div>
     </div>
     <div class="panel">
       <h2>Load test</h2>
@@ -2022,7 +2048,30 @@
     evLangRadios[lr].addEventListener('change', function () { $('ev-langs').hidden = radio('evLangMode') !== 'custom'; });
   }
 
+  function renderOps() {
+    $('ops-retention').value = String(state.ops.retentionMonths);
+    $('ops-weekly').checked = state.ops.weeklyReport;
+    var pct = Math.min(100, state.storage.percent);
+    $('ops-storage-bar').style.width = Math.max(2, pct) + '%';
+    $('ops-storage-bar').className = pct >= 80 ? 'high' : '';
+    $('ops-storage').textContent = pct + '% of the 500 KB Google allows for settings (sessions, events, people). Ended sessions are archived after 30 days to keep it low.';
+  }
+
+  $('ops-save').onclick = function () {
+    var months = Number($('ops-retention').value);
+    var go = function () {
+      call('saveOpsSettings', [{ retentionMonths: months, weeklyReport: $('ops-weekly').checked }], function (res) { render(res); toast('Saved'); }, $('ops-save'));
+    };
+    if (months && months !== state.ops.retentionMonths) {
+      ask({ title: 'Remove old question wording?', body: 'Within the hour, the wording of every question from sessions that ended more than ' + months + ' months ago is removed for good. Topics, counts and answered status stay.', ok: 'Remove old wording', danger: true }, go);
+    } else go();
+  };
+  $('ops-report').onclick = function () {
+    call('sendWeeklyReportNow', [], function () { toast('Sent to ' + state.me); }, this);
+  };
+
   function renderBranding() {
+    renderOps();
     $('langMax').textContent = String(state.maxLanguages - 1);
     languageBoxes($('siteLangs'), state.siteLanguages, 'siteLang');
     $('b-org').value = state.brand.orgName;

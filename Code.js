@@ -17,7 +17,7 @@
 
 /** Bump with every release; scripts/ship.sh tags git and publishes release notes from CHANGELOG.md. */
 const APP = {
-  version: '2.13.0',
+  version: '2.14.0',
   repo: 'https://github.com/djsincla/question-desk'
 };
 
@@ -761,6 +761,241 @@ function createEvent_(name, me) {
     audit_('Event created', { id: ev.id, eventName: ev.name }, '');
     return ev;
   });
+}
+
+// ---------------------------------------------------------------- operations
+
+const REMOVED_TEXT = function (months) { return '[wording removed after ' + months + ' months]'; };
+
+/** { retentionMonths: 0 (keep) | 3 | 6 | 12 | 24, weeklyReport: true } */
+function opsSettings_() {
+  const saved = JSON.parse(props_().getProperty('OPS') || '{}');
+  return {
+    retentionMonths: [0, 3, 6, 12, 24].indexOf(saved.retentionMonths) !== -1 ? saved.retentionMonths : 0,
+    weeklyReport: saved.weeklyReport !== false
+  };
+}
+
+function saveOpsSettings(input) {
+  requireAdmin_();
+  input = input || {};
+  const months = Number(input.retentionMonths);
+  if ([0, 3, 6, 12, 24].indexOf(months) === -1) throw new Error('Choose to keep question wording, or remove it after 3, 6, 12 or 24 months.');
+  const next = { retentionMonths: months, weeklyReport: input.weeklyReport !== false };
+  props_().setProperty('OPS', JSON.stringify(next));
+  props_().deleteProperty('MAINT_AT');   // apply on the next scheduled run, not up to an hour later
+  audit_('Operations settings changed', null,
+    (months ? 'question wording removed ' + months + ' months after a session ends' : 'question wording kept') +
+    ', weekly report ' + (next.weeklyReport ? 'on' : 'off'));
+  return adminState();
+}
+
+/** Hourly housekeeping from the schedule: retention and the weekly report. */
+function runMaintenance_() {
+  const last = Number(props_().getProperty('MAINT_AT') || 0);
+  if (Date.now() - last < 55 * 60 * 1000) return;
+  props_().setProperty('MAINT_AT', String(Date.now()));
+  try { applyRetention_(); } catch (err) { console.error('Retention: ' + err); }
+  try { if (weeklyReportDue_()) sendWeeklyReport_(); } catch (err) { console.error('Weekly report: ' + err); }
+}
+
+/**
+ * Removes question wording (original, translation and merged question) from sessions that
+ * ended more than retentionMonths ago. Topics, languages, statuses, times and counts stay,
+ * so reports still add up. Activity log entries that quoted questions are cleared too.
+ */
+function applyRetention_() {
+  const months = opsSettings_().retentionMonths;
+  if (!months || !props_().getProperty('SHEET_ID')) return { questions: 0 };
+  const cutoff = Date.now() - months * 30.44 * 24 * 3600 * 1000;
+  const marker = REMOVED_TEXT(months);
+  const old = {};
+  allSessions_().forEach(function (x) { if (x.status === 'ended' && x.ended && x.ended < cutoff) old[x.id] = true; });
+  archivedSessions_().forEach(function (a) { if (a.ended && a.ended < cutoff) old[a.id] = true; });
+  if (!Object.keys(old).length) return { questions: 0 };
+
+  let questions = 0, merged = 0, log = 0;
+  withLock_(function () {
+    const qs = questionSheet_();
+    const values = qs.getDataRange().getValues();
+    for (let i = 1; i < values.length; i++) {
+      if (!old[String(values[i][COLS.session - 1])]) continue;
+      if (String(values[i][COLS.text - 1]).indexOf('[wording removed') === 0) continue;
+      qs.getRange(i + 1, COLS.text).setValue(marker);
+      if (values[i][COLS.translation - 1]) qs.getRange(i + 1, COLS.translation).setValue(marker);
+      questions++;
+    }
+    questionsChanged_();
+    const ts = topicSheet_();
+    const tv = ts.getDataRange().getValues();
+    for (let j = 1; j < tv.length; j++) {
+      if (!old[String(tv[j][0])] || !tv[j][2] || String(tv[j][2]).indexOf('[wording removed') === 0) continue;
+      ts.getRange(j + 1, 3).setValue(marker);
+      ts.getRange(j + 1, 6).setValue('{}');
+      merged++;
+    }
+    topicsChanged_();
+  });
+  const audit = spreadsheet_().getSheetByName(CONFIG.auditSheetName);
+  if (audit && audit.getLastRow() > 1) {
+    const av = audit.getDataRange().getValues();
+    for (let k = 1; k < av.length; k++) {
+      const at = new Date(av[k][0]).getTime();
+      if (at >= cutoff || !/^(Marked answered|Dismissed|Reopened|Topic merged)$/.test(String(av[k][2]))) continue;
+      if (String(av[k][5]).indexOf('[wording removed') === 0) continue;
+      audit.getRange(k + 1, 6).setValue(marker);
+      log++;
+    }
+  }
+  Object.keys(old).forEach(invalidateTopics_);
+  if (questions || merged || log) {
+    const was = EXEC_.auditWho;
+    EXEC_.auditWho = 'Retention (automatic)';
+    audit_('Old question wording removed', null, questions + ' questions, ' + merged + ' merged questions and ' + log + ' log entries from sessions that ended over ' + months + ' months ago');
+    EXEC_.auditWho = was;
+  }
+  return { questions: questions, merged: merged, log: log };
+}
+
+/** Mondays from 8 a.m. in the app's time zone, once a week. */
+function weeklyReportDue_() {
+  if (!opsSettings_().weeklyReport) return false;
+  const local = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm');
+  const m = local.match(/^(\d{4})-(\d{2})-(\d{2}) (\d{2})/);
+  const weekday = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])).getUTCDay();   // 1 = Monday
+  if (weekday !== 1 || +m[4] < 8) return false;
+  const week = m[1] + '-' + m[2] + '-' + m[3];
+  if (props_().getProperty('WEEKLY_SENT') === week) return false;
+  props_().setProperty('WEEKLY_SENT', week);
+  return true;
+}
+
+/** How full Script Properties are (500KB for the whole app). */
+function storageUse_() {
+  const all = props_().getProperties();
+  let bytes = 0;
+  const utf8 = function (str) {
+    let n = 0;
+    for (let i = 0; i < str.length; i++) {
+      const c = str.charCodeAt(i);
+      n += c < 0x80 ? 1 : c < 0x800 ? 2 : (c >= 0xd800 && c < 0xdc00) ? (i++, 4) : 3;
+    }
+    return n;
+  };
+  Object.keys(all).forEach(function (k) { bytes += utf8(k) + utf8(String(all[k])); });
+  return { bytes: bytes, limit: 500000, percent: Math.round(bytes / 5000) };
+}
+
+/** The weekly report's content, also shown by "Send the weekly report now". */
+function weeklyReport_() {
+  const tz = Session.getScriptTimeZone();
+  const fmt = function (ms) { return Utilities.formatDate(new Date(ms), tz, 'EEE MMM d, h:mm a'); };
+  const now = Date.now();
+  const week = 7 * 24 * 3600 * 1000;
+  const h = health_();
+  const trigger = ScriptApp.getProjectTriggers().some(function (t) { return t.getHandlerFunction() === 'clusterQuestions'; });
+  const storage = storageUse_();
+  const sessions = allSessions_().filter(function (x) { return !x.loadTest; });
+  const label = function (x) { const e = eventName_(x); return (e ? e + ' — ' : '') + x.name; };
+  const upcoming = sessions.filter(function (x) { return x.status !== 'ended' && x.scheduledStart && x.scheduledStart > now && x.scheduledStart < now + week; })
+    .sort(function (a, b) { return a.scheduledStart - b.scheduledStart; });
+  const active = sessions.filter(function (x) { return x.status === 'active'; });
+  const ended = sessions.filter(function (x) { return x.status === 'ended' && x.ended && x.ended > now - week; });
+  const owed = sessions.filter(function (x) { return x.summaryPending && !x.summarySent; });
+  let asked = 0;
+  questionValues_().slice(1).forEach(function (r) {
+    const t = r[COLS.submitted - 1] ? new Date(r[COLS.submitted - 1]).getTime() : 0;
+    if (t > now - week && r[COLS.status - 1] !== 'prepared') asked++;
+  });
+  const ops = opsSettings_();
+  const checks = [
+    { name: 'Question grouping', ok: !h.failures && trigger, detail: !trigger ? 'The every-minute trigger is missing — run setUp().' : h.failures ? h.failures + ' failed runs in a row: ' + (h.lastError || '') : 'Working' },
+    { name: 'Gemini API key', ok: !!props_().getProperty('GEMINI_API_KEY'), detail: props_().getProperty('GEMINI_API_KEY') ? 'Set' : 'Missing' },
+    { name: 'Email quota', ok: MailApp.getRemainingDailyQuota() >= 20, detail: MailApp.getRemainingDailyQuota() + ' left today' },
+    { name: 'Settings storage', ok: storage.percent < 80, detail: storage.percent + '% of 500 KB used' + (storage.percent >= 80 ? ' — archive or delete old sessions' : '') }
+  ];
+  if (owed.length) checks.push({ name: 'Summaries not sent', ok: false, detail: owed.map(label).join(', ') });
+  return {
+    checks: checks,
+    upcoming: upcoming.map(function (x) { return label(x) + ' — ' + fmt(x.scheduledStart); }),
+    active: active.map(label),
+    ended: ended.map(label),
+    asked: asked,
+    retention: ops.retentionMonths ? 'Question wording is removed ' + ops.retentionMonths + ' months after a session ends.' : 'Question wording is kept.'
+  };
+}
+
+function sendWeeklyReport_(onlyTo) {
+  const r = weeklyReport_();
+  const to = onlyTo ? [onlyTo] : adminEmails_();
+  if (!to.length || MailApp.getRemainingDailyQuota() < to.length) return 0;
+  const list = function (title, items, empty) {
+    return '<h2 style="font-size:15px;margin:20px 0 6px">' + esc_(title) + '</h2>' +
+      (items.length ? '<ul style="margin:0;padding-left:20px">' + items.map(function (i) { return '<li>' + esc_(i) + '</li>'; }).join('') + '</ul>'
+        : '<p style="color:#5c6874;margin:0">' + esc_(empty) + '</p>');
+  };
+  const problems = r.checks.filter(function (c) { return !c.ok; }).length;
+  const html = '<p style="margin:0 0 12px">' + (problems ? '<strong>' + problems + ' thing' + (problems === 1 ? '' : 's') + ' need attention.</strong>' : 'Everything looks healthy.') + '</p>' +
+    '<table style="border-collapse:collapse;width:100%">' + r.checks.map(function (c) {
+      return '<tr><td style="padding:6px 8px;border-bottom:1px solid #e2e6eb;font-weight:700;color:' + (c.ok ? '#2e7d5b' : '#a3321f') + '">' + (c.ok ? '✓' : '✗') + '</td>' +
+        '<td style="padding:6px 8px;border-bottom:1px solid #e2e6eb">' + esc_(c.name) + '</td>' +
+        '<td style="padding:6px 8px;border-bottom:1px solid #e2e6eb;color:#5c6874">' + esc_(c.detail) + '</td></tr>';
+    }).join('') + '</table>' +
+    list('Coming up in the next 7 days', r.upcoming, 'Nothing scheduled.') +
+    list('Active now', r.active, 'No sessions are active.') +
+    list('Ended in the last 7 days', r.ended, 'None.') +
+    '<p style="margin:20px 0 0;color:#5c6874">' + r.asked + ' questions asked in the last 7 days. ' + esc_(r.retention) + '</p>' +
+    '<p style="margin:8px 0 0;color:#5c6874;font-size:13px">Turn this report off on the Admin page → Health &amp; testing.</p>';
+  const brand = brand_(null);
+  to.forEach(function (address) {
+    MailApp.sendEmail({ to: address, subject: 'Question Desk weekly report' + (problems ? ' — ' + problems + ' need attention' : ''),
+      htmlBody: emailShell_(brand, 'Weekly report', html), name: brand.orgName || 'Question Desk' });
+  });
+  return to.length;
+}
+
+/** "Send the weekly report now", to the admin who pressed it. */
+function sendWeeklyReportNow() {
+  const me = requireAdmin_();
+  sendWeeklyReport_(me);
+  audit_('Weekly report sent', null, 'to ' + me);
+  return true;
+}
+
+// ---------------------------------------------------------------- backup grouping
+
+const STOP_WORDS = ('about above after again against all also and any are because been before being between both but can could did does doing down during each few for from further had has have having her here hers him his how into its just more most not now off once only other our out over own same she should some such than that the their them then there these they this those through too under until very was were what when where which while who whom why will with would you your yours ' +
+  'como con del desde donde el ella ellos entre esta este esto estos hay las les los mas muy nos para pero por porque que qué sin sobre son una uno unos todo todos cuando cómo dónde también tiene tienen puede pueden hacer').split(' ');
+
+/**
+ * Keeps the queue useful while Gemini is down: ungrouped questions are sorted into groups by
+ * a word they share (English and Spanish words; other scripts go under "Other questions").
+ * Display only — nothing is written, so real grouping takes over when Gemini is back.
+ */
+function keywordGroups_(questions) {
+  const wordsOf = function (q) {
+    const text = String(q.translation || q.text || '').toLowerCase();
+    const seen = {};
+    (text.match(/[a-záéíóúñü]{4,}/g) || []).forEach(function (w) {
+      w = w.replace(/(es|s)$/, function (m) { return w.length > 5 ? '' : m; });
+      if (STOP_WORDS.indexOf(w) === -1) seen[w] = true;
+    });
+    return Object.keys(seen);
+  };
+  const lists = questions.map(wordsOf);
+  const freq = {};
+  lists.forEach(function (ws) { ws.forEach(function (w) { freq[w] = (freq[w] || 0) + 1; }); });
+  const groups = {};
+  const other = [];
+  questions.forEach(function (q, i) {
+    const best = lists[i].filter(function (w) { return freq[w] >= 2; })
+      .sort(function (a, b) { return freq[b] - freq[a] || b.length - a.length || (a < b ? -1 : 1); })[0];
+    if (best) (groups[best] = groups[best] || []).push(q.id); else other.push(q.id);
+  });
+  const out = Object.keys(groups).map(function (w) { return { label: w, ids: groups[w] }; })
+    .sort(function (a, b) { return b.ids.length - a.ids.length || (a.label < b.label ? -1 : 1); });
+  if (other.length) out.push({ label: '', ids: other });
+  return out;
 }
 
 // ---------------------------------------------------------------- event tools
@@ -1716,6 +1951,12 @@ function getBoard(sid) {
     adminUrl: baseUrl_() + '?view=admin',
     topics: grouped,
     unsorted: loose,
+    // When grouping is failing (or questions have waited a while), sort the ungrouped ones by
+    // a shared word so a facilitator isn't left with a flat list.
+    groupingDown: (health_().failures || 0) >= 2 ? (health_().lastError || 'Grouping is failing') : '',
+    looseGroups: loose.length >= 2 && ((health_().failures || 0) >= 2 ||
+      loose.some(function (q) { return q.status !== 'answered' && Date.now() - q.submitted > 3 * 60 * 1000; }))
+      ? keywordGroups_(loose) : null,
     open: session.open !== false,
     nowAnswering: session.nowAnswering ? session.nowAnswering.topic : null,
     nowAnsweringSince: session.nowAnswering ? session.nowAnswering.at || null : null,
@@ -1872,6 +2113,8 @@ function adminState() {
     guestPageDefault: DEFAULT_GUEST_PAGE,
     detectedUrl: baseUrlDetected_(),
     appUrl: baseUrl_(),
+    ops: opsSettings_(),
+    storage: storageUse_(),
     geminiKeySet: !!props_().getProperty('GEMINI_API_KEY'),
     sheetUrl: spreadsheet_().getUrl(),
     mailQuota: MailApp.getRemainingDailyQuota(),
@@ -2703,6 +2946,9 @@ function runHealthCheck() {
   const dev = /\/dev$/.test(url);
   add('App address', url && !dev, dev ? 'Points at the /dev test address — set the app address on the Branding tab.' : url);
 
+  const storage = storageUse_();
+  add('Settings storage', storage.percent < 80, storage.percent + '% of 500 KB used' + (storage.percent >= 80 ? ' — archive or delete old sessions' : ''));
+
   const h = health_();
   add('Recent grouping', (h.failures || 0) < CONFIG.alertAfterFailures,
     h.failures ? h.failures + ' failed runs in a row. Last error: ' + h.lastError
@@ -2821,6 +3067,7 @@ function runSchedule_() {
   try { retrySummaries_(); } catch (err) { console.error('Summary retry: ' + err); }
   try { archiveOld_(); } catch (err) { console.error('Archive: ' + err); }
   try { trimAudit_(); } catch (err) { console.error('Activity log trim: ' + err); }
+  try { runMaintenance_(); } catch (err) { console.error('Maintenance: ' + err); }
   delete EXEC_.auditWho;
   return changed;
 }

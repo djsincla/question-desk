@@ -93,7 +93,10 @@ grouped into topics by Gemini instead of as one long undifferentiated list.
   spreadsheet (the newest 20,000 entries are kept). Participants' questions aren't logged
   there.
 - **Health & testing** — run a health check (Gemini key and model, trigger, sheet,
-  email quota, app address) and start or finish a load test. Admins are emailed
+  email quota, app address, settings storage) and start or finish a load test. **Data and
+  reports**: optionally remove question wording 3, 6, 12 or 24 months after a session ends
+  (topics, counts and answered status stay); turn the Monday weekly report to administrators
+  on or off, or send it now; and see how full settings storage is. Admins are emailed
   automatically if question grouping fails three minutes in a row, and again when it
   recovers.
 - The header shows the running **version** with a link to its release notes.

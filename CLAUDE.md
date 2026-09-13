@@ -67,6 +67,13 @@ does not carry the query string. That exact bug shipped once (v2): every QR scan
   script time zone (the harness fakes both with real time-zone math).
 - A session's QA Facilitators are `facilitatorsFor_(session)`: its own plus its event's
   `moderators`. Use it (not `session.moderators`) for access, summaries and emails.
+- Operations: `opsSettings_()` (`OPS` property: `retentionMonths`, `weeklyReport`).
+  `runMaintenance_()` runs hourly from the schedule: `applyRetention_()` replaces question
+  wording, translations, merged questions and quoted log details for sessions (live or
+  archived) that ended over N months ago; `weeklyReportDue_()` sends `weeklyReport_()` on
+  Mondays after 8 a.m. When grouping fails (`health_().failures >= 2`) or questions wait
+  over 3 minutes, `getBoard` adds `looseGroups` from `keywordGroups_()` — display only,
+  nothing is written, so Gemini's grouping takes over when it's back.
 - Event tools: `eventChecklist(eid)`, `emailEventSummary(eid, to)` (reuses
   `summaryContent_`), `duplicateSession(sid)` / `duplicateEvent(eid)` (via `sessionInput_`,
   schedules cleared, new keys), and `view=qrsheet&e=<event>` → `Sheet.html` (admins only).

@@ -24,6 +24,7 @@
   .title select { max-width: 60vw; }
   .nav { display: flex; gap: 14px; font-size: 0.9rem; }
   .nav a { color: var(--action); }
+  .notice.warn { border-color: #e8c78a; background: #fff8ec; color: #6b4a0f; }
   .notice { background: var(--card); border: 1px solid var(--rule); border-radius: var(--radius); padding: 10px 14px; margin-bottom: 18px; color: var(--muted); }
   .tally { color: var(--muted); font-size: 0.9rem; }
 
@@ -151,12 +152,13 @@
     <span class="tally" id="tally">Loading…</span>
     <a id="roomLink" target="_blank" rel="noopener">Room screen</a>
     <a id="panelLink" target="_blank" rel="noopener" title="The question being answered, large, for the panel table">Panelist view</a>
-    <button type="button" class="quiet small" id="keysHelp" title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts">⌨</button>
+    <button type="button" class="quiet small" id="keysHelp" title="Keyboard shortcuts (press ?)">Shortcuts</button>
     <a id="adminLink" target="_top" hidden>Admin</a>
   </div>
 </header>
 
 <div class="notice" id="endedNotice" hidden>This session has ended. The queue is read-only.</div>
+<div class="notice warn" id="groupingNotice" hidden role="status"></div>
 
 <div class="bar">
   <button type="button" id="toggle" class="switch" aria-pressed="true" title="Click to pause or resume new questions">
@@ -397,7 +399,21 @@
 
     board.innerHTML = '';
     data.topics.forEach(function (t) { board.appendChild(topicBlock(t, data.merged[t.topic], false, data.nowAnswering === t.topic, (data.mergedTranslations || {})[t.topic])); });
-    if (data.unsorted.length) {
+    var notice = document.getElementById('groupingNotice');
+    notice.hidden = !data.groupingDown || ended;
+    notice.textContent = data.groupingDown
+      ? 'Automatic grouping isn\'t working right now, so new questions aren\'t grouped or translated. Until it recovers, they\'re sorted below by a word they share. (' + data.groupingDown + ')'
+      : '';
+    if (data.unsorted.length && data.looseGroups && data.looseGroups.length > 1) {
+      var byId = {};
+      data.unsorted.forEach(function (q) { byId[q.id] = q; });
+      data.looseGroups.forEach(function (g) {
+        var qs = g.ids.map(function (id) { return byId[id]; }).filter(Boolean);
+        if (!qs.length) return;
+        var name = g.label ? 'Not yet grouped · mentions “' + g.label + '”' : 'Not yet grouped · other questions';
+        board.appendChild(topicBlock({ topic: name, questions: qs, count: qs.length }, null, true));
+      });
+    } else if (data.unsorted.length) {
       board.appendChild(topicBlock({ topic: 'Not yet grouped', questions: data.unsorted, count: data.unsorted.length }, null, true));
     }
 
@@ -636,7 +652,9 @@
         // Language is only known after grouping, which runs every minute — so English
         // questions wait here too. They are not being translated.
         var wait = el('span', 'original pending');
-        wait.textContent = Date.now() - q.submitted < 150000
+        wait.textContent = state && state.groupingDown
+          ? 'Not grouped or translated while automatic grouping is down'
+          : Date.now() - q.submitted < 150000
           ? 'Waiting to be grouped (every minute)'
           : 'Not grouped yet — press Group now, or run the health check on the Admin page';
         text.appendChild(wait);

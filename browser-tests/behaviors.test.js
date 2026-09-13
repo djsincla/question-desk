@@ -343,3 +343,38 @@ test('chromium: event More menu opens the day-of checklist; sessions duplicate; 
     await sheet.close();
   });
 });
+
+test('chromium: during a Gemini outage the queue explains it and sorts new questions by shared words', async () => {
+  await withDemo('chromium', (ctx) => {
+    const h = ctx.h;
+    h.env.activeUser = '';
+    h.ask(ctx.live, h.join(ctx.live), 'Is there free parking near the hall?');
+    h.ask(ctx.live, h.join(ctx.live), 'Parking fills up too early');
+    h.env.gemini = () => ({ status: 503, text: 'Service unavailable' });
+    h.app.clusterAll_();
+    h.app.clusterAll_();
+    return '/?view=moderate&s=' + ctx.live.id + '&as=mod';
+  }, { viewport: { width: 1280, height: 900 } }, async ({ page }) => {
+    await page.waitForSelector('#groupingNotice:not([hidden])', { timeout: 10000 });
+    assert.match(await page.textContent('#groupingNotice'), /isn't working right now[\s\S]*503/);
+    const heads = await page.$$eval('.topic h2', (hs) => hs.map((x) => x.textContent));
+    assert.ok(heads.some((t) => /Not yet grouped · mentions “parking”/.test(t)), heads.join(' | '));
+  });
+});
+
+test('chromium: Data and reports settings save, and removing wording asks first', async () => {
+  await withDemo('chromium', '/?view=admin&as=owner', { viewport: { width: 1280, height: 900 } }, async ({ page, ctx }) => {
+    await page.waitForSelector('.event');
+    await page.click('[data-tab="health"]');
+    assert.match(await page.textContent('#ops-storage'), /% of the 500 KB/);
+    await page.selectOption('#ops-retention', '12');
+    await page.uncheck('#ops-weekly');
+    await page.click('#ops-save');
+    await page.waitForSelector('#dialog:not([hidden])');
+    assert.match(await page.textContent('#dialogBody'), /12 months/);
+    await page.click('#dialogOk');
+    await page.waitForFunction(() => /Saved/.test(document.getElementById('toast').textContent), null, { timeout: 5000 });
+    ctx.h.env.activeUser = USERS.owner;
+    assert.deepEqual(ctx.h.app.adminState().ops, { retentionMonths: 12, weeklyReport: false });
+  });
+});

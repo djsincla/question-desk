@@ -4,6 +4,29 @@ All notable changes to Question Desk. Versions follow [Semantic Versioning](http
 Each release is tagged `vX.Y.Z` and published as a GitHub release by `scripts/ship.sh`,
 which reads the notes for that version from this file.
 
+## [2.14.0] - 2026-09-13
+
+### Added
+- **Data retention** (Health & testing → Data and reports): keep question wording, or remove
+  it 3, 6, 12 or 24 months after a session ends. Removal replaces the original wording, the
+  translation and merged questions — and questions quoted in the activity log — with a
+  note, and applies to archived sessions too. Topics, languages, answered status, times and
+  counts stay. Off by default; turning it on asks first. Logged as "Retention (automatic)".
+- **Weekly report** to administrators, Mondays after 8 a.m.: grouping, Gemini, email quota
+  and settings storage health; summaries still owed; sessions coming up in the next 7 days,
+  active now and ended last week; and questions asked. On by default, with an off switch
+  and **Send me the weekly report now**.
+- **Settings storage meter** on the Health tab and in the health check: how much of the
+  500 KB Google allows for sessions, events and people is used.
+- **The queue stays useful when Gemini is down.** After two failed grouping runs, the queue
+  says grouping isn't working, and ungrouped questions are sorted into groups by a word
+  they share ("Not yet grouped · mentions “parking”"). The same sorting helps whenever
+  questions have waited more than 3 minutes. Nothing is written, so real grouping and
+  translation take over as soon as Gemini is back.
+
+### Changed
+- The queue's keyboard shortcuts button now says **Shortcuts**.
+
 ## [2.13.0] - 2026-09-13
 
 ### Added
@@ -484,6 +507,7 @@ Fixes from a full code review.
 - "Merge into one question" for reading a topic aloud.
 - Participant page in English, Korean and Spanish.
 
+[2.14.0]: https://github.com/djsincla/question-desk/releases/tag/v2.14.0
 [2.13.0]: https://github.com/djsincla/question-desk/releases/tag/v2.13.0
 [2.12.1]: https://github.com/djsincla/question-desk/releases/tag/v2.12.1
 [2.12.0]: https://github.com/djsincla/question-desk/releases/tag/v2.12.0

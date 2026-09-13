@@ -74,6 +74,7 @@ Regenerate with `node scripts/screenshots.js` (needs Google Chrome).
 
 - Events that group sessions, with event branding between the site's and each session's
 - Day-of checklist, printable QR sheets, whole-event summary, and duplicate events and sessions
+- Optional removal of old question wording, a weekly health report, and a queue that stays useful when Gemini is down
 - CSV export and import of sessions, with a preview before anything is saved
 - Activity log of every administrator, QA Facilitator and scheduled action
 - Panelist view for the panel table, and keyboard shortcuts in the QA Facilitator queue
