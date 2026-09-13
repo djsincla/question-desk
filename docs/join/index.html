@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="referrer" content="no-referrer">
+<title>Question Desk</title>
+<script src="join-url.js"></script>
+<style>
+  html, body { margin: 0; height: 100%; background: #10171f; }
+  /* Question Desk loads inside this frame. Browsers that block third-party cookies
+     (Safari, Firefox) send it no Google sign-in, which avoids Google's
+     "Sorry, unable to open the file" for people signed into several Google accounts. */
+  iframe { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; display: block; }
+  .problem { font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #fff; max-width: 32rem; margin: 18vh auto; padding: 0 24px; }
+  .problem h1 { font-size: 1.3rem; margin: 0 0 8px; }
+  .problem p { color: #9dabb8; margin: 0; }
+</style>
+</head>
+<body>
+<noscript><div class="problem"><h1>JavaScript is needed</h1><p>Turn on JavaScript to ask a question.</p></div></noscript>
+<script>
+  (function () {
+    var url = JoinUrl.target(location.search);
+    if (!url) {
+      document.body.insertAdjacentHTML('beforeend',
+        '<div class="problem"><h1>This link isn’t complete</h1>' +
+        '<p>Scan the code on the screen in the room again, or ask the organizer for the link.</p></div>');
+      return;
+    }
+    var frame = document.createElement('iframe');
+    frame.setAttribute('title', 'Question Desk');
+    frame.setAttribute('src', url);
+    // Let the embedded page use the keyboard and open links in the whole window.
+    frame.setAttribute('allow', 'clipboard-write');
+    document.body.appendChild(frame);
+  })();
+</script>
+</body>
+</html>
