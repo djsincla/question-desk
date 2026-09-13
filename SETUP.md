@@ -114,6 +114,15 @@ Open the session's **Links** on the Admin page:
 | Room screen | `…/exec?view=present&s=<session>&r=<key>` | Projector — no sign-in needed, any browser |
 | Panelist view | `…/exec?view=panel&s=<session>&r=<key>` | A tablet or laptop on the panel table: the question being answered, large, with a timer |
 | Facilitator queue | `…/exec?view=moderate&s=<session>` | QA Facilitator, signed in. Press **?** for keyboard shortcuts |
+
+In the queue, questions never have to wait for grouping: **Answer now** works on a single
+ungrouped question. Tick questions (or press **X**) to **Group as…** a new or existing
+topic, **Ungroup** them, or mark them answered or dismissed together. **Group
+automatically** (on by default) lets Gemini group new questions every minute; off, it only
+translates them and you group by hand (**Group now** still groups on request). **Show on
+phones when answering** approves a topic for phones when you press Answer now. Marking
+what's being answered as answered or dismissed takes it off the room screen, and fully
+answered topics leave phones.
 | Participant page | the QR on the room screen, or the shareable link | Audience |
 
 Put the room screen up before doors open. It follows the session live: it shows the

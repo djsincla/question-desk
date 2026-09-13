@@ -9,7 +9,7 @@
  * Fonts render differently per operating system, so baselines are kept per platform
  * (browser-tests/baselines/<platform>/). A platform with no baseline yet records one and
  * passes; CI uploads what it recorded so it can be committed. Anything that changes by
- * itself — clocks, "Updated" times, QR codes — is masked.
+ * itself — clocks, "Updated" times, QR codes, the version number — is masked.
  */
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -93,10 +93,10 @@ const token = () => {
 };
 
 test('visual: Admin sessions and events', () => shoot('admin-sessions', 'chromium', '/?view=admin&as=owner',
-  { viewport: { width: 1280, height: 1000 } }, { waitFor: '.event' }));
+  { viewport: { width: 1280, height: 1000 } }, { waitFor: '.event', mask: ['#version'] }));
 
 test('visual: Admin people', () => shoot('admin-people', 'chromium', '/?view=admin&as=owner',
-  { viewport: { width: 1280, height: 800 } }, { waitFor: '.event', act: (p) => p.click('[data-tab="people"]') }));
+  { viewport: { width: 1280, height: 800 } }, { waitFor: '.event', mask: ['#version'], act: (p) => p.click('[data-tab="people"]') }));
 
 test('visual: QA Facilitator queue', () => shoot('queue', 'chromium', '/?view=moderate&s=' + ctx.live.id + '&as=mod',
   { viewport: { width: 1280, height: 1100 } }, { waitFor: '.topic', mask: ['#updated', '.live-tag'] }));

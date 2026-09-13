@@ -17,7 +17,7 @@
 
 /** Bump with every release; scripts/ship.sh tags git and publishes release notes from CHANGELOG.md. */
 const APP = {
-  version: '2.14.1',
+  version: '2.15.0',
   repo: 'https://github.com/djsincla/question-desk'
 };
 
@@ -1778,7 +1778,8 @@ function publicTopics_(session) {
   });
   return {
     nowAnswering: nowAnsweringView_(session, records),
-    topics: Object.keys(groups).map(function (topic) {
+    // Topics whose questions are all answered leave phones: there's nothing left to support.
+    topics: Object.keys(groups).filter(function (topic) { return groups[topic].answered < groups[topic].questions; }).map(function (topic) {
       return {
         topic: topic,
         labels: displayLabels_(topic, records[topic] && records[topic].labels, session),
@@ -1851,6 +1852,14 @@ function translationCodes_(session) {
 
 function nowAnsweringView_(session, records) {
   const now = session.nowAnswering;
+  if (now && now.question) {
+    // One question picked by the facilitator: its English wording (translation when it
+    // was asked in another language). Languages without a translation show the same.
+    const q = sessionRows_(session.id).filter(function (x) { return x.id === now.question; })[0];
+    if (!q) return null;
+    const words = q.translation || q.text;
+    return { topic: '', question: true, labels: displayLabels_(words, {}, session), merged: null, since: now.at || null };
+  }
   if (!now || !now.topic) return null;
   const rec = records[now.topic] || {};
   return {
@@ -1973,8 +1982,11 @@ function getBoard(sid) {
       loose.some(function (q) { return q.status !== 'answered' && Date.now() - q.submitted > 3 * 60 * 1000; }))
       ? keywordGroups_(loose) : null,
     open: session.open !== false,
-    nowAnswering: session.nowAnswering ? session.nowAnswering.topic : null,
+    nowAnswering: session.nowAnswering && session.nowAnswering.topic ? session.nowAnswering.topic : null,
+    nowAnsweringQuestion: session.nowAnswering && session.nowAnswering.question ? session.nowAnswering.question : null,
     nowAnsweringSince: session.nowAnswering ? session.nowAnswering.at || null : null,
+    autoShowOnPhones: !!session.autoShowOnPhones,
+    autoGroup: session.autoGroup !== false,
     merged: merged,
     mergedTranslations: mergedTranslations,
     dismissed: dismissed.sort(function (a, b) { return b.submitted - a.submitted; }),
@@ -2005,6 +2017,15 @@ function setStatus(sid, ids, status) {
     questionsChanged_();
   });
   invalidateTopics_(sid);
+  // Answering or dismissing what's on the room screen takes it down.
+  if (status !== 'new' && session.nowAnswering) {
+    const now = session.nowAnswering;
+    const rows = sessionRows_(sid);
+    const done = now.question
+      ? !rows.some(function (q) { return q.id === now.question && q.status === 'new'; })
+      : !rows.some(function (q) { return q.topic === now.topic && q.status === 'new'; });
+    if (done) updateSession_(sid, function (x) { x.nowAnswering = null; });
+  }
   if (changedText.length) {
     const verb = status === 'answered' ? 'Marked answered' : status === 'dismissed' ? 'Dismissed' : 'Reopened';
     audit_(verb, session, changedText.length === 1 ? '"' + changedText[0].slice(0, 120) + '"' : changedText.length + ' questions');
@@ -2068,21 +2089,113 @@ function usePrepared(sid, ids) {
 }
 
 /** Shows a topic on the room screen and participants' phones; null clears it. */
-function setNowAnswering(sid, topic) {
+/**
+ * Shows a topic — or one question that isn't grouped (or is picked out of its topic) — on
+ * the room screen and phones as the one being answered; both empty clears it. With the
+ * session's "show on phones automatically" on, a topic is also approved for phones.
+ */
+function setNowAnswering(sid, topic, questionId) {
   const session = requireSession_(sid);
   if (session.status === 'ended') throw new Error('This session has ended.');
+  topic = topic ? String(topic).slice(0, 200) : '';
+  questionId = questionId ? String(questionId) : '';
+  let question = null;
+  if (questionId) {
+    question = sessionRows_(sid).filter(function (q) { return q.id === questionId; })[0];
+    if (!question) throw new Error('That question is no longer in the queue.');
+  }
   updateSession_(sid, function (s) {
-    s.nowAnswering = topic ? { topic: String(topic).slice(0, 200), at: Date.now() } : null;
+    s.nowAnswering = question ? { topic: '', question: question.id, at: Date.now() }
+      : topic ? { topic: topic, at: Date.now() } : null;
   });
+  if (topic && session.autoShowOnPhones && sessionRows_(sid).some(function (q) { return q.topic === topic && q.status !== 'dismissed'; })) {
+    const update = {};
+    update[topic] = { shown: true };
+    upsertTopics_(sid, update, true);
+  }
   invalidateTopics_(sid);
-  audit_(topic ? 'Answer now' : 'Stopped answering', session, topic ? String(topic) : (session.nowAnswering ? session.nowAnswering.topic : ''));
+  const was = session.nowAnswering;
+  audit_(topic || question ? 'Answer now' : 'Stopped answering', session,
+    question ? '"' + (question.translation || question.text).slice(0, 120) + '"' : topic || (was ? was.topic || 'a question' : ''));
+  return getBoard(sid);
+}
+
+/** The queue's "Show on phones automatically when answering" switch, per session. */
+function setAutoShowOnPhones(sid, on) {
+  const session = requireSession_(sid);
+  updateSession_(sid, function (s) { s.autoShowOnPhones = !!on; });
+  audit_(on ? 'Automatic show on phones turned on' : 'Automatic show on phones turned off', session, '');
+  return getBoard(sid);
+}
+
+/**
+ * Groups questions by hand under a topic (new or existing), or moves them between topics.
+ * Grouping by Gemini keeps running for the rest; it still translates these questions but
+ * leaves their topic alone.
+ */
+function groupQuestions(sid, ids, topic) {
+  const session = requireSession_(sid);
+  if (session.status === 'ended') throw new Error('This session has ended.');
+  topic = cleanText_(topic, 80);
+  if (!topic) throw new Error('Give the group a topic name.');
+  if (!Array.isArray(ids) || !ids.length) throw new Error('Choose the questions to group.');
+  const wanted = {};
+  ids.forEach(function (id) { wanted[String(id)] = true; });
+  let moved = 0;
+  withLock_(function () {
+    const sheet = questionSheet_();
+    const values = sheet.getDataRange().getValues();
+    for (let i = 1; i < values.length; i++) {
+      const status = values[i][COLS.status - 1];
+      if (String(values[i][COLS.session - 1]) !== sid || !wanted[String(values[i][COLS.id - 1])] || status === 'prepared') continue;
+      sheet.getRange(i + 1, COLS.topic).setValue(sheetSafe_(topic));
+      moved++;
+    }
+    questionsChanged_();
+  });
+  if (!moved) throw new Error('Those questions are no longer in the queue.');
+  invalidateTopics_(sid);
+  audit_('Grouped by hand', session, moved + (moved === 1 ? ' question' : ' questions') + ' into "' + topic + '"');
   return getBoard(sid);
 }
 
 function groupNow(sid) {
   const session = requireSession_(sid);
   audit_('Group now', session, '');
-  return clusterSession_(sid);
+  return clusterSession_(sid, true);
+}
+
+/** The queue's "Group automatically" switch, per session. */
+function setAutoGroup(sid, on) {
+  const session = requireSession_(sid);
+  updateSession_(sid, function (s) { s.autoGroup = !!on; });
+  audit_(on ? 'Automatic grouping turned on' : 'Automatic grouping turned off', session, '');
+  return getBoard(sid);
+}
+
+/** Takes questions out of their topic. Automatic grouping leaves them alone afterwards. */
+function ungroupQuestions(sid, ids) {
+  const session = requireSession_(sid);
+  if (session.status === 'ended') throw new Error('This session has ended.');
+  if (!Array.isArray(ids) || !ids.length) throw new Error('Choose the questions to ungroup.');
+  const wanted = {};
+  ids.forEach(function (id) { wanted[String(id)] = true; });
+  let moved = 0;
+  withLock_(function () {
+    const sheet = questionSheet_();
+    const values = sheet.getDataRange().getValues();
+    for (let i = 1; i < values.length; i++) {
+      if (String(values[i][COLS.session - 1]) !== sid || !wanted[String(values[i][COLS.id - 1])] || !values[i][COLS.topic - 1]) continue;
+      // A language (or "?" when not yet known) marks it as handled, so the every-minute
+      // grouping doesn't put it straight back.
+      sheet.getRange(i + 1, COLS.topic, 1, 2).setValues([['', values[i][COLS.lang - 1] || '?']]);
+      moved++;
+    }
+    questionsChanged_();
+  });
+  invalidateTopics_(sid);
+  if (moved) audit_('Ungrouped by hand', session, moved + (moved === 1 ? ' question' : ' questions'));
+  return getBoard(sid);
 }
 
 // ---------------------------------------------------------------- admin
@@ -3135,7 +3248,8 @@ function clusterAll_() {
  * Existing topic names are passed in so labels stay stable between runs
  * instead of re-shuffling under the facilitator's eyes.
  */
-function clusterSession_(sid) {
+/** force: "Group now" — group even when automatic grouping is off, including ungrouped questions. */
+function clusterSession_(sid, force) {
   // One grouping run per session at a time (the trigger and "Group now" can overlap).
   const cache = CacheService.getScriptCache();
   const busyKey = 'grouping:' + sid;
@@ -3146,26 +3260,37 @@ function clusterSession_(sid) {
   });
   if (!claimed) return 0;
   try {
-    return clusterSessionNow_(sid);
+    return clusterSessionNow_(sid, force);
   } finally {
     cache.remove(busyKey);
   }
 }
 
-function clusterSessionNow_(sid) {
+function clusterSessionNow_(sid, force) {
   const cache = CacheService.getScriptCache();
+  const sessionNow = getSession_(sid);
+  // Automatic grouping can be switched off per session; questions are still translated.
+  const autoGroup = !!force || !sessionNow || sessionNow.autoGroup !== false;
   const sheet = questionSheet_();
   questionsChanged_();
   const values = questionValues_();
   const pending = [];
   const existing = {};
+  const fixedTopic = {};   // question id -> topic a facilitator chose
 
   for (let i = 1; i < values.length; i++) {
     if (String(values[i][COLS.session - 1]) !== sid) continue;
     const topic = values[i][COLS.topic - 1];
-    if (topic) { existing[topic] = true; continue; }
+    const langNow = values[i][COLS.lang - 1];
+    if (topic) existing[topic] = true;
+    // Grouped by hand (a topic but no language yet): still needs translating; topic stays.
+    if (topic && (langNow || values[i][COLS.translation - 1])) continue;
+    // Ungrouped but already processed — translated while automatic grouping was off, or
+    // ungrouped by a facilitator (language "?" if unknown): left alone unless "Group now".
+    if (!topic && langNow && !force) continue;
     if (values[i][COLS.status - 1] === 'dismissed' || values[i][COLS.status - 1] === 'prepared') continue;
     const qid = String(values[i][COLS.id - 1]);
+    if (topic) fixedTopic[qid] = String(topic);
     // A question Gemini has skipped or choked on 3 times stays for the facilitator, so it
     // can't hold up every question behind it.
     if (pending.length < CONFIG.clusterBatchSize && Number(cache.get('tries:' + qid) || 0) < 3) {
@@ -3251,15 +3376,22 @@ function clusterSessionNow_(sid) {
   // Rows can move while Gemini is thinking (a deleted session, for one), so find
   // each question by id at write time, under the lock.
   let written = 0;
+  const usedTopics = {};
   withLock_(function () {
-    const rows = sheet.getRange(1, COLS.id, sheet.getLastRow(), COLS.topic).getValues();
+    const rows = sheet.getRange(1, COLS.id, sheet.getLastRow(), COLS.lang).getValues();
     const rowById = {};
-    rows.forEach(function (r, i) { if (!r[COLS.topic - 1]) rowById[String(r[COLS.id - 1])] = i + 1; });
+    rows.forEach(function (r, i) {
+      const id = String(r[COLS.id - 1]);
+      // Still ungrouped — or still the topic the facilitator chose, not yet translated.
+      if (!r[COLS.topic - 1] || (fixedTopic[id] && String(r[COLS.topic - 1]) === fixedTopic[id] && !r[COLS.lang - 1])) rowById[id] = i + 1;
+    });
     result.assignments.forEach(function (a) {
       const id = String(a.id);
       if (!pendingIds[id] || !rowById[id] || !a.topic) return;   // unknown, gone, or already grouped
+      const topicOut = fixedTopic[id] || (autoGroup ? a.topic : '');
+      if (topicOut) usedTopics[topicOut] = true;
       sheet.getRange(rowById[id], COLS.topic, 1, 3)
-        .setValues([[sheetSafe_(a.topic), sheetSafe_(a.language || ''), sheetSafe_(a.translation || '')]]);
+        .setValues([[sheetSafe_(topicOut), sheetSafe_(a.language || '?'), sheetSafe_(a.translation || '')]]);
       delete rowById[id];   // a repeated id in Gemini's reply writes once
       written++;
     });
@@ -3269,7 +3401,11 @@ function clusterSessionNow_(sid) {
   if (result.labels && result.labels.length) {
     const byTopic = {};
     result.labels.forEach(function (l) {
-      if (l && l.topic && l.translations) byTopic[String(l.topic)] = { labels: pickCodes_(l.translations, codes) };
+      // Only topics that questions actually ended up in (not ones Gemini suggested while
+      // automatic grouping was off).
+      if (l && l.topic && l.translations && (usedTopics[String(l.topic)] || existing[String(l.topic)])) {
+        byTopic[String(l.topic)] = { labels: pickCodes_(l.translations, codes) };
+      }
     });
     upsertTopics_(sid, byTopic, true);
   }
@@ -3459,7 +3595,7 @@ function sessionRows_(sid, includePrepared) {
       return {
         id: String(r[COLS.id - 1]),
         text: String(r[COLS.text - 1]),
-        lang: r[COLS.lang - 1] || '',
+        lang: r[COLS.lang - 1] && r[COLS.lang - 1] !== '?' ? r[COLS.lang - 1] : '',   // "?" only marks "leave ungrouped"
         translation: r[COLS.translation - 1] ? String(r[COLS.translation - 1]) : '',
         topic: r[COLS.topic - 1] ? String(r[COLS.topic - 1]) : '',
         status: r[COLS.status - 1],

@@ -67,6 +67,15 @@ does not carry the query string. That exact bug shipped once (v2): every QR scan
   script time zone (the harness fakes both with real time-zone math).
 - A session's QA Facilitators are `facilitatorsFor_(session)`: its own plus its event's
   `moderators`. Use it (not `session.moderators`) for access, summaries and emails.
+- Grouping by hand: `groupQuestions(sid, ids, topic)` sets the topic (language left blank,
+  so the every-minute run still translates it and keeps the topic via `fixedTopic`);
+  `ungroupQuestions` clears the topic and sets language to itself or `?` so automatic
+  grouping leaves it alone (`sessionRows_` hides `?`). `session.autoGroup === false`:
+  Gemini translates but doesn't group. `groupNow` forces grouping (`clusterSession_(sid, true)`).
+- Now answering is a topic or one question: `{topic}` or `{question, at}`
+  (`setNowAnswering(sid, topic, questionId)`). `setStatus` clears it when the live question,
+  or every open question in the live topic, is answered or dismissed. Fully answered topics
+  leave phones. `session.autoShowOnPhones` approves a topic for phones on Answer now.
 - Operations: `opsSettings_()` (`OPS` property: `retentionMonths`, `weeklyReport`).
   `runMaintenance_()` runs hourly from the schedule: `applyRetention_()` replaces question
   wording, translations, merged questions and quoted log details for sessions (live or

@@ -45,6 +45,12 @@
   .modal p { margin: 0 0 16px; color: var(--muted); white-space: pre-line; }
   .nav { align-items: center; }
   li.selected { background: var(--action-soft); box-shadow: inset 3px 0 0 var(--action); }
+  li input.pick { margin: 5px 2px 0 0; flex: 0 0 auto; width: 1.05rem; height: 1.05rem; }
+  li.picked { background: #f3f0fb; background: color-mix(in srgb, var(--action) 7%, #fff); }
+  li.live-row { box-shadow: inset 4px 0 0 var(--action); background: var(--action-soft); }
+  .row-live-tag { display: inline-block; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--action-ink); background: var(--action); border-radius: 999px; padding: 1px 8px; margin-right: 6px; vertical-align: 1px; }
+  .selection { position: sticky; top: 8px; z-index: 8; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 10px 14px; margin: 0 0 16px; background: var(--card); border: 1px solid var(--action); border-radius: var(--radius); box-shadow: var(--shadow-lg); animation: qd-rise 0.15s var(--ease); }
+  .selection strong { margin-right: 6px; }
   li.selected:hover { background: var(--action-soft); }
   kbd { font: 600 0.8rem ui-monospace, Menlo, monospace; border: 1px solid var(--rule-strong); border-bottom-width: 2px; border-radius: 5px; padding: 1px 6px; background: var(--card); color: var(--ink); }
   .modal .row { display: flex; gap: 8px; }
@@ -159,12 +165,22 @@
 
 <div class="notice" id="endedNotice" hidden>This session has ended. The queue is read-only.</div>
 <div class="notice warn" id="groupingNotice" hidden role="status"></div>
+<div class="selection" id="selection" hidden role="region" aria-label="Selected questions">
+  <strong id="selCount"></strong>
+  <button type="button" class="primary small" id="selGroup">Group as…</button>
+  <button type="button" class="small" id="selUngroup">Ungroup</button>
+  <button type="button" class="small" id="selAnswered">Answered</button>
+  <button type="button" class="small quiet" id="selDismiss">Dismiss</button>
+  <button type="button" class="small quiet" id="selClear">Clear</button>
+</div>
 
 <div class="bar">
   <button type="button" id="toggle" class="switch" aria-pressed="true" title="Click to pause or resume new questions">
     <span class="dot" aria-hidden="true"></span><span id="toggleText">Accepting questions</span>
   </button>
-  <button type="button" id="cluster">Group now</button>
+  <button type="button" id="cluster" title="Group and translate waiting questions now, even when automatic grouping is off">Group now</button>
+  <label class="check" title="Every minute, Gemini groups new questions into topics. Off: questions are still translated, and you group them yourself."><input type="checkbox" id="autoGroup"> Group automatically</label>
+  <label class="check" title="Answer now also shows the topic on participants' phones"><input type="checkbox" id="autoShow"> Show on phones when answering</label>
   <label class="check"><input type="checkbox" id="originals"> Show original wording</label>
   <span class="updated" id="updated" aria-live="polite"></span>
 </div>
@@ -180,6 +196,19 @@
   <summary>Dismissed <span id="dismissedCount"></span></summary>
   <ul id="dismissedList"></ul>
 </details>
+
+<div class="modal" id="groupDialog" hidden>
+  <form id="groupForm" role="dialog" aria-modal="true" aria-labelledby="groupTitle">
+    <h2 id="groupTitle">Group questions</h2>
+    <p id="groupHint">Type a new topic, or pick one that exists to add these questions to it.</p>
+    <input type="text" id="groupName" list="topicNames" maxlength="80" autocomplete="off" aria-label="Topic name" style="width:100%;margin-bottom:14px">
+    <datalist id="topicNames"></datalist>
+    <div class="row">
+      <button type="submit" class="primary" id="groupOk">Group</button>
+      <button type="button" class="quiet" id="groupCancel">Cancel</button>
+    </div>
+  </form>
+</div>
 
 <div class="modal" id="dialog" hidden>
   <form id="dialogForm" role="dialog" aria-modal="true" aria-labelledby="dialogTitle">
@@ -352,6 +381,12 @@
       q.status = status;
       placeQuestion(q);
     });
+    // Answering or dismissing what's being answered takes it off the room screen (the server does the same).
+    if (status !== 'new') {
+      if (state.nowAnsweringQuestion && ids.indexOf(state.nowAnsweringQuestion) !== -1) state.nowAnsweringQuestion = null;
+      var live = state.nowAnswering && findTopic(state.nowAnswering);
+      if (state.nowAnswering && (!live || !live.questions.some(function (q) { return q.status === 'new'; }))) state.nowAnswering = null;
+    }
     normalize(state);
     draw(state, true);
     send('setStatus', [sid, ids, status]);
@@ -375,6 +410,8 @@
     document.getElementById('endedNotice').hidden = !ended;
     document.querySelector('.bar').hidden = ended;
 
+    document.getElementById('autoGroup').checked = data.autoGroup !== false;
+    document.getElementById('autoShow').checked = !!data.autoShowOnPhones;
     document.getElementById('toggleText').textContent = data.open ? 'Accepting questions' : 'Paused — not accepting questions';
     toggle.setAttribute('aria-pressed', data.open ? 'true' : 'false');
     drawPrepared(data.prepared || []);
@@ -433,6 +470,7 @@
     }
     markSelected(false);
     tickTimers();
+    updateSelection();
   }
 
   function drawPrepared(list) {
@@ -541,7 +579,9 @@
         : 'Put this topic on the room screen and participants\' phones as the one being answered';
       live.onclick = function () {
         state.nowAnswering = isLive ? null : t.topic;
+        state.nowAnsweringQuestion = null;
         state.nowAnsweringSince = isLive ? null : Date.now();
+        if (!isLive && state.autoShowOnPhones) { t.shown = true; topicMeta[t.topic] = { votes: t.votes, shown: true }; }
         normalize(state);
         draw(state, true);
         send('setNowAnswering', [sid, isLive ? null : t.topic]);
@@ -625,11 +665,29 @@
 
     var list = el('ul');
     t.questions.forEach(function (q) {
-      var li = el('li', q.status === 'answered' ? 'answered' : '');
+      var isLiveQuestion = state && state.nowAnsweringQuestion === q.id;
+      var li = el('li', (q.status === 'answered' ? 'answered' : '') + (picked[q.id] ? ' picked' : '') + (isLiveQuestion ? ' live-row' : ''));
       li.setAttribute('data-id', q.id);
+      if (!ended) {
+        var pick = el('input', 'pick');
+        pick.type = 'checkbox';
+        pick.checked = !!picked[q.id];
+        pick.setAttribute('aria-label', 'Select this question');
+        pick.onchange = function () {
+          if (pick.checked) picked[q.id] = true; else delete picked[q.id];
+          li.classList.toggle('picked', pick.checked);
+          updateSelection();
+        };
+        li.appendChild(pick);
+      }
       var text = el('div', 'text');
 
       var translated = q.translation && q.translation !== q.text;
+      if (isLiveQuestion) {
+        var liveTag = el('span', 'row-live-tag');
+        liveTag.textContent = 'Answering now';
+        text.appendChild(liveTag);
+      }
 
       if (q.status === 'answered') {
         var done = el('span', 'done-tag');
@@ -654,8 +712,10 @@
         var wait = el('span', 'original pending');
         wait.textContent = state && state.groupingDown
           ? 'Not grouped or translated while automatic grouping is down'
+          : state && state.autoGroup === false
+          ? 'Translating (every minute) — tick it and use Group as…, or Answer now'
           : Date.now() - q.submitted < 150000
-          ? 'Waiting to be grouped (every minute)'
+          ? 'Waiting to be grouped (every minute) — or Answer now, or tick it to group it yourself'
           : 'Not grouped yet — press Group now, or run the health check on the Admin page';
         text.appendChild(wait);
       }
@@ -664,6 +724,21 @@
       if (ended) return;
 
       var acts2 = el('div', 'acts');
+      if (isLoose && q.status !== 'answered') {
+        // No need to wait for grouping: put this one question up on its own.
+        var liveOne = el('button', isLiveQuestion ? 'small' : 'small primary');
+        liveOne.type = 'button';
+        liveOne.textContent = isLiveQuestion ? 'Stop answering' : 'Answer now';
+        liveOne.title = 'Show this question on the room screen and phones as the one being answered';
+        liveOne.onclick = function () {
+          state.nowAnswering = null;
+          state.nowAnsweringQuestion = isLiveQuestion ? null : q.id;
+          state.nowAnsweringSince = isLiveQuestion ? null : Date.now();
+          draw(state, true);
+          send('setNowAnswering', [sid, null, isLiveQuestion ? null : q.id]);
+        };
+        acts2.appendChild(liveOne);
+      }
       var mark = el('button', 'small');
       mark.type = 'button';
       mark.textContent = q.status === 'answered' ? 'Reopen' : 'Answered';
@@ -745,6 +820,87 @@
   }
   setInterval(showUpdated, 1000);
 
+  // ------------------------------------------------------------ selecting and grouping by hand
+
+  var picked = {};
+
+  function pickedIds() {
+    // Only questions still on the board (a refresh may have moved some to Dismissed).
+    return Object.keys(picked).filter(function (id) { return board.querySelector('li[data-id="' + id + '"]'); });
+  }
+
+  function updateSelection() {
+    var ids = pickedIds();
+    Object.keys(picked).forEach(function (id) { if (ids.indexOf(id) === -1) delete picked[id]; });
+    var bar = document.getElementById('selection');
+    bar.hidden = !ids.length || ended;
+    document.getElementById('selCount').textContent = ids.length + (ids.length === 1 ? ' question selected' : ' questions selected');
+    var anyGrouped = ids.some(function (id) { var li = board.querySelector('li[data-id="' + id + '"]'); return li && li.closest('.topic').getAttribute('data-topic'); });
+    document.getElementById('selUngroup').hidden = !anyGrouped;
+  }
+
+  function clearPicked() {
+    picked = {};
+    var boxes = board.querySelectorAll('input.pick');
+    for (var i = 0; i < boxes.length; i++) { boxes[i].checked = false; boxes[i].closest('li').classList.remove('picked'); }
+    updateSelection();
+  }
+
+  function moveTo(ids, topic) {
+    ids.forEach(function (id) {
+      var q = takeQuestion(id);
+      if (!q) return;
+      q.topic = topic;
+      placeQuestion(q);
+    });
+    picked = {};
+    normalize(state);
+    draw(state, true);
+  }
+
+  document.getElementById('selClear').onclick = clearPicked;
+  document.getElementById('selAnswered').onclick = function () { var ids = pickedIds(); picked = {}; act(ids, 'answered'); };
+  document.getElementById('selDismiss').onclick = function () { var ids = pickedIds(); picked = {}; act(ids, 'dismissed'); };
+  document.getElementById('selUngroup').onclick = function () {
+    var ids = pickedIds();
+    moveTo(ids, '');
+    send('ungroupQuestions', [sid, ids]);
+  };
+  document.getElementById('selGroup').onclick = function () {
+    var list = document.getElementById('topicNames');
+    list.innerHTML = '';
+    state.topics.forEach(function (t) { var o = el('option'); o.value = t.topic; list.appendChild(o); });
+    var n = pickedIds().length;
+    document.getElementById('groupTitle').textContent = 'Group ' + n + (n === 1 ? ' question' : ' questions');
+    document.getElementById('groupName').value = '';
+    document.getElementById('groupDialog').hidden = false;
+    document.getElementById('groupName').focus();
+  };
+  function closeGroup() { document.getElementById('groupDialog').hidden = true; }
+  document.getElementById('groupCancel').onclick = closeGroup;
+  document.getElementById('groupDialog').addEventListener('click', function (e) { if (e.target === this) closeGroup(); });
+  document.getElementById('groupForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var name = document.getElementById('groupName').value.replace(/\s+/g, ' ').trim();
+    if (!name) { document.getElementById('groupName').focus(); return; }
+    var ids = pickedIds();
+    closeGroup();
+    moveTo(ids, name);
+    send('groupQuestions', [sid, ids, name]);
+  });
+
+  document.getElementById('autoGroup').onchange = function () {
+    if (!state) return;
+    state.autoGroup = this.checked;
+    draw(state, true);
+    send('setAutoGroup', [sid, this.checked]);
+  };
+  document.getElementById('autoShow').onchange = function () {
+    if (!state) return;
+    state.autoShowOnPhones = this.checked;
+    send('setAutoShowOnPhones', [sid, this.checked]);
+  };
+
   // ------------------------------------------------------------ timer for the live topic
 
   function tickTimers() {
@@ -803,6 +959,7 @@
 
   var SHORTCUTS = [
     ['J or ↓', 'Next question'], ['K or ↑', 'Previous question'],
+    ['X', 'Tick the question (then Group as…, Ungroup, Answered or Dismiss)'],
     ['A', 'Answered (or Reopen)'], ['D', 'Dismiss'],
     ['N', 'Answer now / Stop answering for its topic'], ['P', 'Show on or hide from phones'],
     ['M', 'Merge the topic into one question'], ['G', 'Group now'],
@@ -819,7 +976,7 @@
     var t = e.target;
     // Typing fields keep their keys; checkboxes and buttons don't need them.
     if (t && ((t.tagName === 'INPUT' && !/^(checkbox|radio|button|submit)$/i.test(t.type)) || /^(TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable)) return;
-    if (!document.getElementById('dialog').hidden) return;
+    if (!document.getElementById('dialog').hidden || !document.getElementById('groupDialog').hidden) return;
     var key = e.key;
     var handled = true;
     if (key === 'j' || key === 'ArrowDown') moveSelection(1);
@@ -836,7 +993,16 @@
         markSelected(true);
       }
     }
-    else if (key === 'n') press('topic', function (b) { return /^(Answer now|Stop answering)$/.test(b.textContent); });
+    else if (key === 'n') {
+      if (!press('row', function (b) { return /^(Answer now|Stop answering)$/.test(b.textContent); })) {
+        press('topic', function (b) { return /^(Answer now|Stop answering)$/.test(b.textContent); });
+      }
+    }
+    else if (key === 'x') {
+      var pickRow = selectedRow();
+      var box = pickRow && pickRow.querySelector('input.pick');
+      if (box) box.click(); else moveSelection(1);
+    }
     else if (key === 'p') press('topic', function (b) { return /phones/i.test(b.textContent); });
     else if (key === 'm') press('topic', function (b) { return b.getAttribute('data-key') === 'merge'; });
     else if (key === 'g') document.getElementById('cluster').click();

@@ -4,6 +4,29 @@ All notable changes to Question Desk. Versions follow [Semantic Versioning](http
 Each release is tagged `vX.Y.Z` and published as a GitHub release by `scripts/ship.sh`,
 which reads the notes for that version from this file.
 
+## [2.15.0] - 2026-09-13
+
+### Added
+- **Questions no longer wait for grouping.** An ungrouped question has its own **Answer
+  now**: the room screen and phones show that question (in English, translated when it was
+  asked in another language).
+- **Group by hand.** Tick questions anywhere in the queue (or press **X**) and a bar offers
+  **Group as…** (type a new topic or pick an existing one — also moves questions between
+  topics), **Ungroup**, **Answered** and **Dismiss** for all of them at once. Questions
+  grouped by hand keep their topic and are still translated by the every-minute run.
+  Ungrouped questions stay ungrouped.
+- **Group automatically** switch in the queue (per session, on by default). Off, Gemini
+  still translates new questions but doesn't group them; **Group now** still groups on
+  request.
+- **Show on phones when answering** switch in the queue (per session): **Answer now** also
+  approves the topic for phones.
+
+### Changed
+- Marking what's being answered as answered or dismissed — the live question, or the last
+  open question of the live topic — takes it off the room screen and phones automatically.
+- Topics whose questions are all answered leave participants' phones. The phone that asked
+  still shows "✓ Answered" beside its own question.
+
 ## [2.14.1] - 2026-09-13
 
 ### Fixed
@@ -526,6 +549,7 @@ Fixes from a full code review.
 - "Merge into one question" for reading a topic aloud.
 - Participant page in English, Korean and Spanish.
 
+[2.15.0]: https://github.com/djsincla/question-desk/releases/tag/v2.15.0
 [2.14.1]: https://github.com/djsincla/question-desk/releases/tag/v2.14.1
 [2.14.0]: https://github.com/djsincla/question-desk/releases/tag/v2.14.0
 [2.13.0]: https://github.com/djsincla/question-desk/releases/tag/v2.13.0

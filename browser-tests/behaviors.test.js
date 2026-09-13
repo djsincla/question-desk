@@ -378,3 +378,51 @@ test('chromium: Data and reports settings save, and removing wording asks first'
     assert.deepEqual(ctx.h.app.adminState().ops, { retentionMonths: 12, weeklyReport: false });
   });
 });
+
+test('chromium: tick questions, group them by hand, ungroup, and answer an ungrouped question right away', async () => {
+  await withDemo('chromium', (ctx) => {
+    const h = ctx.h;
+    h.env.activeUser = '';
+    h.ask(ctx.live, h.join(ctx.live), 'Can the library stay open later on event nights?');
+    h.ask(ctx.live, h.join(ctx.live), 'Are there quiet rooms at the library?');
+    return '/?view=moderate&s=' + ctx.live.id + '&as=mod';
+  }, { viewport: { width: 1280, height: 900 } }, async ({ page, ctx }) => {
+    await page.waitForSelector('li[data-id]');
+    const loose = page.locator('.topic', { has: page.locator('h2', { hasText: /^Not yet grouped/ }) });
+    const rowFor = (text) => page.locator('li[data-id]', { hasText: text });
+
+    // Answer now on an ungrouped question: no grouping needed.
+    await rowFor('library stay open').locator('button', { hasText: 'Answer now' }).click();
+    await rowFor('library stay open').locator('.row-live-tag').waitFor({ timeout: 2000 });
+    await page.waitForTimeout(1500);
+    ctx.h.env.activeUser = USERS.mod;
+    assert.match(ctx.h.app.getRoomScreen(ctx.live.id).nowAnswering.labels.en, /library stay open/);
+
+    // Tick two questions and group them.
+    await rowFor('library stay open').locator('input.pick').check();
+    await rowFor('quiet rooms at the library').locator('input.pick').check();
+    await page.waitForSelector('#selection:not([hidden])');
+    assert.match(await page.textContent('#selCount'), /2 questions selected/);
+    await page.click('#selGroup');
+    await page.fill('#groupName', 'The library');
+    await page.click('#groupOk');
+    const libraryTopic = page.locator('.topic', { has: page.locator('h2', { hasText: /^The library/ }) });
+    await libraryTopic.waitFor({ timeout: 2000 });
+    assert.equal(await libraryTopic.locator('li[data-id]').count(), 2);
+    assert.equal(await page.isVisible('#selection'), false, 'selection cleared');
+
+    // Ungroup one of them again.
+    await rowFor('quiet rooms at the library').locator('input.pick').check();
+    await page.click('#selUngroup');
+    await page.waitForFunction(() => !Array.from(document.querySelectorAll('.topic')).some((t) => /^The library/.test(t.querySelector('h2').textContent) && t.textContent.includes('quiet rooms')), null, { timeout: 2000 });
+    await page.waitForTimeout(1500);
+    const row = ctx.h.questions().rows.find((r) => /quiet rooms at the library/.test(r[3]));
+    assert.equal(row[5], '', 'saved as ungrouped');
+
+    // The switches are there and reflect the session.
+    assert.equal(await page.isChecked('#autoGroup'), true);
+    await page.uncheck('#autoGroup');
+    await page.waitForTimeout(1500);
+    assert.equal(ctx.h.app.getSession_(ctx.live.id).autoGroup, false);
+  });
+});
