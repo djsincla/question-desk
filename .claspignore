@@ -1,0 +1,9 @@
+# Only the app itself goes to Apps Script; docs, tests and git stay local.
+**/**
+!appsscript.json
+!Code.js
+!Ask.html
+!Present.html
+!Moderate.html
+!Denied.html
+!Admin.html

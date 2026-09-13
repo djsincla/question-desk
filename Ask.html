@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html>
+<head>
+<base target="_top">
+<style>
+  :root {
+    --ink: #16202b;
+    --muted: #5c6874;
+    --rule: #d9dee3;
+    --action: #1b5e5a;
+    --hold: #8a6d1f;
+    --stop: #8c2f22;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 24px 20px 48px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 17px;
+    line-height: 1.5;
+    color: var(--ink);
+    background: #fff;
+    max-width: 34rem;
+    margin-inline: auto;
+  }
+  .langs { display: flex; gap: 6px; margin-bottom: 20px; }
+  .langs button {
+    width: auto;
+    margin: 0;
+    padding: 6px 12px;
+    font-size: 0.9rem;
+    font-weight: 400;
+    color: var(--muted);
+    background: #fff;
+    border: 1px solid var(--rule);
+  }
+  .langs button[aria-pressed="true"] {
+    color: var(--ink);
+    border-color: var(--ink);
+    font-weight: 600;
+  }
+
+  h1 { font-size: 1.5rem; line-height: 1.25; margin: 0 0 4px; font-weight: 600; }
+  .sub { color: var(--muted); margin: 0 0 24px; font-size: 0.95rem; }
+
+  textarea {
+    width: 100%;
+    min-height: 8.5rem;
+    padding: 14px;
+    font: inherit;
+    color: inherit;
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    resize: vertical;
+  }
+  textarea:focus { outline: 2px solid var(--action); outline-offset: 1px; border-color: transparent; }
+  textarea:disabled { background: #f4f6f7; color: var(--muted); }
+
+  .meter { display: flex; justify-content: flex-end; color: var(--muted); font-size: 0.85rem; padding-top: 6px; }
+  .meter.over { color: var(--stop); }
+
+  button {
+    width: 100%;
+    margin-top: 14px;
+    padding: 15px;
+    font: inherit;
+    font-weight: 600;
+    color: #fff;
+    background: var(--action);
+    border: 0;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  button:disabled { background: #aab3bb; cursor: default; }
+  button:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+
+  .note { margin-top: 20px; padding: 14px; border-left: 3px solid var(--rule); font-size: 0.95rem; }
+  .note.good { border-color: var(--action); }
+  .note.hold { border-color: var(--hold); }
+  .note.stop { border-color: var(--stop); }
+  .note p { margin: 0; }
+  .note p + p { margin-top: 6px; }
+
+  .sent { margin-top: 32px; border-top: 1px solid var(--rule); padding-top: 16px; }
+  .sent h2 { font-size: 0.95rem; font-weight: 600; margin: 0 0 10px; color: var(--muted); }
+  .sent li { margin-bottom: 10px; color: var(--muted); }
+  ul { padding-left: 20px; margin: 0; }
+</style>
+</head>
+<body>
+
+<nav class="langs" id="langs" aria-label="Language">
+  <button type="button" data-lang="en" lang="en">English</button>
+  <button type="button" data-lang="ko" lang="ko">한국어</button>
+  <button type="button" data-lang="es" lang="es">Español</button>
+</nav>
+
+<h1 id="heading">Questions for the panel</h1>
+<p class="sub" id="sub">Your question goes to the facilitator. Your name is not attached.</p>
+
+<label for="q" class="visually-hidden" style="position:absolute;left:-9999px">Your question</label>
+<textarea id="q" placeholder="What would you like to ask?" maxlength="400"></textarea>
+<div class="meter" id="meter">0 / 300</div>
+
+<button id="send" disabled>Send question</button>
+
+<div class="note" id="note" hidden><p id="noteText"></p></div>
+
+<div class="sent" id="sent" hidden>
+  <h2 id="sentHeading">You have asked</h2>
+  <ul id="sentList"></ul>
+</div>
+
+<script>
+  var STRINGS = {
+    en: {
+      sub: 'Your question goes to the facilitator. Your name is not attached.',
+      placeholder: 'What would you like to ask?',
+      send: 'Send question', sending: 'Sending…',
+      sent: 'Sent. The facilitator has it.',
+      cooldown: 'You have already asked a question in the last few minutes.',
+      again: 'You can ask another question now.',
+      nextIn: 'Next question in ',
+      expiredBtn: 'Scan the code again',
+      expired: 'This link has expired. Scan the code on the screen in the room.',
+      closedBtn: 'Questions are closed',
+      closed: 'The facilitator has closed question submission.',
+      busy: 'A lot of questions are arriving at once. Try again in a moment.',
+      short: 'That is a bit short — add a few more words.',
+      long: 'Too long. Trim it to {n} characters.',
+      failed: 'That did not send. Check your connection and try again.',
+      youAsked: 'You have asked'
+    },
+    ko: {
+      sub: '질문은 진행자에게 전달됩니다. 이름은 표시되지 않습니다.',
+      placeholder: '무엇을 질문하시겠습니까?',
+      send: '질문 보내기', sending: '보내는 중…',
+      sent: '전송되었습니다. 진행자가 확인합니다.',
+      cooldown: '최근 몇 분 이내에 이미 질문을 보내셨습니다.',
+      again: '이제 다른 질문을 보낼 수 있습니다.',
+      nextIn: '다음 질문까지 ',
+      expiredBtn: '코드를 다시 스캔하세요',
+      expired: '이 링크는 만료되었습니다. 화면의 코드를 다시 스캔해 주세요.',
+      closedBtn: '질문이 마감되었습니다',
+      closed: '진행자가 질문 접수를 마감했습니다.',
+      busy: '질문이 한꺼번에 많이 들어오고 있습니다. 잠시 후 다시 시도해 주세요.',
+      short: '조금 짧습니다. 몇 마디 더 적어 주세요.',
+      long: '너무 깁니다. {n}자 이내로 줄여 주세요.',
+      failed: '전송되지 않았습니다. 연결을 확인한 후 다시 시도해 주세요.',
+      youAsked: '보낸 질문'
+    },
+    es: {
+      sub: 'Tu pregunta llega al moderador. Tu nombre no se adjunta.',
+      placeholder: '¿Qué te gustaría preguntar?',
+      send: 'Enviar pregunta', sending: 'Enviando…',
+      sent: 'Enviada. El moderador ya la tiene.',
+      cooldown: 'Ya enviaste una pregunta hace unos minutos.',
+      again: 'Ya puedes enviar otra pregunta.',
+      nextIn: 'Próxima pregunta en ',
+      expiredBtn: 'Escanea el código otra vez',
+      expired: 'Este enlace caducó. Vuelve a escanear el código de la pantalla.',
+      closedBtn: 'Preguntas cerradas',
+      closed: 'El moderador cerró el envío de preguntas.',
+      busy: 'Están llegando muchas preguntas a la vez. Inténtalo en un momento.',
+      short: 'Es un poco corta: añade algunas palabras más.',
+      long: 'Demasiado larga. Redúcela a {n} caracteres.',
+      failed: 'No se envió. Revisa tu conexión e inténtalo de nuevo.',
+      youAsked: 'Has preguntado'
+    }
+  };
+
+  var LANG_KEY = 'qd.lang';
+  var lang = 'en';
+
+  function T(key) {
+    return (STRINGS[lang] && STRINGS[lang][key]) || STRINGS.en[key];
+  }
+
+  function setLang(next) {
+    lang = STRINGS[next] ? next : 'en';
+    try { localStorage.setItem(LANG_KEY, lang); } catch (e) {}
+    document.documentElement.lang = lang;
+
+    document.getElementById('sub').textContent = T('sub');
+    document.getElementById('q').placeholder = T('placeholder');
+    document.getElementById('sentHeading').textContent = T('youAsked');
+    if (!q.disabled && !ticker) send.textContent = T('send');
+
+    var buttons = document.querySelectorAll('.langs button');
+    for (var i = 0; i < buttons.length; i++) {
+      buttons[i].setAttribute('aria-pressed', buttons[i].dataset.lang === lang);
+    }
+  }
+
+  var KEY = 'qd.device';
+  var deviceId = null;
+  // Filled from the top-level URL in start(). The page runs in a sandboxed
+  // iframe, so window.location never carries the ?t= from the QR code.
+  var entryToken = '';
+  var maxLength = 300;
+  var ticker = null;
+
+  var q = document.getElementById('q');
+  var send = document.getElementById('send');
+  var meter = document.getElementById('meter');
+  var note = document.getElementById('note');
+  var noteText = document.getElementById('noteText');
+
+  function say(text, tone) {
+    noteText.textContent = text;
+    note.className = 'note ' + (tone || '');
+    note.hidden = false;
+  }
+
+  function lock(reason) {
+    q.disabled = true;
+    send.disabled = true;
+    send.textContent = reason;
+  }
+
+  function countdown(seconds) {
+    clearInterval(ticker);
+    q.value = '';
+    q.disabled = true;
+    send.disabled = true;
+    updateMeter();
+
+    function tick() {
+      if (seconds <= 0) {
+        clearInterval(ticker);
+        ticker = null;
+        q.disabled = false;
+        send.textContent = T('send');
+        updateMeter();
+        say(T('again'), 'good');
+        return;
+      }
+      var m = Math.floor(seconds / 60), s = seconds % 60;
+      send.textContent = T('nextIn') + m + ':' + (s < 10 ? '0' : '') + s;
+      seconds--;
+    }
+    tick();
+    ticker = setInterval(tick, 1000);
+  }
+
+  function updateMeter() {
+    var n = q.value.trim().length;
+    meter.textContent = n + ' / ' + maxLength;
+    meter.className = n > maxLength ? 'meter over' : 'meter';
+    if (!q.disabled) send.disabled = n < 5 || n > maxLength;
+  }
+
+  q.addEventListener('input', updateMeter);
+
+  send.addEventListener('click', function () {
+    send.disabled = true;
+    send.textContent = T('sending');
+    var text = q.value;
+
+    function recover(message) {
+      say(message, 'hold');
+      send.textContent = T('send');
+      updateMeter();
+    }
+
+    google.script.run
+      .withSuccessHandler(function (res) {
+        if (res.ok) {
+          addSent(text);
+          say(T('sent'), 'good');
+          countdown(res.cooldownSeconds);
+          return;
+        }
+        if (res.reason === 'cooldown') {
+          say(T('cooldown'), 'hold');
+          countdown(300);
+        } else if (res.reason === 'expired') {
+          lock(T('expiredBtn'));
+          say(T('expired'), 'stop');
+        } else if (res.reason === 'closed') {
+          lock(T('closedBtn'));
+          say(T('closed'), 'stop');
+        } else if (res.reason === 'busy') {
+          recover(T('busy'));
+        } else if (res.reason === 'tooShort') {
+          recover(T('short'));
+        } else if (res.reason === 'tooLong') {
+          recover(T('long').replace('{n}', maxLength));
+        }
+      })
+      .withFailureHandler(function () {
+        say(T('failed'), 'stop');
+        send.textContent = T('send');
+        updateMeter();
+      })
+      .submitQuestion(deviceId, text, entryToken);
+  });
+
+  function addSent(text) {
+    var box = document.getElementById('sent');
+    var li = document.createElement('li');
+    li.textContent = text;
+    document.getElementById('sentList').appendChild(li);
+    box.hidden = false;
+  }
+
+  // Exchange the room token for a device token, once per browser.
+  (function start() {
+    var saved = null;
+    try { saved = localStorage.getItem(LANG_KEY); } catch (e) {}
+    setLang(saved || (navigator.language || 'en').slice(0, 2));
+
+    document.getElementById('langs').addEventListener('click', function (e) {
+      var button = e.target.closest('button[data-lang]');
+      if (button) setLang(button.dataset.lang);
+    });
+
+    try { deviceId = localStorage.getItem(KEY); } catch (e) { deviceId = null; }
+
+    function loadState() {
+      google.script.run.withSuccessHandler(function (state) {
+        document.getElementById('heading').textContent = state.heading;
+        maxLength = state.maxLength;
+        if (!state.open) {
+          lock(T('closedBtn'));
+          say(T('closed'), 'stop');
+          return;
+        }
+        updateMeter();
+      }).getSessionState(deviceId);
+    }
+
+    if (deviceId) { loadState(); return; }
+
+    google.script.url.getLocation(function (location) {
+      entryToken = (location.parameter && location.parameter.t) || '';
+      google.script.run.withSuccessHandler(function (res) {
+        if (!res.ok) {
+          lock(T('expiredBtn'));
+          say(T('expired'), 'stop');
+          return;
+        }
+        deviceId = res.deviceId;
+        try { localStorage.setItem(KEY, deviceId); } catch (e) {}
+        loadState();
+      }).claimDevice(entryToken);
+    });
+  })();
+</script>
+</body>
+</html>

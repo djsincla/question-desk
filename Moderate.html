@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html>
+<head>
+<base target="_top">
+<style>
+  :root {
+    --ink: #16202b;
+    --muted: #5c6874;
+    --rule: #d9dee3;
+    --action: #1b5e5a;
+    --stop: #8c2f22;
+    --paper: #f7f8f9;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 20px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    color: var(--ink);
+    background: #fff;
+    font-size: 16px;
+    line-height: 1.45;
+  }
+  header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 12px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+  h1 { font-size: 1.2rem; margin: 0; font-weight: 600; }
+  .tally { color: var(--muted); font-size: 0.9rem; }
+
+  button {
+    font: inherit;
+    padding: 7px 12px;
+    border: 1px solid var(--rule);
+    background: #fff;
+    border-radius: 4px;
+    cursor: pointer;
+    color: var(--ink);
+  }
+  button:hover { background: var(--paper); }
+  button:focus-visible { outline: 2px solid var(--action); outline-offset: 1px; }
+  button.primary { background: var(--action); border-color: var(--action); color: #fff; }
+  button.quiet { border-color: transparent; color: var(--muted); }
+
+  .topic { border: 1px solid var(--rule); border-radius: 6px; margin-bottom: 18px; overflow: hidden; }
+  .topic > .head {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 12px 14px; background: var(--paper); border-bottom: 1px solid var(--rule);
+    flex-wrap: wrap;
+  }
+  .topic h2 { font-size: 1rem; margin: 0; font-weight: 600; }
+  .count { color: var(--muted); font-weight: 400; font-size: 0.9rem; }
+
+  .merged { padding: 12px 14px; border-bottom: 1px solid var(--rule); background: #fffdf5; }
+  .merged span { display: block; color: var(--muted); font-size: 0.8rem; margin-bottom: 4px; }
+
+  ul { list-style: none; margin: 0; padding: 0; }
+  li { display: flex; gap: 12px; align-items: flex-start; padding: 11px 14px; border-bottom: 1px solid #eef1f3; }
+  li:last-child { border-bottom: 0; }
+  li.answered { color: var(--muted); text-decoration: line-through; }
+  li .text { flex: 1; }
+  li .acts { display: flex; gap: 6px; flex-shrink: 0; }
+
+  .chip {
+    display: inline-block;
+    font-size: 0.72rem;
+    color: var(--muted);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    padding: 1px 6px;
+    margin-right: 6px;
+    vertical-align: 1px;
+  }
+  .original {
+    display: block;
+    margin-top: 5px;
+    padding-left: 10px;
+    border-left: 2px solid var(--rule);
+    color: var(--muted);
+    font-size: 0.92rem;
+  }
+  .pending { color: var(--muted); font-style: italic; }
+
+  .empty { color: var(--muted); padding: 40px 0; text-align: center; }
+  .bar { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Question queue</h1>
+  <span class="tally" id="tally">Loading…</span>
+</header>
+
+<div class="bar">
+  <button id="toggle">Pause submissions</button>
+  <button id="cluster">Group now</button>
+  <button id="originals">Show original wording</button>
+  <button class="quiet" id="refresh">Refresh</button>
+</div>
+
+<div id="board"><p class="empty">Waiting for the first question.</p></div>
+
+<script>
+  var board = document.getElementById('board');
+  var tally = document.getElementById('tally');
+  var toggle = document.getElementById('toggle');
+  var state = null;
+  var showOriginals = false;
+
+  document.getElementById('originals').onclick = function () {
+    showOriginals = !showOriginals;
+    this.textContent = showOriginals ? 'Hide original wording' : 'Show original wording';
+    if (state) draw(state);
+  };
+
+  function draw(data) {
+    state = data;
+    toggle.textContent = data.open ? 'Pause submissions' : 'Reopen submissions';
+
+    var total = data.unsorted.length;
+    data.topics.forEach(function (t) { total += t.count; });
+    tally.textContent = total + (total === 1 ? ' question' : ' questions') +
+      ' across ' + data.topics.length + (data.topics.length === 1 ? ' topic' : ' topics');
+
+    if (!total) {
+      board.innerHTML = '<p class="empty">Waiting for the first question.</p>';
+      return;
+    }
+
+    board.innerHTML = '';
+    data.topics.forEach(function (t) { board.appendChild(topicBlock(t, data.merged[t.topic])); });
+    if (data.unsorted.length) {
+      board.appendChild(topicBlock({ topic: 'Not yet grouped', questions: data.unsorted, count: data.unsorted.length }, null, true));
+    }
+  }
+
+  function topicBlock(t, mergedText, isLoose) {
+    var wrap = el('div', 'topic');
+
+    var head = el('div', 'head');
+    var h = el('h2');
+    h.textContent = t.topic;
+    var c = el('span', 'count');
+    c.textContent = t.count + (t.count === 1 ? ' question' : ' questions');
+    h.appendChild(document.createTextNode(' '));
+    h.appendChild(c);
+    head.appendChild(h);
+
+    if (!isLoose) {
+      var acts = el('div', 'acts');
+      var merge = el('button');
+      merge.textContent = mergedText ? 'Rewrite as one' : 'Merge into one question';
+      merge.onclick = function () {
+        merge.disabled = true;
+        merge.textContent = 'Merging…';
+        google.script.run.withSuccessHandler(function (res) {
+          if (res.ok) { state.merged[t.topic] = res.question; draw(state); }
+          else { merge.disabled = false; merge.textContent = 'Merge failed — retry'; }
+        }).mergeTopic(t.topic);
+      };
+      var dismissAll = el('button', 'quiet');
+      dismissAll.textContent = 'Dismiss all';
+      dismissAll.onclick = function () {
+        if (!confirm('Dismiss all ' + t.count + ' questions under "' + t.topic + '"?')) return;
+        act(t.questions.map(function (q) { return q.id; }), 'dismissed');
+      };
+      acts.appendChild(merge);
+      acts.appendChild(dismissAll);
+      head.appendChild(acts);
+    }
+    wrap.appendChild(head);
+
+    if (mergedText) {
+      var m = el('div', 'merged');
+      var label = el('span');
+      label.textContent = 'Read this out';
+      m.appendChild(label);
+      m.appendChild(document.createTextNode(mergedText));
+      wrap.appendChild(m);
+    }
+
+    var list = el('ul');
+    t.questions.sort(function (a, b) { return a.submitted - b.submitted; }).forEach(function (q) {
+      var li = el('li', q.status === 'answered' ? 'answered' : '');
+      var text = el('div', 'text');
+
+      var translated = q.translation && q.translation !== q.text;
+
+      if (q.lang && translated) {
+        var chip = el('span', 'chip');
+        chip.textContent = q.lang;
+        text.appendChild(chip);
+      }
+      text.appendChild(document.createTextNode(translated ? q.translation : q.text));
+
+      if (translated && showOriginals) {
+        var orig = el('span', 'original');
+        orig.textContent = q.text;
+        text.appendChild(orig);
+      }
+      if (!q.lang && !q.translation) {
+        var wait = el('span', 'original pending');
+        wait.textContent = 'Translating…';
+        text.appendChild(wait);
+      }
+      li.appendChild(text);
+
+      var acts2 = el('div', 'acts');
+      var done = el('button');
+      done.textContent = q.status === 'answered' ? 'Undo' : 'Answered';
+      done.onclick = function () { act([q.id], q.status === 'answered' ? 'new' : 'answered'); };
+      var drop = el('button', 'quiet');
+      drop.textContent = 'Dismiss';
+      drop.onclick = function () { act([q.id], 'dismissed'); };
+      acts2.appendChild(done);
+      acts2.appendChild(drop);
+      li.appendChild(acts2);
+      list.appendChild(li);
+    });
+    wrap.appendChild(list);
+    return wrap;
+  }
+
+  function el(tag, cls) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    return n;
+  }
+
+  function act(ids, status) {
+    google.script.run.withSuccessHandler(draw).setStatus(ids, status);
+  }
+
+  toggle.onclick = function () {
+    google.script.run.withSuccessHandler(draw).setBoardOpen(!state.open);
+  };
+
+  document.getElementById('cluster').onclick = function () {
+    var b = this;
+    b.disabled = true;
+    b.textContent = 'Grouping…';
+    google.script.run.withSuccessHandler(function () {
+      b.disabled = false;
+      b.textContent = 'Group now';
+      load();
+    }).clusterQuestions();
+  };
+
+  document.getElementById('refresh').onclick = load;
+
+  function load() {
+    google.script.run.withSuccessHandler(draw).getBoard();
+  }
+
+  load();
+  setInterval(load, 8000);
+</script>
+</body>
+</html>

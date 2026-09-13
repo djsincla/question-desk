@@ -1,0 +1,7 @@
+Question Desk
+Copyright 2026 Dwayne Sinclair
+
+Built to support the Autism Society of Los Angeles.
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+It uses qrcode.js (MIT License, Copyright 2012 davidshimjs), loaded from cdnjs at runtime.

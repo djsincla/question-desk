@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+<head>
+<base target="_top">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6vw;
+    padding: 5vh 5vw;
+    background: #10171f;
+    color: #fff;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  .words { max-width: 22ch; }
+  h1 { font-size: clamp(2.5rem, 6vw, 5rem); line-height: 1.05; margin: 0 0 0.4em; font-weight: 600; }
+  p { font-size: clamp(1rem, 1.7vw, 1.5rem); line-height: 1.35; margin: 0 0 0.55em; color: #9dabb8; }
+  p:last-of-type { margin-bottom: 0; }
+  .words { max-width: 26ch; }
+  .code {
+    background: #fff;
+    padding: 2.5vh;
+    border-radius: 8px;
+    line-height: 0;
+  }
+  .code img, .code canvas { width: min(38vh, 38vw); height: auto; }
+  .status { position: fixed; bottom: 3vh; left: 0; right: 0; text-align: center; color: #4d5b69; font-size: 0.95rem; }
+</style>
+</head>
+<body>
+
+<div class="words">
+  <h1>Ask the panel</h1>
+  <p lang="en">Point your camera at the code. Ask in any language.</p>
+  <p lang="ko">카메라로 코드를 스캔하세요. 어떤 언어로도 질문할 수 있습니다.</p>
+  <p lang="es">Apunta la cámara al código. Pregunta en cualquier idioma.</p>
+</div>
+
+<div class="code" id="code"></div>
+<div class="status" id="status"></div>
+
+<script>
+  var box = document.getElementById('code');
+  var status = document.getElementById('status');
+  var qr = null;
+  var base = '';
+
+  function render(token) {
+    var url = base + (base.indexOf('?') === -1 ? '?' : '&') + 't=' + token;
+    if (qr) { qr.clear(); qr.makeCode(url); }
+    else {
+      qr = new QRCode(box, {
+        text: url,
+        width: 640,
+        height: 640,
+        correctLevel: QRCode.CorrectLevel.M
+      });
+    }
+  }
+
+  function refresh() {
+    google.script.run.withSuccessHandler(function (res) {
+      render(res.token);
+      status.textContent = 'Code refreshes automatically';
+      setTimeout(refresh, res.rotateInSeconds * 1000);
+    }).withFailureHandler(function () {
+      status.textContent = 'Lost connection — reload this page';
+      setTimeout(refresh, 15000);
+    }).getEntryToken();
+  }
+
+  google.script.run.withSuccessHandler(function (url) {
+    base = url;
+    refresh();
+  }).webAppUrl();
+</script>
+</body>
+</html>
