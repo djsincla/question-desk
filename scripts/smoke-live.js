@@ -94,7 +94,7 @@ async function pageText(page) {
       if (!ok) failed++;
     }
     if (guestPage) {
-      const url = guestPage + '?d=' + id + '&view=present&s=ffffffff';
+      const url = guestPage + '?d=' + id + '&view=present&s=ffffffff&r=0000000000000000';
       let ok = false;
       let text = '';
       for (let attempt = 1; attempt <= 3 && !ok; attempt++) {
