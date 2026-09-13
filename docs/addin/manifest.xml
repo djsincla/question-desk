@@ -9,7 +9,7 @@
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:type="ContentApp">
   <Id>cbe57d61-2cd8-4fdf-ae94-438fc403a58e</Id>
-  <Version>2.3.1.0</Version>
+  <Version>2.3.2.0</Version>
   <ProviderName>Question Desk</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
   <DisplayName DefaultValue="Question Desk QR" />

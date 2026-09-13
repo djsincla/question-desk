@@ -15,41 +15,85 @@ Manifest: <https://djsincla.github.io/question-desk/addin/manifest.xml>
 
 ## Install
 
-Menu names differ a little between PowerPoint versions.
+These install the add-in for **your account on one computer**. To give it to everyone in
+your organization at once, see *For everyone in your organization* below.
 
-### For everyone in your organization (recommended)
+### Mac
+
+**Easiest — Terminal** (Applications → Utilities → Terminal), paste and press Return:
+
+```bash
+curl -fsSL https://djsincla.github.io/question-desk/addin/install/install-mac.sh | bash
+```
+
+**Or download** [QuestionDeskQR-Mac.zip](https://djsincla.github.io/question-desk/addin/install/QuestionDeskQR-Mac.zip),
+open it, and double-click **Install Question Desk QR.command**.
+macOS will say it can't verify the app, because it isn't from the App Store. Click
+**Done**, then open **System Settings → Privacy & Security**, scroll down, click
+**Open Anyway** next to *Install Question Desk QR*, and confirm.
+
+Then quit PowerPoint (⌘Q), reopen it, open a presentation, and choose
+**Home → Add-ins → Question Desk QR**.
+
+To remove it: `curl -fsSL https://djsincla.github.io/question-desk/addin/install/uninstall-mac.sh | bash`,
+or double-click **Uninstall Question Desk QR.command**.
+
+### Windows
+
+1. Download [QuestionDeskQR-Windows.zip](https://djsincla.github.io/question-desk/addin/install/QuestionDeskQR-Windows.zip).
+2. Right-click the zip → **Properties** → tick **Unblock** (if shown) → **OK**. Then
+   right-click → **Extract All**.
+3. Double-click **Install Question Desk QR.cmd**. If Windows shows *Windows protected
+   your PC*, click **More info → Run anyway**.
+4. Close and reopen PowerPoint, open a presentation, and choose **Home → Add-ins**
+   (or **Insert → My Add-ins**) → **Question Desk QR**.
+
+No administrator rights are needed; it installs for your Windows account only. To remove
+it, double-click **Uninstall Question Desk QR.cmd**.
+
+Run the installer again at any time to update to the latest version.
+
+### What the installers do
+
+- **Mac:** saves the add-in's manifest to
+  `~/Library/Containers/com.microsoft.Powerpoint/Data/Documents/wef/`, replacing any older
+  copy of this add-in.
+- **Windows:** saves the manifest to `%LOCALAPPDATA%\QuestionDeskQR\` and adds one
+  registry value under `HKEY_CURRENT_USER\Software\Microsoft\Office\16.0\Wef\Developer`.
+  This is the same registration Microsoft's own add-in tools use.
+
+Both download the manifest from this site, check that it's the Question Desk QR add-in,
+and change nothing else. The scripts are in [`docs/addin/install`](install/).
+
+### For everyone in your organization (recommended for many computers)
 
 A Microsoft 365 administrator deploys it once, and it appears in PowerPoint on Windows,
 Mac and the web for the people it's assigned to.
 
 1. Microsoft 365 admin center → **Settings → Integrated apps → Upload custom apps**.
-2. Choose **Office Add-in**, then **Provide link to the manifest file** and paste the
-   manifest link above.
+2. Choose **Office Add-in**, then **Provide link to the manifest file** and paste
+   `https://djsincla.github.io/question-desk/addin/manifest.xml`.
 3. Assign it to the people who build slides, and deploy.
-4. It can take up to a day to appear. In PowerPoint: **Insert → Add-ins** (or **Get Add-ins**)
-   → **Admin Managed** → **Question Desk QR**.
+4. It can take up to a day to appear under **Home → Add-ins → Admin Managed**.
 
-### On one Mac, to try it
+<details>
+<summary>Installing by hand, without the installers</summary>
 
-1. Download [`manifest.xml`](https://djsincla.github.io/question-desk/addin/manifest.xml).
-2. In Finder, **Go → Go to Folder…** and open
-   `~/Library/Containers/com.microsoft.Powerpoint/Data/Documents/`. Create a folder named
-   `wef` if there isn't one, and put `manifest.xml` in it.
-3. Quit and reopen PowerPoint. **Insert → Add-ins → My Add-ins** — Question Desk QR is
-   listed under developer add-ins.
+**Mac:** download [`manifest.xml`](https://djsincla.github.io/question-desk/addin/manifest.xml)
+and copy it (don't move a file you want to keep) into
+`~/Library/Containers/com.microsoft.Powerpoint/Data/Documents/wef/` — in Finder,
+**Go → Go to Folder…**. Create `wef` if it doesn't exist. Restart PowerPoint.
 
-### On one Windows PC, to try it
+**Windows:** put `manifest.xml` in a shared folder, add its network path under
+**File → Options → Trust Center → Trust Center Settings → Trusted Add-in Catalogs**, tick
+**Show in Menu**, restart PowerPoint, then **Insert → My Add-ins → Shared Folder**.
 
-1. Make a folder (for example `C:\QuestionDeskAddin`), put `manifest.xml` in it, and share
-   the folder (right-click → Properties → Sharing). Note its network path, such as
-   `\\YOUR-PC\QuestionDeskAddin`.
-2. PowerPoint → **File → Options → Trust Center → Trust Center Settings → Trusted Add-in
-   Catalogs**. Add the network path, tick **Show in Menu**, OK.
-3. Restart PowerPoint. **Insert → My Add-ins → Shared Folder → Question Desk QR**.
+**PowerPoint on the web:** **Insert → Add-ins → My Add-ins → Upload My Add-in**.
+</details>
 
-### PowerPoint for the web, to try it
-
-**Insert → Add-ins → My Add-ins → Upload My Add-in**, and choose `manifest.xml`.
+**If an old version still shows** (for example the box is small) after updating: quit
+PowerPoint, run the installer again, reopen PowerPoint and insert the add-in on the slide
+again. Existing boxes keep the size they were inserted at; drag their handles to resize.
 
 ## Use it
 

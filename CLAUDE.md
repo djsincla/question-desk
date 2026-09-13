@@ -20,6 +20,10 @@ Workspace account. See SETUP.md for install and deployment.
 - `scripts/loadtest.js` — simulates a full room against a running load test
 - `scripts/check-secrets.js` — blocks keys, IDs and real email addresses (hook and CI)
 - `CHANGELOG.md` — release notes; `ship.sh` publishes the section for `APP.version`
+- `docs/addin/install/` — add-in installers (Mac `.sh`/`.command`, Windows `.ps1`/`.cmd`) and
+  the download zips built by `scripts/build-addin-installers.sh` (tests fail if the zips are
+  stale). Windows registers `HKCU\Software\Microsoft\Office\16.0\Wef\Developer\<add-in id>`;
+  Mac writes `wef/<add-in id>.manifest.xml`. CI runs both for real.
 - `docs/addin/` — *Question Desk QR* PowerPoint content add-in, served by GitHub Pages
   (`main` branch, `/docs`). `manifest.xml` `<Version>` tracks `APP.version`. The page only
   frames addresses from `room-url.js` (public `/macros/s/` form, `&layout=qr`)

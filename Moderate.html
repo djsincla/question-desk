@@ -517,8 +517,12 @@
         text.appendChild(orig);
       }
       if (!q.lang && !q.translation) {
+        // Language is only known after grouping, which runs every minute — so English
+        // questions wait here too. They are not being translated.
         var wait = el('span', 'original pending');
-        wait.textContent = 'Translating…';
+        wait.textContent = Date.now() - q.submitted < 150000
+          ? 'Waiting to be grouped (every minute)'
+          : 'Not grouped yet — press Group now, or run the health check on the Admin page';
         text.appendChild(wait);
       }
       li.appendChild(text);

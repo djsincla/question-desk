@@ -38,3 +38,46 @@ jobs:
         run: npm ci && npx playwright install --with-deps webkit chromium
       - name: Browser tests (WebKit and Chromium)
         run: npm run test:browsers
+
+  installers-macos:
+    runs-on: macos-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+      - name: Mac installer (real macOS)
+        run: node --test tests/installers.test.js
+
+  installers-windows:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Windows installer (install, verify registry and file, uninstall)
+        shell: pwsh
+        run: |
+          $manifest = (Resolve-Path docs/addin/manifest.xml).Path
+          $env:QD_MANIFEST_URL = ([Uri]$manifest).AbsoluteUri
+          $id = ([xml](Get-Content -Raw $manifest)).OfficeApp.Id
+          $key = 'HKCU:\Software\Microsoft\Office\16.0\Wef\Developer'
+
+          # Windows PowerShell 5.1, which is what "Install Question Desk QR.cmd" runs.
+          powershell -NoProfile -ExecutionPolicy Bypass -File docs/addin/install/install-windows.ps1
+          if ($LASTEXITCODE -ne 0) { throw 'install failed' }
+          $registered = (Get-ItemProperty -Path $key -Name $id).$id
+          if (-not (Test-Path $registered)) { throw "registered manifest missing: $registered" }
+          if ((Get-FileHash $registered).Hash -ne (Get-FileHash $manifest).Hash) { throw 'installed manifest differs' }
+
+          powershell -NoProfile -ExecutionPolicy Bypass -File docs/addin/install/install-windows.ps1
+          if ($LASTEXITCODE -ne 0) { throw 'reinstall failed' }
+
+          powershell -NoProfile -ExecutionPolicy Bypass -File docs/addin/install/uninstall-windows.ps1
+          if (Get-ItemProperty -Path $key -Name $id -ErrorAction SilentlyContinue) { throw 'still registered after uninstall' }
+          if (Test-Path (Join-Path $env:LOCALAPPDATA 'QuestionDeskQR')) { throw 'files left after uninstall' }
+          Write-Host 'Windows installer OK'
