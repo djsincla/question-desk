@@ -201,3 +201,17 @@ test('clearing the organization guest page address turns it off', () => {
   h.app.saveBrand({ guestPageUrl: '' });
   assert.equal(h.app.adminState().guestPageUrl, '');
 });
+
+test('the PowerPoint slide shows a QR code that goes through the guest page', () => {
+  const h = guestSetup();
+  h.app.saveSession({ name: 'Slide', access: 'room', guestPage: { mode: 'wrapper' } });
+  const s = h.app.adminState().sessions[0];
+  h.app.setSessionActive(s.id, true);
+  h.anonymous();
+  // The add-in shows the room screen in QR-only layout; that page asks getRoomScreen for its code.
+  const slide = h.app.doGet({ parameter: { view: 'present', s: s.id, layout: 'qr' } });
+  assert.equal(slide.data.layout, 'qr');
+  const qr = h.app.getRoomScreen(s.id).url;
+  assert.ok(qr.startsWith(GUEST + '?d=AKfycbTESTDEPLOYMENT_id-123456789&s=' + s.id + '&t='), qr);
+  assert.ok(JoinUrl.target(new URL(qr).search), 'scanning it opens the questions page through the guest page');
+});

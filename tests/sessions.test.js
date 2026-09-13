@@ -83,7 +83,7 @@ test('links use the public /macros/s/ address, or the configured one', () => {
 
   h.app.saveBrand({ publicUrl: 'https://script.google.com/macros/s/OTHER_ID-1/exec' });
   assert.match(h.app.sessionLinks_(s).present, /^https:\/\/script\.google\.com\/macros\/s\/OTHER_ID-1\/exec\?/);
-  assert.throws(() => h.app.saveBrand({ publicUrl: 'https://evil.example/exec' }), /must look like/);
+  assert.throws(() => h.app.saveBrand({ publicUrl: 'https://evil.example/exec' }), /looks like a guest page address/);
 });
 
 test('in-room sessions have no participant link', () => {

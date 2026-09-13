@@ -143,3 +143,18 @@ test('injected page data cannot break out of its script tag', () => {
   assert.equal(page.data.brand.orgName, '</script><script>alert(1)</script>');
   assert.equal(page.data.links[0].label, '</script><img src=x onerror=alert(1)>');
 });
+
+test('putting the guest page address in the Google address field is refused with a pointer, and nothing is half-saved', () => {
+  const h = createApp().install();
+  h.app.saveBrand({ orgName: 'Before', guestPageUrl: '' });
+  assert.throws(() => h.app.saveBrand({ orgName: 'After', publicUrl: 'https://djsincla.github.io/question-desk/join', guestPageUrl: '' }),
+    /looks like a guest page address\. Put it in "Guest page address"/);
+  assert.equal(h.app.brand_(null).orgName, 'Before', 'branding was not saved');
+  assert.throws(() => h.app.saveBrand({ publicUrl: 'https://script.google.com/a/example.org/macros/s/X/exec' }), /must look like https:\/\/script\.google\.com\/macros\/s/);
+  assert.throws(() => h.app.saveBrand({ orgName: 'Again', guestPageUrl: 'http://insecure.example/' }), /guest page address must be an https/);
+  assert.equal(h.app.brand_(null).orgName, 'Before');
+
+  h.app.saveBrand({ orgName: 'After', publicUrl: '', guestPageUrl: 'https://djsincla.github.io/question-desk/join' });
+  assert.equal(h.app.adminState().guestPageUrl, 'https://djsincla.github.io/question-desk/join/');
+  assert.equal(h.app.brand_(null).orgName, 'After');
+});

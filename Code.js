@@ -17,7 +17,7 @@
 
 /** Bump with every release; scripts/ship.sh tags git and publishes release notes from CHANGELOG.md. */
 const APP = {
-  version: '2.4.0',
+  version: '2.4.1',
   repo: 'https://github.com/djsincla/question-desk'
 };
 
@@ -1312,9 +1312,18 @@ function saveBrand(input) {
     return HEX_RE.test(String(value || '')) ? String(value).toLowerCase() : fallback;
   };
 
+  // Check everything first, so a rejected field never leaves a half-saved page.
   const favicon = String(input.faviconUrl || '').trim();
   if (favicon && !/^https:\/\/[^\s"'<>]+$/.test(favicon)) {
     throw new Error('The tab icon must be an https:// link to an image.');
+  }
+  const guest = input.guestPageUrl === undefined ? null : cleanGuestPageUrl_(input.guestPageUrl);
+  const url = String(input.publicUrl || '').trim();
+  if (url && !/^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(url)) {
+    if (!/script\.google\.com/.test(url)) {
+      throw new Error('That looks like a guest page address. Put it in "Guest page address" and leave the Question Desk Google address blank.');
+    }
+    throw new Error('The Question Desk Google address must look like https://script.google.com/macros/s/…/exec — or leave it blank.');
   }
 
   props_().setProperty('BRAND', JSON.stringify({
@@ -1326,21 +1335,12 @@ function saveBrand(input) {
     roomBgLight: color(input.roomBgLight, '#ffffff'),
     faviconUrl: favicon.slice(0, 500)
   }));
-
-  if (input.guestPageUrl !== undefined) {
-    const guest = cleanGuestPageUrl_(input.guestPageUrl);
+  if (guest !== null) {
     if (guest) props_().setProperty('GUEST_PAGE_URL', guest);
     else props_().deleteProperty('GUEST_PAGE_URL');
   }
-
-  const url = String(input.publicUrl || '').trim();
-  if (!url) {
-    props_().deleteProperty('PUBLIC_URL');
-  } else if (/^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(url)) {
-    props_().setProperty('PUBLIC_URL', url);
-  } else {
-    throw new Error('The app address must look like https://script.google.com/macros/s/…/exec');
-  }
+  if (url) props_().setProperty('PUBLIC_URL', url);
+  else props_().deleteProperty('PUBLIC_URL');
   return adminState();
 }
 

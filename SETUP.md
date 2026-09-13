@@ -263,8 +263,8 @@ anonymous visitor and can't show the error.
    website, for example `https://autismla.org/questions/`.
 2. **Admin page → Branding → Guest page address:** enter that folder's address, for example
    `https://djsincla.github.io/question-desk/join/`. Save branding.
-   - Leave **App address** blank. That field is only for Question Desk's own Google address
-     (`https://script.google.com/macros/s/…/exec`) — never the guest page.
+   - Don't use **Advanced → Question Desk Google address** for this. Leave it blank; it's only
+     for Question Desk's own `https://script.google.com/macros/s/…/exec` address.
 3. **For each session:** Sessions → **Edit** → **Open guest pages through → Guest page** →
    **Save session**. (A session can use a different guest page address, such as a partner's
    website, in the field that appears.)

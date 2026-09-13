@@ -98,6 +98,7 @@
   .modal { position: fixed; inset: 0; background: rgba(22,32,43,0.45); display: flex; align-items: flex-start; justify-content: center; padding: 8vh 16px; z-index: 10; }
   .modal .panel { width: 100%; max-width: 32rem; box-shadow: 0 8px 32px rgba(0,0,0,0.25); }
   .empty { color: var(--muted); padding: 24px 0; text-align: center; }
+  details.advanced summary { cursor: pointer; color: var(--muted); font-size: 0.9rem; }
   fieldset { border: 1px solid var(--rule); border-radius: 6px; padding: 12px 14px; margin: 0 0 14px; }
   legend { font-weight: 600; font-size: 0.9rem; padding: 0 6px; }
   input[type=datetime-local] { font: inherit; padding: 6px 8px; border: 1px solid var(--rule); border-radius: 4px; width: 100%; }
@@ -354,10 +355,13 @@
         <input type="url" id="b-guest" placeholder="https://djsincla.github.io/question-desk/join/">
         <div class="hint">Where the guest page files are hosted — this project's GitHub Pages copy above, or your own site such as https://autismla.org/questions/ (copy <a href="https://github.com/djsincla/question-desk/tree/main/docs/join" target="_blank" rel="noopener">docs/join</a> there). Sessions set to open guest pages through it avoid Google's "Sorry, unable to open the file" in Safari and Firefox.</div>
       </label>
-      <label class="field"><span>App address</span>
-        <input type="url" id="b-url" placeholder="">
-        <div class="hint" id="urlHint"></div>
-      </label>
+      <details class="field advanced">
+        <summary>Advanced</summary>
+        <label class="field" style="margin-top:10px"><span>Question Desk Google address</span>
+          <input type="url" id="b-url" placeholder="">
+          <div class="hint"><strong>Almost always leave this blank</strong> — Question Desk detects it. This is never the guest page address. Only if links open an old version, paste the <code>https://script.google.com/macros/s/…/exec</code> address from the Apps Script editor (Deploy → Manage deployments).</div>
+        </label>
+      </details>
       <button type="submit" class="primary">Save branding</button>
     </form>
 
@@ -1150,8 +1154,6 @@
     $('d-summary-facilitators').checked = state.summaryDefaults.facilitators !== false;
     $('d-summary-extra').value = (state.summaryDefaults.extra || []).join(', ');
     $('b-url').placeholder = state.detectedUrl;
-    $('urlHint').textContent = 'Used in QR codes and emailed links. Leave blank to use the detected address. ' +
-      'If links open the wrong version, paste the /exec address from Deploy → Manage deployments.';
 
     var preview = $('logoPreview');
     preview.innerHTML = '';
