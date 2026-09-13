@@ -92,3 +92,23 @@ test('webkit: participant page unlocks when a paused session resumes, and a chan
     assert.equal(await page.inputValue('#q'), 'Half-typed question about respite');
   });
 });
+
+test('chromium: an admin creates an event and adds a session to it', async () => {
+  await withDemo('chromium', '/?view=admin&as=owner', { viewport: { width: 1280, height: 900 } }, async ({ page }) => {
+    await page.waitForSelector('.event');
+    await page.click('#newEvent');
+    await page.fill('#ev-name', 'Winter Workshop');
+    await page.fill('#ev-org', 'Winter Partners');
+    await page.click('#saveEvent');
+    const block = page.locator('.event', { has: page.locator('h2', { hasText: 'Winter Workshop' }) });
+    await block.waitFor({ timeout: 10000 });
+    assert.match(await block.locator('.meta').textContent(), /0 sessions · branded as Winter Partners/);
+
+    await block.locator('button', { hasText: 'Add session' }).click();
+    assert.equal(await page.locator('#f-event option:checked').textContent(), 'Winter Workshop', 'Add session presets the event');
+    await page.fill('#f-name', 'Morning breakout');
+    await page.click('#saveSession');
+    await block.locator('.session h3', { hasText: 'Morning breakout' }).waitFor({ timeout: 10000 });
+    assert.match(await block.locator('.meta').first().textContent(), /1 session/);
+  });
+});

@@ -248,7 +248,7 @@
     sessions.forEach(function (s) {
       var o = document.createElement('option');
       o.value = s.id;
-      o.textContent = s.name + (s.status === 'active' ? '' : ' (' + (s.status === 'ended' ? 'ended' : 'not active') + ')');
+      o.textContent = (s.eventName ? s.eventName + ' — ' : '') + s.name + (s.status === 'active' ? '' : ' (' + (s.status === 'ended' ? 'ended' : 'not active') + ')');
       if (s.id === sid) o.selected = true;
       switcher.appendChild(o);
     });

@@ -42,6 +42,15 @@ does not carry the query string. That exact bug shipped once (v2): every QR scan
 
 ## Sessions and roles
 
+- Events live in Script Properties as `EVENT_<8 hex>` (`{id, name, order, brand, hasLogo}`);
+  a session's optional `eventId` points to one. `brand_(session)` resolves site → event →
+  session; event logos are `event:<id>` in the Assets sheet. Deleting an event keeps its
+  sessions (their `eventId` is removed). `saveSession` leaves `eventId` alone when the input
+  omits it; `''` removes it.
+- Ended sessions older than `CONFIG.archiveAfterDays` (or archived by an admin) move from
+  Script Properties into the `Archive` sheet (session JSON and votes) by `archiveOld_()` on
+  the schedule, so the 500KB property store doesn't fill up. `restoreSession()` puts one
+  back. Questions stay in the Questions sheet. Sessions still owed a summary aren't archived.
 - Sessions live in Script Properties as `SESSION_<8 hex>` JSON (9KB per value).
   Questions carry the session id in column I; merged questions are in the `Topics` sheet.
   Status is `inactive` → `active` ↔ `inactive` → `ended`; ended is final.

@@ -129,6 +129,24 @@
   .session.is-ended h3 { color: var(--muted); }
   .session.drop-before { box-shadow: 0 -3px 0 var(--action); }
   .session.drop-after { box-shadow: 0 3px 0 var(--action); }
+
+  /* Events group their sessions. */
+  .event { border: 1px solid var(--rule); border-radius: 8px; margin-bottom: 18px; background: #fff; }
+  .event-head { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 12px 14px; border-bottom: 1px solid var(--rule); background: var(--paper); border-radius: 8px 8px 0 0; }
+  .event-head .order { display: flex; flex-direction: column; }
+  .event-head .order button { border: 0; background: none; padding: 0 6px; color: var(--muted); font-size: 0.8rem; }
+  .event-head .order button:disabled { visibility: hidden; }
+  .event-head .title { flex: 1 1 14rem; min-width: 0; }
+  .event-head h2 { margin: 0; font-size: 1.05rem; }
+  .event-head .meta { color: var(--muted); font-size: 0.85rem; margin-top: 2px; }
+  .event-sessions { padding: 12px 12px 0; }
+  .event-sessions > .hint { padding: 0 2px 12px; margin: 0; }
+  .event.loose { border-style: dashed; }
+  .swatch-dot { display: inline-block; width: 0.8em; height: 0.8em; border-radius: 50%; vertical-align: -1px; margin-right: 4px; border: 1px solid rgba(0,0,0,0.15); }
+  details.archived { margin-top: 8px; }
+  details.archived summary { cursor: pointer; font-weight: 600; }
+  details.archived ul { list-style: none; margin: 10px 0 0; padding: 0; }
+  details.archived li { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 7px 0; border-bottom: 1px solid #eef1f3; }
 </style>
 </head>
 <body>
@@ -152,12 +170,67 @@
 <!-- Sessions -->
 <section id="tab-sessions">
   <div class="actions" style="margin-bottom:16px">
-    <button type="button" class="primary" id="newSession">New session</button>
+    <button type="button" class="primary" id="newEvent">New event</button>
+    <button type="button" id="newSession">New session</button>
   </div>
+
+  <form class="panel form" id="eventForm" hidden autocomplete="off">
+    <h2 id="eventFormTitle">New event</h2>
+    <input type="hidden" id="ev-id">
+    <label class="field"><span>Event name</span>
+      <input type="text" id="ev-name" maxlength="80" required placeholder="Spring Family Conference 2027">
+      <div class="hint">Groups the sessions held at one event, such as a conference with several rooms.</div>
+    </label>
+    <fieldset>
+      <legend>Event branding (optional)</legend>
+      <div class="hint" style="margin:0 0 10px">Overrides the site branding for this event's sessions. Leave a field blank to use the site's. A session can still set its own name, color and logo.</div>
+      <div class="row">
+        <label class="field"><span>Organization name</span><input type="text" id="ev-org" maxlength="80"></label>
+        <div class="field">
+          <span class="field-label">Accent color</span>
+          <label class="choice"><input type="checkbox" id="ev-accent-on"><span>Use a different accent</span></label>
+          <input type="color" id="ev-accent" aria-label="Event accent color">
+        </div>
+      </div>
+      <div class="row">
+        <label class="field"><span>Welcome text</span><input type="text" id="ev-welcome" maxlength="200"></label>
+        <label class="field"><span>Footer</span><input type="text" id="ev-footer" maxlength="160"></label>
+      </div>
+      <div class="row">
+        <div class="field">
+          <span class="field-label">Room screen background — dark</span>
+          <label class="choice"><input type="checkbox" id="ev-dark-on"><span>Use a different color</span></label>
+          <input type="color" id="ev-dark" aria-label="Event dark background">
+        </div>
+        <div class="field">
+          <span class="field-label">Room screen background — light</span>
+          <label class="choice"><input type="checkbox" id="ev-light-on"><span>Use a different color</span></label>
+          <input type="color" id="ev-light" aria-label="Event light background">
+        </div>
+      </div>
+      <div class="field" id="ev-logo-box">
+        <span class="field-label">Logo</span>
+        <div class="logo-preview" id="ev-logo-preview"><span class="hint">Uses the site logo</span></div>
+        <div class="actions">
+          <input type="file" id="ev-logo" accept="image/png,image/jpeg,image/webp,image/svg+xml">
+          <button type="button" class="danger" id="ev-logo-remove" hidden>Remove event logo</button>
+        </div>
+      </div>
+      <div class="hint" id="ev-logo-later" hidden>Save the event first, then edit it to add a logo.</div>
+    </fieldset>
+    <div class="actions">
+      <button type="submit" class="primary" id="saveEvent">Save event</button>
+      <button type="button" class="quiet" id="cancelEvent">Cancel</button>
+    </div>
+  </form>
 
   <form class="panel form" id="sessionForm" hidden autocomplete="off">
     <h2 id="formTitle">New session</h2>
     <input type="hidden" id="f-id">
+    <label class="field"><span>Event</span>
+      <select id="f-event"></select>
+      <div class="hint">The session's branding starts from its event's. Create events with <b>New event</b>.</div>
+    </label>
     <div class="row">
       <label class="field"><span>Name</span>
         <input type="text" id="f-name" maxlength="80" required>
@@ -605,20 +678,160 @@
     return s.status === 'active' ? 'Active' : s.status === 'ended' ? 'Ended' : 'Not active';
   }
 
+  function eventById(id) {
+    for (var i = 0; i < state.events.length; i++) if (state.events[i].id === id) return state.events[i];
+    return null;
+  }
+
+  /** Sessions in the same group as s: the same event, or no event. */
+  function groupOf(eventId) {
+    return state.sessions.filter(function (x) {
+      var own = x.eventId && eventById(x.eventId) ? x.eventId : '';
+      return own === (eventId || '');
+    });
+  }
+
   function renderSessions() {
     var list = $('sessionList');
     list.innerHTML = '';
-    if (!state.sessions.length) {
-      list.appendChild(el('p', 'empty', 'No sessions yet. Create one to get a room screen and queue.'));
+    if (!state.sessions.length && !state.events.length) {
+      list.appendChild(el('p', 'empty', 'No events or sessions yet. Create an event for a conference or meeting, then add its sessions.'));
+      renderArchived(list);
       return;
     }
-    state.sessions.forEach(function (s, i) { list.appendChild(sessionCard(s, i, state.sessions.length)); });
-    if (state.sessions.length > 1) list.insertBefore(el('p', 'hint', 'Drag ⋮⋮ or use ▲ ▼ to change the order sessions appear in everywhere.'), list.firstChild);
+    if (state.sessions.length > 1) list.appendChild(el('p', 'hint', 'Drag ⋮⋮ or use ▲ ▼ to change the order sessions appear in everywhere.'));
+    state.events.forEach(function (ev, i) { list.appendChild(eventBlock(ev, i, state.events.length)); });
+    var loose = groupOf('');
+    if (loose.length) {
+      if (state.events.length) {
+        var block = el('section', 'event loose');
+        var head = el('div', 'event-head');
+        var title = el('div', 'title');
+        title.appendChild(el('h2', null, 'Not in an event'));
+        title.appendChild(el('div', 'meta', 'Uses the site branding. Edit a session to put it in an event.'));
+        head.appendChild(title);
+        block.appendChild(head);
+        var box = el('div', 'event-sessions');
+        loose.forEach(function (s, i) { box.appendChild(sessionCard(s, i, loose.length)); });
+        block.appendChild(box);
+        list.appendChild(block);
+      } else {
+        loose.forEach(function (s, i) { list.appendChild(sessionCard(s, i, loose.length)); });
+      }
+    }
+    renderArchived(list);
+  }
+
+  function eventBlock(ev, index, total) {
+    var sessions = groupOf(ev.id);
+    var block = el('section', 'event');
+    block.setAttribute('data-event', ev.id);
+    var head = el('div', 'event-head');
+
+    var order = el('div', 'order');
+    var up = el('button', null, '▲');
+    up.type = 'button';
+    up.setAttribute('aria-label', 'Move event ' + ev.name + ' up');
+    up.disabled = index === 0;
+    up.onclick = function () { moveEvent(ev.id, -1); };
+    var down = el('button', null, '▼');
+    down.type = 'button';
+    down.setAttribute('aria-label', 'Move event ' + ev.name + ' down');
+    down.disabled = index === total - 1;
+    down.onclick = function () { moveEvent(ev.id, 1); };
+    order.appendChild(up);
+    order.appendChild(down);
+    head.appendChild(order);
+
+    var title = el('div', 'title');
+    title.appendChild(el('h2', null, ev.name));
+    var meta = el('div', 'meta');
+    var b = ev.brand || {};
+    if (b.accent) {
+      var dot = el('span', 'swatch-dot');
+      dot.style.background = b.accent;
+      meta.appendChild(dot);
+    }
+    var bits = [sessions.length + (sessions.length === 1 ? ' session' : ' sessions')];
+    var active = sessions.filter(function (x) { return x.status === 'active'; }).length;
+    if (active) bits.push(active + ' active');
+    if (b.orgName) bits.push('branded as ' + b.orgName);
+    else if (b.accent || b.welcome || b.footer || ev.hasLogo) bits.push('own branding');
+    else bits.push('site branding');
+    meta.appendChild(document.createTextNode(bits.join(' · ')));
+    title.appendChild(meta);
+    head.appendChild(title);
+
+    var acts = el('div', 'actions');
+    var add = el('button', 'primary', 'Add session');
+    add.type = 'button';
+    add.onclick = function () { openForm(null, ev.id); };
+    acts.appendChild(add);
+    var edit = el('button', null, 'Edit event');
+    edit.type = 'button';
+    edit.onclick = function () { openEventForm(ev); };
+    acts.appendChild(edit);
+    var del = el('button', 'quiet', 'Delete event');
+    del.type = 'button';
+    del.onclick = function () {
+      ask({
+        title: 'Delete this event?',
+        body: sessions.length
+          ? 'Its ' + sessions.length + (sessions.length === 1 ? ' session is' : ' sessions are') + ' kept and move to "Not in an event", with the site branding. Event branding and logo are deleted.'
+          : 'Its branding and logo are deleted.',
+        ok: 'Delete event',
+        danger: true,
+        typeToConfirm: ev.name
+      }, function (typed) {
+        call('deleteEvent', [ev.id, typed], function (res) { render(res); toast('Event deleted'); }, del);
+      });
+    };
+    acts.appendChild(del);
+    head.appendChild(acts);
+    block.appendChild(head);
+
+    var box = el('div', 'event-sessions');
+    if (!sessions.length) box.appendChild(el('p', 'hint', 'No sessions yet. Use Add session.'));
+    sessions.forEach(function (s, i) { box.appendChild(sessionCard(s, i, sessions.length)); });
+    block.appendChild(box);
+    return block;
+  }
+
+  function renderArchived(list) {
+    if (!state.archived || !state.archived.length) return;
+    var box = el('details', 'panel archived');
+    box.appendChild(el('summary', null, 'Archived sessions · ' + state.archived.length));
+    box.appendChild(el('p', 'hint', 'Ended sessions move here ' + 30 + ' days after ending, to keep the app fast. Their questions stay in the spreadsheet. Restore one to email its summary again.'));
+    var ul = el('ul');
+    state.archived.forEach(function (a) {
+      var li = el('li');
+      var ev = a.eventId ? eventById(a.eventId) : null;
+      li.appendChild(el('span', null, (ev ? ev.name + ' — ' : '') + a.name + (a.ended ? ' · ended ' + fmtDate(a.ended) : '')));
+      var restore = el('button', 'quiet', 'Restore');
+      restore.type = 'button';
+      restore.onclick = function () {
+        call('restoreSession', [a.id], function (res) { render(res); toast('Restored ' + a.name); }, restore);
+      };
+      li.appendChild(restore);
+      ul.appendChild(li);
+    });
+    box.appendChild(ul);
+    list.appendChild(box);
+  }
+
+  function moveEvent(id, delta) {
+    var ids = state.events.map(function (e) { return e.id; });
+    var from = ids.indexOf(id);
+    var to = from + delta;
+    if (to < 0 || to >= ids.length) return;
+    ids.splice(to, 0, ids.splice(from, 1)[0]);
+    call('reorderEvents', [ids], function (res) { render(res); toast('Order saved'); });
   }
 
   function sessionCard(s, index, total) {
     var card = el('div', 'session' + (s.status === 'active' ? ' is-active' : s.status === 'ended' ? ' is-ended' : ''));
     card.setAttribute('data-id', s.id);
+    card.setAttribute('data-group', s.eventId && eventById(s.eventId) ? s.eventId : '');
     var grip = el('div', 'grip');
     var handle = el('span', 'handle', '⋮⋮');
     handle.title = 'Drag to reorder';
@@ -739,6 +952,15 @@
       summary.type = 'button';
       summary.onclick = function () { openEmail(s, 'summary'); };
       acts.appendChild(summary);
+      if (!s.loadTest) {
+        var archive = el('button', null, 'Archive');
+        archive.type = 'button';
+        archive.title = 'Move out of the list; restore any time from Archived sessions';
+        archive.onclick = function () {
+          call('archiveSession', [s.id], function (res) { render(res); toast('Archived ' + s.name); }, archive);
+        };
+        acts.appendChild(archive);
+      }
     }
     if (s.status !== 'active') {
       var del = el('button', 'quiet', 'Delete');
@@ -818,11 +1040,16 @@
   }
 
   function moveSession(id, delta) {
+    // Moves within the session's own event: swap places with the neighbor in that group.
     var ids = state.sessions.map(function (s) { return s.id; });
-    var from = ids.indexOf(id);
-    var to = from + delta;
-    if (to < 0 || to >= ids.length) return;
-    ids.splice(to, 0, ids.splice(from, 1)[0]);
+    var me = state.sessions[ids.indexOf(id)];
+    var group = groupOf(me.eventId && eventById(me.eventId) ? me.eventId : '').map(function (s) { return s.id; });
+    var at = group.indexOf(id);
+    var other = group[at + delta];
+    if (!other) return;
+    var a = ids.indexOf(id), b = ids.indexOf(other);
+    ids[a] = other;
+    ids[b] = id;
     saveOrder(ids);
     setTimeout(function () {
       var card = document.querySelector('.session[data-id="' + id + '"] .grip button:' + (delta < 0 ? 'first-child' : 'last-child'));
@@ -850,6 +1077,9 @@
     });
     card.addEventListener('dragover', function (e) {
       if (!dragId || dragId === card.getAttribute('data-id')) return;
+      // Reorder within an event; move between events with the session's Event field.
+      var dragged = document.querySelector('.session[data-id="' + dragId + '"]');
+      if (!dragged || dragged.getAttribute('data-group') !== card.getAttribute('data-group')) return;
       e.preventDefault();
       var rect = card.getBoundingClientRect();
       var after = e.clientY > rect.top + rect.height / 2;
@@ -858,6 +1088,8 @@
     });
     card.addEventListener('drop', function (e) {
       if (!dragId) return;
+      var dragged = document.querySelector('.session[data-id="' + dragId + '"]');
+      if (!dragged || dragged.getAttribute('data-group') !== card.getAttribute('data-group')) return;
       e.preventDefault();
       var targetId = card.getAttribute('data-id');
       var after = card.classList.contains('drop-after');
@@ -901,9 +1133,21 @@
     }
   }
 
-  function openForm(s) {
+  function openForm(s, presetEvent) {
     s = s || {};
+    $('eventForm').hidden = true;
     $('formTitle').textContent = s.id ? 'Edit session' : 'New session';
+    var select = $('f-event');
+    select.innerHTML = '';
+    var none = el('option', null, 'Not in an event');
+    none.value = '';
+    select.appendChild(none);
+    state.events.forEach(function (ev) {
+      var o = el('option', null, ev.name);
+      o.value = ev.id;
+      select.appendChild(o);
+    });
+    select.value = s.id ? (s.eventId && eventById(s.eventId) ? s.eventId : '') : (presetEvent || '');
     $('f-id').value = s.id || '';
     $('f-name').value = s.name || '';
     $('f-heading').value = s.heading || '';
@@ -1030,6 +1274,94 @@
   };
 
   $('newSession').onclick = function () { openForm(null); };
+
+  // ------------------------------------------------------------ event form
+
+  var editingEvent = '';
+
+  function openEventForm(ev) {
+    ev = ev || {};
+    var b = ev.brand || {};
+    $('sessionForm').hidden = true;
+    $('eventFormTitle').textContent = ev.id ? 'Edit event' : 'New event';
+    $('ev-id').value = ev.id || '';
+    $('ev-name').value = ev.name || '';
+    $('ev-org').value = b.orgName || '';
+    $('ev-org').placeholder = state.brand.orgName || '';
+    $('ev-accent-on').checked = !!b.accent;
+    $('ev-accent').value = b.accent || state.brand.accent;
+    $('ev-welcome').value = b.welcome || '';
+    $('ev-welcome').placeholder = state.brand.welcome || '';
+    $('ev-footer').value = b.footer || '';
+    $('ev-footer').placeholder = state.brand.footer || '';
+    $('ev-dark-on').checked = !!b.roomBgDark;
+    $('ev-dark').value = b.roomBgDark || state.brand.roomBgDark;
+    $('ev-light-on').checked = !!b.roomBgLight;
+    $('ev-light').value = b.roomBgLight || state.brand.roomBgLight;
+    editingEvent = ev.id || '';
+    $('ev-logo-box').hidden = !ev.id;
+    $('ev-logo-later').hidden = !!ev.id;
+    renderEventLogo('');
+    if (ev.id && ev.hasLogo) {
+      call('getEventLogo', [ev.id], function (logo) { if (editingEvent === ev.id) renderEventLogo(logo); });
+    }
+    $('eventForm').hidden = false;
+    $('ev-name').focus();
+  }
+
+  function renderEventLogo(src) {
+    var box = $('ev-logo-preview');
+    box.innerHTML = '';
+    if (src) {
+      var img = el('img');
+      img.src = src;
+      img.alt = 'Event logo';
+      box.appendChild(img);
+    } else {
+      box.appendChild(el('span', 'hint', 'Uses the site logo'));
+    }
+    $('ev-logo-remove').hidden = !src;
+  }
+
+  $('ev-accent').addEventListener('input', function () { $('ev-accent-on').checked = true; });
+  $('ev-dark').addEventListener('input', function () { $('ev-dark-on').checked = true; });
+  $('ev-light').addEventListener('input', function () { $('ev-light-on').checked = true; });
+
+  $('ev-logo').addEventListener('change', function () {
+    var file = this.files && this.files[0];
+    var picker = this;
+    if (!file || !editingEvent) return;
+    shrinkImage(file, 60000, function (err, dataUrl) {
+      picker.value = '';
+      if (err) { toast(err, true); return; }
+      call('saveEventLogo', [editingEvent, dataUrl], function (res) { render(res); renderEventLogo(dataUrl); toast('Event logo saved'); });
+    });
+  });
+  $('ev-logo-remove').onclick = function () {
+    call('removeEventLogo', [editingEvent], function (res) { render(res); renderEventLogo(''); toast('Event logo removed'); }, this);
+  };
+
+  $('newEvent').onclick = function () { openEventForm(null); };
+  $('cancelEvent').onclick = function () { $('eventForm').hidden = true; };
+
+  $('eventForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var input = {
+      id: $('ev-id').value,
+      name: $('ev-name').value,
+      orgName: $('ev-org').value,
+      accent: $('ev-accent-on').checked ? $('ev-accent').value : '',
+      welcome: $('ev-welcome').value,
+      footer: $('ev-footer').value,
+      roomBgDark: $('ev-dark-on').checked ? $('ev-dark').value : '',
+      roomBgLight: $('ev-light-on').checked ? $('ev-light').value : ''
+    };
+    call('saveEvent', [input], function (res) {
+      $('eventForm').hidden = true;
+      render(res);
+      toast(input.id ? 'Event saved' : 'Event created — add its sessions');
+    }, $('saveEvent'));
+  });
   $('cancelSession').onclick = function () { $('sessionForm').hidden = true; };
 
   $('sessionForm').addEventListener('submit', function (e) {
@@ -1039,6 +1371,7 @@
     for (var i = 0; i < boxes.length; i++) if (boxes[i].checked) mods.push(boxes[i].value);
     var input = {
       id: $('f-id').value,
+      eventId: $('f-event').value,
       name: $('f-name').value,
       heading: $('f-heading').value,
       access: radio('access'),

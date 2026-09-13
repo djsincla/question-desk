@@ -17,7 +17,7 @@
 
 /** Bump with every release; scripts/ship.sh tags git and publishes release notes from CHANGELOG.md. */
 const APP = {
-  version: '2.6.0',
+  version: '2.7.0',
   repo: 'https://github.com/djsincla/question-desk'
 };
 
@@ -25,6 +25,8 @@ const CONFIG = {
   sheetName: 'Questions',
   topicSheetName: 'Topics',
   assetSheetName: 'Assets',
+  archiveSheetName: 'Archive',
+  archiveAfterDays: 30,           // ended sessions move out of Script Properties after this
   model: 'gemini-3.5-flash',      // gemini-3.1-flash-lite is cheaper if cost matters
   moderatorLanguage: 'English',   // topic labels, translations and merged questions are written in this
   // Languages participants read topic labels and "Now answering" in. Codes match Ask.html.
@@ -151,7 +153,7 @@ function home_() {
       .filter(function (s) { return s.status !== 'ended' && !s.loadTest; })
       .map(function (s) {
         const links = sessionLinks_(s);
-        return { name: s.name, status: s.status, present: links.present, moderate: links.moderate };
+        return { name: s.name, eventName: eventName_(s), status: s.status, present: links.present, moderate: links.moderate };
       }) : []
   }, null);
 }
@@ -163,8 +165,9 @@ function notice_(mode, view) {
     const links = sessionsFor_(email)
       .filter(function (s) { return s.status !== 'ended'; })
       .map(function (s) {
+        const ev = eventName_(s);
         return {
-          label: s.name,
+          label: ev ? ev + ' — ' + s.name : s.name,
           note: s.status === 'active' ? 'Active' : 'Not active',
           href: view === 'present' ? sessionLinks_(s).present : base + '?view=' + view + '&s=' + s.id
         };
@@ -194,6 +197,209 @@ function notice_(mode, view) {
     body: 'Sign in with an account listed as a QA Facilitator, or scan the code on the screen in the room to ask a question.',
     links: []
   }, null);
+}
+
+// ---------------------------------------------------------------- events
+
+/**
+ * An event groups sessions (a conference, a family night with several rooms). Stored as
+ * EVENT_<8 hex> in Script Properties; sessions point to it with eventId. Its branding sits
+ * between the site's and the session's: site → event → session.
+ */
+function getEvent_(eid) {
+  if (!ID_RE.test(String(eid || ''))) return null;
+  const raw = props_().getProperty('EVENT_' + eid);
+  return raw ? JSON.parse(raw) : null;
+}
+
+function saveEvent_(ev) {
+  props_().setProperty('EVENT_' + ev.id, JSON.stringify(ev));
+}
+
+/** Events in the admin's order; new ones first. */
+function allEvents_() {
+  const all = props_().getProperties();
+  return Object.keys(all)
+    .filter(function (k) { return /^EVENT_[a-f0-9]{8}$/.test(k); })
+    .map(function (k) { return JSON.parse(all[k]); })
+    .sort(function (a, b) {
+      const oa = typeof a.order === 'number' ? a.order : -a.created;
+      const ob = typeof b.order === 'number' ? b.order : -b.created;
+      return oa - ob || b.created - a.created;
+    });
+}
+
+function eventName_(session) {
+  const ev = session && session.eventId ? getEvent_(session.eventId) : null;
+  return ev ? ev.name : '';
+}
+
+/** input: { id?, name, orgName, accent, welcome, footer, roomBgDark, roomBgLight } — blank inherits the site's. */
+function saveEvent(input) {
+  const me = requireAdmin_();
+  input = input || {};
+  const name = cleanText_(input.name, 80);
+  if (!name) throw new Error('Give the event a name.');
+  const color = function (value, label) {
+    const v = String(value || '').trim();
+    if (v && !HEX_RE.test(v)) throw new Error(label + ' must be a color like #1b5e5a.');
+    return v.toLowerCase();
+  };
+  const brand = {
+    orgName: cleanText_(input.orgName, 80),
+    accent: color(input.accent, 'The accent'),
+    welcome: cleanText_(input.welcome, 200),
+    footer: cleanText_(input.footer, 160),
+    roomBgDark: color(input.roomBgDark, 'The dark background'),
+    roomBgLight: color(input.roomBgLight, 'The light background')
+  };
+  let id = input.id;
+  withLock_(function () {
+    if (id) {
+      const ev = getEvent_(id);
+      if (!ev) throw new Error('Event not found.');
+      ev.name = name;
+      ev.brand = brand;
+      saveEvent_(ev);
+    } else {
+      const orders = allEvents_().map(function (e) { return typeof e.order === 'number' ? e.order : 0; });
+      id = newId_(8);
+      saveEvent_({ id: id, name: name, brand: brand, hasLogo: false, created: Date.now(), createdBy: me,
+                   order: orders.length ? Math.min.apply(null, orders) - 1 : 0 });
+    }
+  });
+  const state = adminState();
+  state.savedEventId = id;
+  return state;
+}
+
+function reorderEvents(ids) {
+  requireAdmin_();
+  if (!Array.isArray(ids)) throw new Error('Send the events in their new order.');
+  withLock_(function () {
+    const events = allEvents_();
+    const byId = {};
+    events.forEach(function (e) { byId[e.id] = e; });
+    const seen = {};
+    const ordered = [];
+    ids.forEach(function (id) { id = String(id); if (byId[id] && !seen[id]) { seen[id] = true; ordered.push(byId[id]); } });
+    events.forEach(function (e) { if (!seen[e.id]) ordered.push(e); });
+    ordered.forEach(function (e, i) { if (e.order !== i) { e.order = i; saveEvent_(e); } });
+  });
+  return adminState();
+}
+
+/** Deletes an event. Its sessions are kept and simply leave the event. */
+function deleteEvent(eid, typedName) {
+  requireAdmin_();
+  const ev = getEvent_(eid);
+  if (!ev) throw new Error('Event not found.');
+  requireTypedName_(ev, typedName, 'event');
+  withLock_(function () {
+    allSessions_().forEach(function (s) {
+      if (s.eventId === eid) { delete s.eventId; saveSession_(s); }
+    });
+    props_().deleteProperty('EVENT_' + eid);
+  });
+  setAsset_('event:' + eid, '');
+  return adminState();
+}
+
+function saveEventLogo(eid, dataUrl) {
+  requireAdmin_();
+  if (!getEvent_(eid)) throw new Error('Event not found.');
+  setAsset_('event:' + eid, cleanLogo_(dataUrl));
+  withLock_(function () { const ev = getEvent_(eid); ev.hasLogo = true; saveEvent_(ev); });
+  return adminState();
+}
+
+function removeEventLogo(eid) {
+  requireAdmin_();
+  if (!getEvent_(eid)) throw new Error('Event not found.');
+  setAsset_('event:' + eid, '');
+  withLock_(function () { const ev = getEvent_(eid); ev.hasLogo = false; saveEvent_(ev); });
+  return adminState();
+}
+
+function getEventLogo(eid) {
+  requireAdmin_();
+  const ev = getEvent_(eid);
+  return ev && ev.hasLogo ? asset_('event:' + eid) : '';
+}
+
+// ---------------------------------------------------------------- archive
+
+/**
+ * Ended sessions move out of Script Properties (500KB for the whole app) into the Archive
+ * sheet after CONFIG.archiveAfterDays, or when an admin archives one. Their questions stay
+ * in the Questions sheet. restoreSession() brings one back.
+ */
+function archiveSheet_() {
+  const ss = spreadsheet_();
+  let sheet = ss.getSheetByName(CONFIG.archiveSheetName);
+  if (!sheet) {
+    sheet = ss.insertSheet(CONFIG.archiveSheetName);
+    sheet.appendRow(['Session', 'Name', 'Event', 'Ended', 'Archived', 'Session data', 'Me too votes']);
+  }
+  return sheet;
+}
+
+function archiveSession_(sid) {
+  withLock_(function () {
+    const session = getSession_(sid);
+    if (!session || session.status !== 'ended') throw new Error('Only ended sessions can be archived.');
+    archiveSheet_().appendRow([
+      sid, sheetSafe_(session.name), session.eventId || '', new Date(session.ended || Date.now()), new Date(),
+      JSON.stringify(session), props_().getProperty('VOTES_' + sid) || '{}'
+    ]);
+    ['SESSION_', 'TOKEN_', 'VOTES_'].forEach(function (prefix) { props_().deleteProperty(prefix + sid); });
+  });
+  invalidateTopics_(sid);
+}
+
+function archiveSession(sid) {
+  requireAdmin_();
+  archiveSession_(sid);
+  return adminState();
+}
+
+function restoreSession(sid) {
+  requireAdmin_();
+  withLock_(function () {
+    const sheet = archiveSheet_();
+    const values = sheet.getDataRange().getValues();
+    for (let i = values.length - 1; i >= 1; i--) {
+      if (String(values[i][0]) !== String(sid)) continue;
+      if (getSession_(sid)) throw new Error('That session is already restored.');
+      const session = JSON.parse(values[i][5]);
+      if (session.eventId && !getEvent_(session.eventId)) delete session.eventId;   // its event was deleted
+      saveSession_(session);
+      if (values[i][6] && values[i][6] !== '{}') props_().setProperty('VOTES_' + sid, String(values[i][6]));
+      sheet.deleteRow(i + 1);
+      return;
+    }
+    throw new Error('Archived session not found.');
+  });
+  return adminState();
+}
+
+function archivedSessions_() {
+  if (!props_().getProperty('SHEET_ID')) return [];
+  const sheet = spreadsheet_().getSheetByName(CONFIG.archiveSheetName);
+  if (!sheet) return [];
+  return sheet.getDataRange().getValues().slice(1).map(function (r) {
+    return { id: String(r[0]), name: String(r[1]), eventId: String(r[2] || ''),
+             ended: r[3] ? new Date(r[3]).getTime() : null, archived: r[4] ? new Date(r[4]).getTime() : null };
+  }).reverse();
+}
+
+/** Called by the schedule: archives sessions ended long ago whose summary isn't still owed. */
+function archiveOld_() {
+  const cutoff = Date.now() - CONFIG.archiveAfterDays * 24 * 3600 * 1000;
+  allSessions_().forEach(function (s) {
+    if (s.status !== 'ended' || !s.ended || s.ended > cutoff || (s.summaryPending && !s.summarySent) || s.loadTest) return;
+    try { archiveSession_(s.id); } catch (err) { console.error('Archive ' + s.id + ': ' + err); }
+  });
 }
 
 // ---------------------------------------------------------------- people
@@ -795,7 +1001,7 @@ function getRoomScreen(sid, layout, key) {
 function mySessions() {
   const email = currentEmail_();
   return sessionsFor_(email).map(function (s) {
-    return { id: s.id, name: s.name, status: s.status };
+    return { id: s.id, name: s.name, eventName: eventName_(s), status: s.status };
   });
 }
 
@@ -848,6 +1054,7 @@ function getBoard(sid) {
     session: {
       id: session.id,
       name: session.name,
+      eventName: eventName_(session),
       status: session.status,
       access: session.access,
       links: sessionLinks_(session)
@@ -988,6 +1195,8 @@ function adminState() {
       out.summaryTo = summaryRecipients_(s);
       return out;
     }),
+    events: allEvents_(),
+    archived: archivedSessions_(),
     brand: brand_(null),
     summaryDefaults: summaryDefaults_(),
     publicUrl: props_().getProperty('PUBLIC_URL') || '',
@@ -1070,22 +1279,27 @@ function saveSession(input) {
     scheduledStart: start,
     scheduledEnd: end,
     brand: { orgName: cleanText_(input.brandOrgName, 80), accent: brandAccent.toLowerCase() },
-    guestPage: cleanGuestPageChoice_(input.guestPage)
+    guestPage: cleanGuestPageChoice_(input.guestPage),
+    eventId: String(input.eventId || '')
   };
+  if (fields.eventId && !getEvent_(fields.eventId)) throw new Error('That event no longer exists.');
 
   let savedId = input.id;
   if (input.summary === undefined) delete fields.summary;   // leave recipients as they were
   if (input.guestPage === undefined) delete fields.guestPage;
+  if (input.eventId === undefined) delete fields.eventId;   // edits that don't mention it keep it
   if (input.id) {
     updateSession_(input.id, function (s) {
       if (s.scheduledStart !== fields.scheduledStart) s.scheduleStarted = false;
       Object.keys(fields).forEach(function (k) { s[k] = fields[k]; });
+      if (!s.eventId) delete s.eventId;
       if (s.access === 'link' && !s.linkKey) s.linkKey = newId_(16);
     });
     invalidateTopics_(input.id);
   } else {
     withLock_(function () {
       const session = fields;
+      if (!session.eventId) delete session.eventId;
       session.id = newId_(8);
       session.linkKey = newId_(16);
       session.status = 'inactive';
@@ -1182,10 +1396,10 @@ function regenerateLink(sid, which) {
  * Destructive admin actions require the session's name typed back, checked here
  * and not only in the page, so a stray click or a scripted call can't do it.
  */
-function requireTypedName_(session, typed) {
+function requireTypedName_(item, typed, what) {
   const norm = function (v) { return String(v || '').replace(/\s+/g, ' ').trim().toLowerCase(); };
-  if (!norm(typed) || norm(typed) !== norm(session.name)) {
-    throw new Error('Type the session name exactly to confirm: ' + session.name);
+  if (!norm(typed) || norm(typed) !== norm(item.name)) {
+    throw new Error('Type the ' + (what || 'session') + ' name exactly to confirm: ' + item.name);
   }
 }
 
@@ -1479,6 +1693,16 @@ function brand_(session) {
     faviconUrl: base.faviconUrl || '',
     logo: asset_('global')
   };
+  // Site → event → session: each level overrides only what it sets.
+  const ev = session && session.eventId ? getEvent_(session.eventId) : null;
+  if (ev) {
+    const eb = ev.brand || {};
+    ['orgName', 'accent', 'welcome', 'footer', 'roomBgDark', 'roomBgLight'].forEach(function (k) {
+      if (eb[k]) brand[k] = eb[k];
+    });
+    if (ev.hasLogo) brand.logo = asset_('event:' + ev.id) || brand.logo;
+    brand.eventName = ev.name;
+  }
   if (session) {
     const own = session.brand || {};
     if (own.orgName) brand.orgName = own.orgName;
@@ -1489,13 +1713,18 @@ function brand_(session) {
 }
 
 /** Logo arrives already downscaled by the browser. sid = null for the global logo. */
-function saveLogo(dataUrl, sid) {
-  requireAdmin_();
+function cleanLogo_(dataUrl) {
   dataUrl = String(dataUrl || '');
   if (!/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(dataUrl)) {
     throw new Error('The logo must be a PNG, JPEG or WebP image.');
   }
   if (dataUrl.length > CONFIG.logoMaxChars) throw new Error('That logo is too large even after resizing.');
+  return dataUrl;
+}
+
+function saveLogo(dataUrl, sid) {
+  requireAdmin_();
+  dataUrl = cleanLogo_(dataUrl);
   if (sid) {
     if (!getSession_(sid)) throw new Error('Session not found.');
     setAsset_(sid, dataUrl);
@@ -1631,7 +1860,7 @@ function sendSummary_(session, recipients) {
   to.forEach(function (address) {
     MailApp.sendEmail({
       to: address,
-      subject: session.name + ' — questions summary',
+      subject: (brand.eventName ? brand.eventName + ': ' : '') + session.name + ' — questions summary',
       htmlBody: emailShell_(brand, esc_(session.name) + ' — questions', body),
       attachments: [blob],
       name: brand.orgName || 'Question Desk'
@@ -1864,6 +2093,7 @@ function runSchedule_() {
     }
   });
   try { retrySummaries_(); } catch (err) { console.error('Summary retry: ' + err); }
+  try { archiveOld_(); } catch (err) { console.error('Archive: ' + err); }
   return changed;
 }
 
@@ -2382,6 +2612,9 @@ function setUp() {
     topicSheet.getRange(1, 1, 1, TOPIC_HEADERS.length).setValues([TOPIC_HEADERS]);
   }
 
+  if (!ss.getSheetByName(CONFIG.archiveSheetName)) {
+    ss.insertSheet(CONFIG.archiveSheetName).appendRow(['Session', 'Name', 'Event', 'Ended', 'Archived', 'Session data', 'Me too votes']);
+  }
   if (!ss.getSheetByName(CONFIG.assetSheetName)) {
     ss.insertSheet(CONFIG.assetSheetName).appendRow(['Key', 'Data (continues across columns)']);
   }

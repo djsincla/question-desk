@@ -93,17 +93,19 @@ function buildDemo() {
   const hour = 3600 * 1000;
   const mods = ['maria@example.org', 'jin@example.org'];
 
+  const conference = h.app.saveEvent({ name: 'Fall Family Conference 2026', welcome: 'Welcome to the Fall Family Conference.' }).savedEventId;
+  const partner = h.app.saveEvent({ name: 'Valley School District Partner Night', orgName: 'Valley School District', accent: '#1f6fb2' }).savedEventId;
+
   const ended = h.session({ name: 'Spring Town Hall', access: 'room', active: true, moderators: mods, emailOnEnd: true });
   h.ask(ended, h.join(ended), 'What is the plan for summer programs this year?');
   h.advance(60);
   h.app.endSession(ended.id, h.app.getSession_(ended.id).name);
 
-  h.session({ name: 'Parent Support Circle (Spanish)', heading: 'Preguntas para el círculo de apoyo', access: 'link', theme: 'light',
+  h.session({ eventId: conference, name: 'Parent Support Circle (Spanish)', heading: 'Preguntas para el círculo de apoyo', access: 'link', theme: 'light',
               moderators: ['maria@example.org'], scheduledStart: now + 6 * 24 * hour, scheduledEnd: now + 6 * 24 * hour + 2 * hour });
-  h.session({ name: 'Partner night with Valley School District', access: 'link', moderators: ['jin@example.org'],
-              brandOrgName: 'Valley School District', brandAccent: '#1f6fb2' });
+  h.session({ eventId: partner, name: 'Panel: transitions to middle school', access: 'link', moderators: ['jin@example.org'] });
 
-  const live = h.session({ name: 'Family Resource Night — September', heading: 'Questions for tonight\'s panel', access: 'room',
+  const live = h.session({ eventId: conference, name: 'Family Resource Night — September', heading: 'Questions for tonight\'s panel', access: 'room',
                            theme: 'dark', moderators: mods, emailOnEnd: true, active: true, scheduledEnd: now + 3 * hour });
   h.app.saveSession({ id: live.id, name: live.name, heading: live.heading, access: 'room', theme: 'dark', moderators: mods,
     emailOnEnd: true, scheduledEnd: live.scheduledEnd,

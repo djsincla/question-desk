@@ -33,18 +33,29 @@ grouped into topics by Gemini instead of as one long undifferentiated list.
   summary emails by default. Both must be accounts in your
   Workspace domain: Google does not tell the app who is signed in from any other
   domain, so an outside QA Facilitator would always be turned away.
+- **Events** — **New event** groups the sessions held at one event (a conference with
+  several rooms, a partner night). Sessions are listed under their event; **Add session**
+  creates one in it, and a session's **Event** field moves it. An event can have its own
+  branding — organization name, accent, welcome text, footer, room screen backgrounds and
+  logo — which overrides the site's for its sessions; a session can still override the
+  name, accent and logo. Blank fields inherit. Deleting an event keeps its sessions (they
+  move to *Not in an event*). Use ▲ ▼ on an event to reorder events.
+- **Archive** — ended sessions move to *Archived sessions* 30 days after ending (or right
+  away with **Archive**), which keeps the app's settings storage small. Their questions
+  stay in the spreadsheet; **Restore** brings one back, for example to email its summary.
 - **Sessions** — create a session, choose how people join, pick its QA Facilitators, and
   decide whether its summary is emailed when it ends. Activate it when doors open;
   deactivate to pause it between days; **End session** when it is over for good.
   Optionally schedule it to start and end on its own (checked every minute), and give
   it its own organization name, accent color and logo for a partner event. Sessions
   that are not running can be deleted with all their questions. Ending or deleting asks
-  you to type the session's name. Drag sessions (or use ▲ ▼) to set the order they
-  appear in everywhere. **Prepared questions** (one per line) are loaded ahead of time
+  you to type the session's name. Drag sessions (or use ▲ ▼) to set their order within
+  their event. **Prepared questions** (one per line) are loaded ahead of time
   and appear in the QA Facilitator's queue under *Prepared questions*, where each can be
   added to the live queue when it's useful.
   - **In-room QR** — the room screen code changes every 150 seconds. Only people who
-    can see the screen can ask.
+    can see the screen can ask. The room screen and slide links carry their own key;
+    **Replace room screen link** retires a leaked one (re-copy it into slides).
   - **Shareable link** — a fixed link and QR you can email or print. Anyone with the
     link can ask. **Replace participant link** cuts off copies that have spread.
 - **Email links** sends the participant link (link sessions) or room screen / queue

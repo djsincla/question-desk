@@ -115,7 +115,7 @@
     BOOT.sessions.forEach(function (s) {
       var li = document.createElement('li');
       var name = document.createElement('div');
-      name.textContent = s.name + ' ';
+      name.textContent = (s.eventName ? s.eventName + ' — ' : '') + s.name + ' ';
       var status = document.createElement('span');
       status.textContent = s.status === 'active' ? 'Active' : 'Not active';
       name.appendChild(status);

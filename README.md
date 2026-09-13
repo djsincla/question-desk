@@ -50,7 +50,7 @@ answered topics sinking to the bottom, and dismissed questions kept for restorin
 
 <img src="docs/screenshots/slide-qr.png" alt="QR-only view shown on a PowerPoint slide" width="480">
 
-**Admin:** sessions, people and session summary recipients, branding, and health checks.
+**Admin:** events and their sessions, people and session summary recipients, branding, and health checks.
 
 ![Admin sessions](docs/screenshots/admin-sessions.png)
 
@@ -72,6 +72,7 @@ Regenerate with `node scripts/screenshots.js` (needs Google Chrome).
 
 ## Features
 
+- Events that group sessions, with event branding between the site's and each session's
 - Multiple sessions at once, each joined by in-room rotating QR or a shareable link
 - Administrators and per-session QA Facilitators, restricted to the organization's domain
 - Scheduled start and end, and end-of-session summaries

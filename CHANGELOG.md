@@ -4,6 +4,22 @@ All notable changes to Question Desk. Versions follow [Semantic Versioning](http
 Each release is tagged `vX.Y.Z` and published as a GitHub release by `scripts/ship.sh`,
 which reads the notes for that version from this file.
 
+## [2.7.0] - 2026-09-13
+
+### Added
+- **Events.** An event groups the sessions held at one event, such as a conference with
+  several rooms. On the Sessions tab, sessions are listed under their event, with **Add
+  session**, **Edit event** and **Delete event**, and events can be reordered. A session's
+  new **Event** field moves it between events.
+- **Event branding** overrides the site branding for the event's sessions: organization
+  name, accent, welcome text, footer, room screen backgrounds and logo. Blank fields use
+  the site's; a session's own name, accent and logo still win.
+- The queue's session switcher, the landing page, the session picker and summary email
+  subjects show the event name.
+- **Archive.** Ended sessions move to *Archived sessions* 30 days after they end, or with
+  the new **Archive** button, keeping the app's settings storage from filling up.
+  **Restore** brings one back. Questions always stay in the spreadsheet.
+
 ## [2.6.0] - 2026-09-13
 
 ### Upgrade note
@@ -335,6 +351,7 @@ Fixes from a full code review.
 - "Merge into one question" for reading a topic aloud.
 - Participant page in English, Korean and Spanish.
 
+[2.7.0]: https://github.com/djsincla/question-desk/releases/tag/v2.7.0
 [2.6.0]: https://github.com/djsincla/question-desk/releases/tag/v2.6.0
 [2.5.0]: https://github.com/djsincla/question-desk/releases/tag/v2.5.0
 [2.4.4]: https://github.com/djsincla/question-desk/releases/tag/v2.4.4
