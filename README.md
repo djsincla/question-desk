@@ -50,7 +50,7 @@ answered topics sinking to the bottom, and dismissed questions kept for restorin
 
 <img src="docs/screenshots/slide-qr.png" alt="QR-only view shown on a PowerPoint slide" width="480">
 
-**Admin:** sessions, people and summary recipients, branding, and health checks.
+**Admin:** sessions, people and session summary recipients, branding, and health checks.
 
 ![Admin sessions](docs/screenshots/admin-sessions.png)
 

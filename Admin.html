@@ -212,7 +212,7 @@
     </fieldset>
 
     <fieldset>
-      <legend>Summary email recipients</legend>
+      <legend>Session Summary Email Recipients</legend>
       <label class="choice"><input type="radio" name="summaryMode" value="default" checked>
         <span>Organization default<small id="f-summary-default"></small></span></label>
       <label class="choice"><input type="radio" name="summaryMode" value="custom">
@@ -299,16 +299,15 @@
         <button type="submit">Add</button>
       </form>
     </div>
-  </div>
-  <div class="panel" id="summaryPanel">
-    <h2>Summary email recipients</h2>
-    <p class="hint" style="margin-top:0">Who gets a session's questions summary when it ends, unless the session sets its own recipients on its form. Anyone can be added, including people outside your organization.</p>
-    <label class="choice"><input type="checkbox" id="d-summary-facilitators"><span>Each session's QA Facilitators</span></label>
-    <ul class="people" id="summaryList"></ul>
-    <form class="adder" id="summaryAdder">
-      <input type="email" placeholder="name@example.org" aria-label="Summary recipient email">
-      <button type="submit">Add</button>
-    </form>
+    <div class="panel" id="summaryPanel">
+      <h2>Session Summary Email Recipients</h2>
+      <p class="hint" style="margin-top:0" id="summaryHint">Get every session's questions summary when it ends. Anyone can be added, even outside your organization.</p>
+      <ul class="people" id="summaryList"></ul>
+      <form class="adder" id="summaryAdder">
+        <input type="email" placeholder="name@domain.org" aria-label="Session summary email recipient">
+        <button type="submit">Add</button>
+      </form>
+    </div>
   </div>
 </section>
 
@@ -1151,7 +1150,6 @@
     $('b-bg-light').value = state.brand.roomBgLight;
     $('b-favicon').value = state.brand.faviconUrl;
     $('b-guest').value = state.guestPageUrl;
-    $('d-summary-facilitators').checked = state.summaryDefaults.facilitators !== false;
     renderSummaryList();
     $('b-url').placeholder = state.detectedUrl;
 
@@ -1231,7 +1229,8 @@
 
   // Summary recipients: a list like administrators and QA Facilitators; every change saves.
   function saveSummary(extra, message, button) {
-    call('saveSummaryDefaults', [{ facilitators: $('d-summary-facilitators').checked, extra: extra }], function (res) {
+    // Only the list is edited here; whether session QA Facilitators also get it is left as saved.
+    call('saveSummaryDefaults', [{ facilitators: state.summaryDefaults.facilitators !== false, extra: extra }], function (res) {
       render(res);
       toast(message);
     }, button);
@@ -1240,25 +1239,30 @@
   function renderSummaryList() {
     var ul = $('summaryList');
     var extra = state.summaryDefaults.extra || [];
+    $('summaryHint').textContent = "Get every session's questions summary when it ends" +
+      (state.summaryDefaults.facilitators !== false ? ", as do that session's QA Facilitators" : '') +
+      '. Anyone can be added, even outside your organization.';
     ul.innerHTML = '';
-    if (!extra.length) ul.appendChild(el('li', 'hint', 'No other recipients'));
+    if (!extra.length) ul.appendChild(el('li', 'hint', 'None yet'));
     extra.forEach(function (email) {
       var li = el('li');
       li.appendChild(el('span', null, email));
       var rm = el('button', 'quiet', 'Remove');
       rm.type = 'button';
       rm.onclick = function () {
-        saveSummary(extra.filter(function (e) { return e !== email; }), 'Removed ' + email, rm);
+        ask({
+          title: 'Remove summary recipient?',
+          body: email + ' will no longer get session summaries, except from sessions that list them on their own form.',
+          ok: 'Remove',
+          danger: true
+        }, function () {
+          saveSummary(extra.filter(function (e) { return e !== email; }), 'Removed ' + email, rm);
+        });
       };
       li.appendChild(rm);
       ul.appendChild(li);
     });
   }
-
-  $('d-summary-facilitators').addEventListener('change', function () {
-    var box = this;
-    saveSummary(state.summaryDefaults.extra || [], box.checked ? 'QA Facilitators will get summaries' : 'QA Facilitators won\'t get summaries');
-  });
 
   $('summaryAdder').addEventListener('submit', function (e) {
     e.preventDefault();

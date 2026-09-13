@@ -4,6 +4,14 @@ All notable changes to Question Desk. Versions follow [Semantic Versioning](http
 Each release is tagged `vX.Y.Z` and published as a GitHub release by `scripts/ship.sh`,
 which reads the notes for that version from this file.
 
+## [2.4.3] - 2026-09-13
+
+### Changed
+- **People → Session Summary Email Recipients** is now a card like Administrators and QA
+  Facilitators: a list of addresses with Remove (confirmed first) and an add box. The
+  checkbox is gone. Each session's QA Facilitators still get the summary as before, and a
+  session can still set its own recipients on its form.
+
 ## [2.4.2] - 2026-09-13
 
 ### Fixed
@@ -235,6 +243,7 @@ which reads the notes for that version from this file.
 - "Merge into one question" for reading a topic aloud.
 - Participant page in English, Korean and Spanish.
 
+[2.4.3]: https://github.com/djsincla/question-desk/releases/tag/v2.4.3
 [2.4.2]: https://github.com/djsincla/question-desk/releases/tag/v2.4.2
 [2.4.1]: https://github.com/djsincla/question-desk/releases/tag/v2.4.1
 [2.4.0]: https://github.com/djsincla/question-desk/releases/tag/v2.4.0

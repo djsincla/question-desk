@@ -208,6 +208,18 @@ test('chromium: admin page loads its tabs without script errors', async () => {
       await page.click('[data-tab="' + tab + '"]');
       assert.ok(await page.isVisible('#tab-' + tab));
     }
+
+    // Session summary recipients: a card like the other two — a list and an add box, no checkbox.
+    await page.click('[data-tab="people"]');
+    const card = page.locator('#summaryPanel');
+    assert.equal((await card.locator('h2').textContent()).trim(), 'Session Summary Email Recipients');
+    assert.equal(await card.locator('input[type=checkbox]').count(), 0);
+    const cardBox = await card.boundingBox();
+    const adminBox = await page.locator('#tab-people .panel', { has: page.locator('#adminList') }).boundingBox();
+    assert.ok(Math.abs(cardBox.width - adminBox.width) < 2, 'same width as the Administrators card');
+    await card.locator('input[type=email]').fill('board@example.org');
+    await card.locator('button', { hasText: 'Add' }).click();
+    await page.waitForFunction(() => /board@example\.org/.test(document.getElementById('summaryList').textContent), null, { timeout: 5000 });
     assert.deepEqual(errors, []);
   } finally {
     await context.close();
