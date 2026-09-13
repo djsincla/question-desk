@@ -13,18 +13,16 @@ const PUBLIC = 'https://script.google.com/macros/s/AbC_12-x/exec';
 
 test('any form of a session link becomes the public, QR-only slide address', () => {
   const forms = [
-    'https://script.google.com/macros/s/AbC_12-x/exec?view=present&s=1a2b3c4d',
-    'https://script.google.com/a/macros/example.org/s/AbC_12-x/exec?view=present&s=1a2b3c4d',
-    'https://script.google.com/a/example.org/macros/s/AbC_12-x/exec?view=present&s=1a2b3c4d',
-    '  https://script.google.com/macros/s/AbC_12-x/exec?view=present&s=1a2b3c4d&layout=qr  ',
-    'https://script.google.com/macros/s/AbC_12-x/exec?view=moderate&s=1a2b3c4d',
-    'https://script.google.com/macros/s/AbC_12-x/exec?s=1a2b3c4d&k=0123456789abcdef',
-    'https://script.google.com/macros/s/AbC_12-x/exec?view=present&amp;s=1a2b3c4d',   // pasted from Outlook/Teams
-    'https://script.google.com/macros/s/AbC_12-x/exec?view=present&s=1a2b3c4d#top'
+    'https://script.google.com/macros/s/AbC_12-x/exec?view=present&s=1a2b3c4d&r=0123456789abcdef',
+    'https://script.google.com/a/macros/example.org/s/AbC_12-x/exec?view=present&s=1a2b3c4d&r=0123456789abcdef',
+    'https://script.google.com/a/example.org/macros/s/AbC_12-x/exec?view=present&s=1a2b3c4d&r=0123456789abcdef',
+    '  https://script.google.com/macros/s/AbC_12-x/exec?view=present&s=1a2b3c4d&r=0123456789abcdef&layout=qr  ',
+    'https://script.google.com/macros/s/AbC_12-x/exec?view=present&amp;s=1a2b3c4d&amp;r=0123456789abcdef',   // pasted from Outlook/Teams
+    'https://script.google.com/macros/s/AbC_12-x/exec?view=present&s=1a2b3c4d&r=0123456789abcdef#top'
   ];
   forms.forEach((link) => {
-    assert.equal(RoomUrl.forSlide(link), PUBLIC + '?view=present&s=1a2b3c4d&layout=qr', link);
-    assert.equal(RoomUrl.forSlide(link, true), PUBLIC + '?view=present&s=1a2b3c4d', link);
+    assert.equal(RoomUrl.forSlide(link), PUBLIC + '?view=present&s=1a2b3c4d&r=0123456789abcdef&layout=qr', link);
+    assert.equal(RoomUrl.forSlide(link, true), PUBLIC + '?view=present&s=1a2b3c4d&r=0123456789abcdef', link);
   });
 });
 
@@ -36,20 +34,25 @@ test('anything that is not a Question Desk session link is refused', () => {
     'https://script.google.com.evil.example/macros/s/AbC/exec?s=1a2b3c4d',
     'https://script.google.com/macros/s/AbC/exec?view=present',
     'https://script.google.com/macros/s/AbC/exec?s=XYZ',
-    'https://script.google.com/macros/s/AbC/exec?s=1a2b3c4d"><script>'
+    'https://script.google.com/macros/s/AbC/exec?s=1a2b3c4d"><script>',
+    // Without the room screen key: a participant or queue link can't become a room screen.
+    'https://script.google.com/macros/s/AbC_12-x/exec?view=present&s=1a2b3c4d',
+    'https://script.google.com/macros/s/AbC_12-x/exec?s=1a2b3c4d&k=0123456789abcdef',
+    'https://script.google.com/macros/s/AbC_12-x/exec?view=moderate&s=1a2b3c4d'
   ].forEach((link) => assert.equal(RoomUrl.forSlide(link), null, link));
 });
 
 test('the room screen offers a QR-only layout, and the admin gets a slide link', () => {
   const h = createApp().install();
   const s = h.session({ name: 'Slide', active: true });
+  const r = h.screenKey(s);
   h.anonymous();
-  assert.equal(h.app.doGet({ parameter: { view: 'present', s: s.id, layout: 'qr' } }).data.layout, 'qr');
-  assert.equal(h.app.doGet({ parameter: { view: 'present', s: s.id } }).data.layout, 'full');
-  assert.equal(h.app.doGet({ parameter: { view: 'present', s: s.id, layout: '<x>' } }).data.layout, 'full');
+  assert.equal(h.app.doGet({ parameter: { view: 'present', s: s.id, r, layout: 'qr' } }).data.layout, 'qr');
+  assert.equal(h.app.doGet({ parameter: { view: 'present', s: s.id, r } }).data.layout, 'full');
+  assert.equal(h.app.doGet({ parameter: { view: 'present', s: s.id, r, layout: '<x>' } }).data.layout, 'full');
   h.as(h.env.owner);
   const slide = h.app.adminState().sessions[0].links.slide;
-  assert.equal(slide, 'https://script.google.com/macros/s/DEPLOYID/exec?view=present&s=' + s.id + '&layout=qr');
+  assert.equal(slide, 'https://script.google.com/macros/s/DEPLOYID/exec?view=present&s=' + s.id + '&r=' + r + '&layout=qr');
   assert.equal(RoomUrl.forSlide(slide), slide, 'the add-in accepts it unchanged');
 });
 

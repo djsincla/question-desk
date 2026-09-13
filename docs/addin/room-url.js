@@ -27,7 +27,8 @@
       var guest = text.match(GUEST);
       var d = guest && /(?:^|&)d=(AKfycb[A-Za-z0-9_-]{20,120})(?:&|$)/.exec(guest[1]);
       var sid = guest && /(?:^|&)s=([a-f0-9]{8})(?:&|$)/.exec(guest[1]);
-      return d && sid ? { deployment: d[1], session: sid[1] } : null;
+      var key = guest && /(?:^|&)r=([a-f0-9]{16})(?:&|$)/.exec(guest[1]);
+      return d && sid && key ? { deployment: d[1], session: sid[1], key: key[1] } : null;
     }
     var params = {};
     (match[2] || '').split('&').forEach(function (pair) {
@@ -38,7 +39,9 @@
       } catch (err) { /* ignore malformed pairs */ }
     });
     if (!/^[a-f0-9]{8}$/.test(params.s || '')) return null;
-    return { deployment: match[1], session: params.s };
+    // Room screen and slide links carry their own key (r); a participant link has none.
+    if (!/^[a-f0-9]{16}$/.test(params.r || '')) return null;
+    return { deployment: match[1], session: params.s, key: params.r };
   }
 
   /** Room screen address for a slide: QR only unless full is true. */
@@ -46,7 +49,7 @@
     var parsed = parse(input);
     if (!parsed) return null;
     return 'https://script.google.com/macros/s/' + parsed.deployment + '/exec?view=present&s=' +
-      parsed.session + (full ? '' : '&layout=qr');
+      parsed.session + '&r=' + parsed.key + (full ? '' : '&layout=qr');
   }
 
   return { parse: parse, forSlide: forSlide };

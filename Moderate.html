@@ -90,6 +90,11 @@
 
   .merged { padding: 12px 14px; border-bottom: 1px solid var(--rule); background: #fffdf5; }
   .merged span { display: block; color: var(--muted); font-size: 0.8rem; margin-bottom: 4px; }
+  .merged .also, .also-labels { display: block; color: var(--muted); font-size: 0.82rem; margin: 6px 0 0; }
+  .also-labels { padding: 8px 14px; margin: 0; border-bottom: 1px solid var(--rule); }
+  .also-labels span, .merged .also span { display: inline; font-size: inherit; margin: 0; }
+  .topic.live .also-labels { color: inherit; opacity: 0.85; }
+  .also-labels b, .merged .also b { font-weight: 600; }
 
   ul { list-style: none; margin: 0; padding: 0; }
   li { display: flex; gap: 12px; align-items: flex-start; padding: 11px 14px; border-bottom: 1px solid #eef1f3; }
@@ -410,7 +415,7 @@
     var focusKey = focusTopic !== null ? (active.getAttribute('data-key') || active.textContent) : null;
 
     board.innerHTML = '';
-    data.topics.forEach(function (t) { board.appendChild(topicBlock(t, data.merged[t.topic], false, data.nowAnswering === t.topic)); });
+    data.topics.forEach(function (t) { board.appendChild(topicBlock(t, data.merged[t.topic], false, data.nowAnswering === t.topic, (data.mergedTranslations || {})[t.topic])); });
     if (data.unsorted.length) {
       board.appendChild(topicBlock({ topic: 'Not yet grouped', questions: data.unsorted, count: data.unsorted.length }, null, true));
     }
@@ -487,7 +492,23 @@
     });
   }
 
-  function topicBlock(t, mergedText, isLoose, isLive) {
+  /** "Phones show it as Korean: … · Spanish: …" — facilitators approve these along with the label. */
+  function alsoShown(intro, list, className) {
+    var box = el('div', className);
+    var lead = el('span');
+    lead.textContent = intro;
+    box.appendChild(lead);
+    list.forEach(function (tr, i) {
+      box.appendChild(document.createTextNode(i ? ' · ' : ' '));
+      var b = el('b');
+      b.textContent = tr.language + ':';
+      box.appendChild(b);
+      box.appendChild(document.createTextNode(' ' + tr.text));
+    });
+    return box;
+  }
+
+  function topicBlock(t, mergedText, isLoose, isLive, mergedTranslations) {
     var wrap = el('div', 'topic' + (isLive ? ' live' : '') + (t.answered ? ' done' : ''));
     wrap.setAttribute('data-topic', isLoose ? '' : t.topic);
 
@@ -585,12 +606,19 @@
     }
     wrap.appendChild(head);
 
+    if (!isLoose && t.translations && t.translations.length) {
+      wrap.appendChild(alsoShown(t.shown ? 'Phones show it as' : 'If shown, phones show it as', t.translations, 'also-labels'));
+    }
+
     if (mergedText) {
       var m = el('div', 'merged');
       var label = el('span');
       label.textContent = 'Read this out';
       m.appendChild(label);
       m.appendChild(document.createTextNode(mergedText));
+      if (mergedTranslations && mergedTranslations.length) {
+        m.appendChild(alsoShown('While answering, phones and the room screen also show', mergedTranslations, 'also'));
+      }
       wrap.appendChild(m);
     }
 

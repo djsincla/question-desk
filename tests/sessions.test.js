@@ -77,7 +77,7 @@ test('links use the public /macros/s/ address, or the configured one', () => {
   const h = createApp().install();
   const s = h.session({ name: 'Links', access: 'link' });
   const links = h.app.sessionLinks_(h.app.getSession_(s.id));
-  assert.equal(links.present, PUBLIC_URL + '?view=present&s=' + s.id);
+  assert.equal(links.present, PUBLIC_URL + '?view=present&s=' + s.id + '&r=' + h.app.getSession_(s.id).screenKey);
   assert.equal(links.moderate, PUBLIC_URL + '?view=moderate&s=' + s.id);
   assert.equal(links.participant, PUBLIC_URL + '?s=' + s.id + '&k=' + s.linkKey);
 

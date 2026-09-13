@@ -1,5 +1,10 @@
 <!DOCTYPE html>
-<html lang="en">
+<!--
+  On your own site, lock this page to your Question Desk: put your deployment ID (the part of
+  your app's address between /macros/s/ and /exec) in data-only-deployment. Then nobody can use your
+  site's address to show some other Apps Script app. Leave it empty on shared copies.
+-->
+<html lang="en" data-only-deployment="">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -21,7 +26,7 @@
 <noscript><div class="problem"><h1>JavaScript is needed</h1><p>Turn on JavaScript to ask a question.</p></div></noscript>
 <script>
   (function () {
-    var url = JoinUrl.target(location.search);
+    var url = JoinUrl.target(location.search, document.documentElement.getAttribute('data-only-deployment'));
     if (!url) {
       document.body.insertAdjacentHTML('beforeend',
         '<div class="problem"><h1>This link isn’t complete</h1>' +

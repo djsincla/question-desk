@@ -34,13 +34,13 @@ function shots(ctx) {
   const phone = (src) => '/phone?src=' + encodeURIComponent(src);
   const setNow = (topic) => () => { ctx.h.env.activeUser = USERS.mod; ctx.h.app.setNowAnswering(s, topic); };
   return [
-    { name: 'room-screen', url: () => '/?view=present&s=' + s + '&as=owner', size: [1600, 900], before: setNow(null) },
-    { name: 'room-screen-answering', url: () => '/?view=present&s=' + s + '&as=owner', size: [1600, 900], before: setNow('Respite care hours') },
-    { name: 'slide-qr', url: () => '/?view=present&s=' + s + '&layout=qr', size: [640, 560] },
-    { name: 'room-screen-tall', url: () => '/?view=present&s=' + s + '&as=owner', size: [540, 900], check: true },
-    { name: 'room-screen-square', url: () => '/?view=present&s=' + s + '&as=owner', size: [760, 760], check: true },
-    { name: 'room-screen-1280', url: () => '/?view=present&s=' + s + '&as=owner', size: [1280, 720], check: true },
-    { name: 'room-screen-1024', url: () => '/?view=present&s=' + s + '&as=owner', size: [1024, 768], check: true },
+    { name: 'room-screen', url: () => '/?view=present&s=' + s + '&r=' + ctx.h.screenKey(s) + '&as=owner', size: [1600, 900], before: setNow(null) },
+    { name: 'room-screen-answering', url: () => '/?view=present&s=' + s + '&r=' + ctx.h.screenKey(s) + '&as=owner', size: [1600, 900], before: setNow('Respite care hours') },
+    { name: 'slide-qr', url: () => '/?view=present&s=' + s + '&r=' + ctx.h.screenKey(s) + '&layout=qr', size: [640, 560] },
+    { name: 'room-screen-tall', url: () => '/?view=present&s=' + s + '&r=' + ctx.h.screenKey(s) + '&as=owner', size: [540, 900], check: true },
+    { name: 'room-screen-square', url: () => '/?view=present&s=' + s + '&r=' + ctx.h.screenKey(s) + '&as=owner', size: [760, 760], check: true },
+    { name: 'room-screen-1280', url: () => '/?view=present&s=' + s + '&r=' + ctx.h.screenKey(s) + '&as=owner', size: [1280, 720], check: true },
+    { name: 'room-screen-1024', url: () => '/?view=present&s=' + s + '&r=' + ctx.h.screenKey(s) + '&as=owner', size: [1024, 768], check: true },
     { name: 'participant-phone', url: () => phone('/?s=' + s + '&t=' + token() + '&lang=en'), size: [600, 844], crop: [390, 844], scale: 2, before: setNow('Respite care hours') },
     { name: 'participant-phone-korean', url: () => phone('/?s=' + s + '&t=' + token() + '&lang=ko'), size: [600, 844], crop: [390, 844], scale: 2 },
     { name: 'facilitator-queue', url: () => '/?view=moderate&s=' + s + '&as=mod', size: [1280, 1500] },

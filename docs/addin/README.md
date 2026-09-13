@@ -98,7 +98,8 @@ again. Existing boxes keep the size they were inserted at; drag their handles to
 ## Use it
 
 1. Question Desk Admin page → **Sessions → Links** → copy **PowerPoint slide**.
-   (The room screen link works too.)
+   (The room screen link works too. Links copied before version 2.6.0 no longer work; copy
+   them again.)
 2. On your slide: **Insert → My Add-ins → Question Desk QR**. Paste the link and press
    **Show on slide**.
 3. The box fills a standard widescreen slide when inserted; drag its handles to resize it

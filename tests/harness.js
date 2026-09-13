@@ -343,6 +343,15 @@ function createApp(options) {
       return app.getSession_(created.id);
     },
 
+    /** The room screen key, as the Admin page's links carry it. */
+    screenKey(session) {
+      const was = env.activeUser;
+      env.activeUser = env.owner;
+      const key = app.screenKeyFor_(app.getSession_(session.id || session));
+      env.activeUser = was;
+      return key;
+    },
+
     /** Joins a session the way a phone does and returns the device id. */
     join(session) {
       const was = env.activeUser;

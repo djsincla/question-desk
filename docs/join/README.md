@@ -41,6 +41,11 @@ Branding tab.
 - **Website builders that only allow pasted code** (Squarespace, Wix, Google Sites): these
   usually can't host plain files at a custom address. Use this project's GitHub Pages copy,
   or a free static host, and link to it from your site.
+- **Lock it to your Question Desk.** In your copy of `index.html`, put your deployment ID
+  (the `AKfycb…` part of your app's address) in `data-only-deployment=""` on the `<html>`
+  line. Otherwise anyone could use your site's address to show a different Apps Script app,
+  for example a lookalike page. This project's shared GitHub Pages copy can't be locked
+  because every organization's app uses it.
 - The site must allow its pages to embed `https://script.google.com` in a frame. If your
   site sends a `Content-Security-Policy` header, it needs `frame-src https://script.google.com
   https://*.googleusercontent.com`.
@@ -53,7 +58,7 @@ screen — in the browser that showed the error. You should see the room screen 
 ## How it works
 
 `index.html` reads its own address (`?d=<deployment>&s=<session>&t=<code>`, or `&k=<key>`,
-or `view=present`) and frames the matching Question Desk page. `join-url.js` refuses
+or `view=present&r=<room screen key>`) and frames the matching Question Desk page. `join-url.js` refuses
 anything that isn't a Question Desk guest page on `script.google.com`, so the page can't be
 used to show other sites. It sends no referrer. Tests: `tests/join.test.js`,
 `tests/links.test.js`.

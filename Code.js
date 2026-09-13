@@ -17,7 +17,7 @@
 
 /** Bump with every release; scripts/ship.sh tags git and publishes release notes from CHANGELOG.md. */
 const APP = {
-  version: '2.5.0',
+  version: '2.6.0',
   repo: 'https://github.com/djsincla/question-desk'
 };
 
@@ -76,16 +76,19 @@ function doGet(e) {
     return page_('Admin.html', 'Question Desk admin', {}, null);
   }
 
-  // The room screen is public: anyone with its link can show it, signed in or not,
-  // whatever Google account the browser uses. Only admin and queue need a login.
+  // The room screen needs no sign-in: anyone with its link can show it, whatever Google
+  // account the browser uses. The link carries its own key (r=), separate from the session
+  // id that every participant link and QR code contains, so a forwarded participant link
+  // can't be turned into a room screen showing live codes.
   if (view === 'present') {
     const screen = getSession_(sid);
-    if (screen) {
+    if (screen && (screenKeyValid_(screen, p.r) || canModerate_(screen, currentEmail_()))) {
       // layout=qr is the compact QR-only view used by the PowerPoint add-in (docs/addin).
       return page_('Present.html', screen.name, {
-        sid: screen.id, theme: screen.theme, layout: p.layout === 'qr' ? 'qr' : 'full'
+        sid: screen.id, key: screenKeyFor_(screen), theme: screen.theme, layout: p.layout === 'qr' ? 'qr' : 'full'
       }, screen);
     }
+    if (screen) return notice_('oldScreenLink');
     if (!currentEmail_()) return notice_('noSession');
     return notice_('pick', view);
   }
@@ -170,6 +173,13 @@ function notice_(mode, view) {
       heading: 'Choose a session',
       body: links.length ? 'Pick the session to open.' : 'You are not assigned to any open sessions.',
       links: links
+    }, null);
+  }
+  if (mode === 'oldScreenLink') {
+    return page_('Denied.html', 'Room screen link out of date', {
+      heading: 'This room screen link is out of date',
+      body: 'Room screen and PowerPoint slide links changed. Ask whoever runs the session to copy the new one from the Admin page (Sessions → Links). To ask a question, scan the code on the screen in the room.',
+      links: []
     }, null);
   }
   if (mode === 'noSession') {
@@ -325,16 +335,31 @@ function baseUrlDetected_() {
 
 function sessionLinks_(session) {
   const base = baseUrl_();
+  const key = screenKeyFor_(session);
   return {
     // Guest pages: public form, or through the session's guest page (see guestLink_).
-    present: guestLink_(session, 'view=present&s=' + session.id, 'room'),
+    present: guestLink_(session, 'view=present&s=' + session.id + '&r=' + key, 'room'),
     moderate: base + '?view=moderate&s=' + session.id,
     // For the PowerPoint add-in, always direct: the add-in already embeds from outside Google.
-    slide: participantBaseUrl_() + '?view=present&s=' + session.id + '&layout=qr',
+    slide: participantBaseUrl_() + '?view=present&s=' + session.id + '&r=' + key + '&layout=qr',
     participant: session.access === 'link'
       ? guestLink_(session, 's=' + session.id + '&k=' + session.linkKey, 'any')
       : null
   };
+}
+
+/** The room screen key; sessions from before 2.6.0 get one the first time links are made. */
+function screenKeyFor_(session) {
+  if (!session.screenKey) {
+    const saved = updateSession_(session.id, function (s) { if (!s.screenKey) s.screenKey = newId_(16); });
+    session.screenKey = saved.screenKey;
+  }
+  return session.screenKey;
+}
+
+function screenKeyValid_(session, key) {
+  // A session that has never had links made has no key yet, so nobody could hold a link.
+  return !!session.screenKey && typeof key === 'string' && key === session.screenKey;
 }
 
 // ---------------------------------------------------------------- guest pages
@@ -702,6 +727,14 @@ function displayLabels_(text, translations) {
   return out;
 }
 
+/** [{ language: 'Korean', text }] for each display language that has its own translation. */
+function translationList_(labels) {
+  labels = labels || {};
+  return translationCodes_()
+    .filter(function (code) { return labels[code]; })
+    .map(function (code) { return { language: CONFIG.displayLanguages[code], text: String(labels[code]) }; });
+}
+
 function translationCodes_() {
   return Object.keys(CONFIG.displayLanguages).filter(function (code) {
     return CONFIG.displayLanguages[code] !== CONFIG.moderatorLanguage;
@@ -722,12 +755,16 @@ function nowAnsweringView_(session, records) {
 // ---------------------------------------------------------------- room screen
 
 /**
- * Public, like the room screen itself: it only ever returns what the screen displays.
- * `layout` 'qr' is the PowerPoint slide, whose QR code has its own guest page choice.
+ * For the room screen: needs its key (or a signed-in QA Facilitator), and only ever
+ * returns what the screen displays. `layout` 'qr' is the PowerPoint slide, whose QR code
+ * has its own guest page choice.
  */
-function getRoomScreen(sid, layout) {
+function getRoomScreen(sid, layout, key) {
   const session = getSession_(sid);
   if (!session) throw new Error('Session not found.');
+  if (!screenKeyValid_(session, key) && !canModerate_(session, currentEmail_())) {
+    throw new Error('This room screen link is out of date. Copy the new one from the Admin page.');
+  }
   const brand = brand_(session);
   delete brand.logo;   // the logo arrives with the page; this poll stays small
   const screen = {
@@ -790,14 +827,22 @@ function getBoard(sid) {
     return {
       topic: name, questions: list, count: list.length, votes: votes[name] || 0,
       answered: list.every(function (q) { return q.status === 'answered'; }),
-      shown: !!(records[name] && records[name].shown)
+      shown: !!(records[name] && records[name].shown),
+      // What phones and the room screen show in other languages, so it is reviewed too.
+      translations: translationList_(records[name] && records[name].labels)
     };
   }).sort(function (a, b) {
     return (a.answered - b.answered) || (b.count + b.votes) - (a.count + a.votes);
   });
 
   const merged = {};
-  Object.keys(records).forEach(function (t) { if (records[t].merged) merged[t] = records[t].merged; });
+  const mergedTranslations = {};
+  Object.keys(records).forEach(function (t) {
+    if (records[t].merged) {
+      merged[t] = records[t].merged;
+      mergedTranslations[t] = translationList_(records[t].mergedLabels);
+    }
+  });
 
   return {
     session: {
@@ -814,6 +859,7 @@ function getBoard(sid) {
     open: session.open !== false,
     nowAnswering: session.nowAnswering ? session.nowAnswering.topic : null,
     merged: merged,
+    mergedTranslations: mergedTranslations,
     dismissed: dismissed.sort(function (a, b) { return b.submitted - a.submitted; }),
     prepared: sessionRows_(sid, true)
       .filter(function (q) { return q.status === 'prepared'; })
@@ -1121,10 +1167,14 @@ function setSessionActive(sid, active) {
   return adminState();
 }
 
-function regenerateLink(sid) {
+/** which: 'screen' replaces the room screen (and slide) link; otherwise the participant link. */
+function regenerateLink(sid, which) {
   requireAdmin_();
-  // Phones that already joined keep their device token until it expires (6h).
-  updateSession_(sid, function (s) { s.linkKey = newId_(16); });
+  updateSession_(sid, function (s) {
+    if (which === 'screen') s.screenKey = newId_(16);
+    // Phones that already joined keep their device token until it expires (6h).
+    else s.linkKey = newId_(16);
+  });
   return adminState();
 }
 

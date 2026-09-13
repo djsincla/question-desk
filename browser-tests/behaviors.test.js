@@ -38,7 +38,7 @@ async function withDemo(engineName, url, contextOptions, fn) {
 
 for (const engineName of ['webkit', 'chromium']) {
   test(`${engineName}: room screen says when questions are paused`, async () => {
-    await withDemo(engineName, (ctx) => '/?view=present&s=' + ctx.live.id, { viewport: { width: 1280, height: 720 } }, async ({ page, ctx, as }) => {
+    await withDemo(engineName, (ctx) => '/?view=present&s=' + ctx.live.id + '&r=' + ctx.h.screenKey(ctx.live), { viewport: { width: 1280, height: 720 } }, async ({ page, ctx, as }) => {
       await page.waitForFunction(() => /Code refreshes automatically/.test(document.getElementById('status').textContent), null, { timeout: 15000 });
       as('owner', 'setBoardOpen', ctx.live.id, false);
       await page.waitForFunction(() => /Questions are paused/.test(document.getElementById('status').textContent), null, { timeout: 15000 });

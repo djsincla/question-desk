@@ -764,6 +764,21 @@
       var links = el('div', 'links');
       linkRow(links, 'Room screen', s.links.present);
       linkRow(links, 'PowerPoint slide', s.links.slide);
+      if (!ended) {
+        var regenScreen = el('button', 'quiet', 'Replace room screen link');
+        regenScreen.type = 'button';
+        regenScreen.onclick = function () {
+          ask({
+            title: 'Replace the room screen link?',
+            body: 'The current room screen link and PowerPoint slide link stop working, including on screens and slides already showing them. Copy the new links into those places. Participants are not affected.',
+            ok: 'Replace link',
+            danger: true
+          }, function () {
+            call('regenerateLink', [s.id, 'screen'], function (res) { render(res); toast('New room screen and slide links created'); }, regenScreen);
+          });
+        };
+        links.appendChild(regenScreen);
+      }
       linkRow(links, 'QA Facilitator queue', s.links.moderate);
       if (s.links.participant) {
         linkRow(links, 'Participant link', s.links.participant);

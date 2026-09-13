@@ -67,10 +67,13 @@ does not carry the query string. That exact bug shipped once (v2): every QR scan
   already waiting; phones re-sync every 15 seconds while counting down.
 - The script owner is always an admin. `ADMINS` and `MODERATORS` are comma lists in
   Script Properties; moderators see only sessions they are assigned to.
-- **The room screen is public by the owner's decision**: `?view=present&s=<id>` and
-  `getRoomScreen()` need no sign-in, so any browser or Google account can show it. Only
-  Admin and the queue are gated. For in-room sessions this means the rotating code is as
-  private as the room screen link; do not reintroduce a sign-in or key without asking.
+- **The room screen needs no sign-in by the owner's decision**, but since 2.6.0 its link
+  carries its own key: `?view=present&s=<id>&r=<screenKey>`, and `getRoomScreen(sid, layout,
+  key)` checks it (signed-in QA Facilitators for the session don't need it). The session id
+  alone is in every participant link and QR code, so without the key a forwarded
+  participant link could be turned into a room screen showing live codes. Sessions from
+  before 2.6.0 get a key from `screenKeyFor_()` the first time links are made;
+  `regenerateLink(sid, 'screen')` replaces it. Do not add a sign-in without asking.
 - Participant links, QR codes and the room screen link use `participantBaseUrl_()`, which
   converts either domain-scoped form to `/macros/s/…`. Guests and venue browsers are
   signed into their own Google accounts, and the domain form fails for them with Google's

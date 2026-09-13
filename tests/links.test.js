@@ -51,9 +51,11 @@ for (const reported of REPORTED_FORMS) {
     const sessions = Object.fromEntries(h.app.adminState().sessions.map((s) => [s.name, s]));
     for (const s of [sessions['Room session'], sessions['Link session']]) {
       isPublic(s.links.present, s.name + ' room screen');
-      assert.deepEqual(params(s.links.present), { view: 'present', s: s.id });
+      const r = h.app.getSession_(s.id).screenKey;
+      assert.match(r, /^[a-f0-9]{16}$/);
+      assert.deepEqual(params(s.links.present), { view: 'present', s: s.id, r });
       isPublic(s.links.slide, s.name + ' PowerPoint slide');
-      assert.deepEqual(params(s.links.slide), { view: 'present', s: s.id, layout: 'qr' });
+      assert.deepEqual(params(s.links.slide), { view: 'present', s: s.id, r, layout: 'qr' });
       isStaff(s.links.moderate, s.name + ' queue', reported);
       assert.deepEqual(params(s.links.moderate), { view: 'moderate', s: s.id });
     }
@@ -156,7 +158,7 @@ test('sessions that use the guest page hand out guest page links the wrapper und
   };
 
   const room = byName['Wrapped room'];
-  check(room.links.present, DIRECT + '?view=present&s=' + room.id, 'room screen');
+  check(room.links.present, DIRECT + '?view=present&s=' + room.id + '&r=' + h.app.getSession_(room.id).screenKey, 'room screen');
   const roomQr = h.app.getRoomScreen(room.id).url;
   check(roomQr, DIRECT + '?s=' + room.id + '&t=' + new URL(roomQr).searchParams.get('t'), 'in-room QR code');
 
@@ -166,9 +168,9 @@ test('sessions that use the guest page hand out guest page links the wrapper und
   check(h.app.getRoomScreen(link.id).url, DIRECT + '?s=' + link.id + '&k=' + key, 'link-session QR code');
 
   // Unchanged: the add-in slide link (the add-in already embeds from outside Google) and staff links.
-  assert.equal(link.links.slide, DIRECT + '?view=present&s=' + link.id + '&layout=qr');
+  assert.equal(link.links.slide, DIRECT + '?view=present&s=' + link.id + '&r=' + h.app.getSession_(link.id).screenKey + '&layout=qr');
   assert.match(link.links.moderate, /^https:\/\/script\.google\.com\/a\/example\.org\/macros\/s\/.*\?view=moderate&s=/);
-  assert.equal(RoomUrl.forSlide(room.links.present), DIRECT + '?view=present&s=' + room.id + '&layout=qr', 'add-in accepts a guest page room link');
+  assert.equal(RoomUrl.forSlide(room.links.present), DIRECT + '?view=present&s=' + room.id + '&r=' + h.app.getSession_(room.id).screenKey + '&layout=qr', 'add-in accepts a guest page room link');
 
   // Emails use the guest page too.
   h.app.emailLinks(link.id, { to: 'guest@example.org', participant: true, present: true });
@@ -219,11 +221,13 @@ test('the PowerPoint slide shows a QR code that goes through the guest page', ()
   h.app.saveSession({ name: 'Slide', access: 'room', guestPage: { mode: 'wrapper' } });
   const s = h.app.adminState().sessions[0];
   h.app.setSessionActive(s.id, true);
+  const r = h.screenKey(s);
   h.anonymous();
   // The add-in shows the room screen in QR-only layout; that page asks getRoomScreen for its code.
-  const slide = h.app.doGet({ parameter: { view: 'present', s: s.id, layout: 'qr' } });
+  const slide = h.app.doGet({ parameter: { view: 'present', s: s.id, r, layout: 'qr' } });
   assert.equal(slide.data.layout, 'qr');
-  const qr = h.app.getRoomScreen(s.id, 'qr').url;
+  assert.equal(slide.data.key, r, 'the page polls with its key');
+  const qr = h.app.getRoomScreen(s.id, 'qr', r).url;
   assert.ok(qr.startsWith(GUEST + '?d=AKfycbTESTDEPLOYMENT_id-123456789&s=' + s.id + '&t='), qr);
   assert.ok(JoinUrl.target(new URL(qr).search), 'scanning it opens the questions page through the guest page');
 });

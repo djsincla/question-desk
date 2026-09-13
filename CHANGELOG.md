@@ -4,6 +4,26 @@ All notable changes to Question Desk. Versions follow [Semantic Versioning](http
 Each release is tagged `vX.Y.Z` and published as a GitHub release by `scripts/ship.sh`,
 which reads the notes for that version from this file.
 
+## [2.6.0] - 2026-09-13
+
+### Upgrade note
+**Copy room screen and PowerPoint slide links again** (Admin → Sessions → Links) and paste
+them into open room screens and slides. Old links show "This room screen link is out of
+date". Participant QR codes and questions links don't change. A self-hosted copy of the
+guest page needs the new `join-url.js`.
+
+### Security
+- **Room screen links have their own key.** The session id is in every participant link
+  and QR code, so anyone with a forwarded participant link could previously open the room
+  screen and get a live code. Now the room screen and slide need the key in their link
+  (signed-in QA Facilitators for the session don't). **Replace room screen link** on the
+  Links panel retires a leaked one.
+- **Translations are reviewed too.** The queue shows the Korean and Spanish wording of each
+  topic label ("Phones show it as …") and of merged questions, which phones and the room
+  screen display, so facilitators see what they approve.
+- **A self-hosted guest page can be locked to your app** with `data-only-deployment` in its
+  `index.html`, so your site's address can't be used to show another Apps Script app.
+
 ## [2.5.0] - 2026-09-13
 
 Fixes from a full code review.
@@ -315,6 +335,7 @@ Fixes from a full code review.
 - "Merge into one question" for reading a topic aloud.
 - Participant page in English, Korean and Spanish.
 
+[2.6.0]: https://github.com/djsincla/question-desk/releases/tag/v2.6.0
 [2.5.0]: https://github.com/djsincla/question-desk/releases/tag/v2.5.0
 [2.4.4]: https://github.com/djsincla/question-desk/releases/tag/v2.4.4
 [2.4.3]: https://github.com/djsincla/question-desk/releases/tag/v2.4.3

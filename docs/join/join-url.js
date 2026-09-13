@@ -5,7 +5,7 @@
  *
  *   ?d=<deployment id>&s=<session>&t=<room code>      participant page, in-room session
  *   ?d=<deployment id>&s=<session>&k=<link key>       participant page, shareable link
- *   ?d=<deployment id>&view=present&s=<session>       room screen (optionally &layout=qr)
+ *   ?d=<deployment id>&view=present&s=<session>&r=<room screen key>   room screen (optionally &layout=qr)
  */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory();
@@ -16,6 +16,7 @@
     s: /^[a-f0-9]{8}$/,
     t: /^[a-f0-9]{12}$/,
     k: /^[a-f0-9]{16}$/,
+    r: /^[a-f0-9]{16}$/,
     view: /^present$/,
     layout: /^qr$/,
     lang: /^(en|ko|es)$/
@@ -34,9 +35,13 @@
     return out;
   }
 
-  /** Returns the address to embed, or null if the wrapper's address isn't a valid guest link. */
-  function target(search) {
+  /**
+   * Returns the address to embed, or null if the wrapper's address isn't a valid guest link.
+   * onlyDeployment (optional): a self-hosted copy locked to one Question Desk.
+   */
+  function target(search, onlyDeployment) {
     var p = parseQuery(search);
+    if (onlyDeployment && p.d !== onlyDeployment) return null;
     for (var name in p) {
       // Unknown names (fbclid, utm_source… added by social media and newsletters) are ignored:
       // the embedded address is rebuilt from the checked names only, so they never reach it.
@@ -44,11 +49,11 @@
     }
     if (!p.d || !p.s) return null;
     var room = p.view === 'present';
-    if (room && (p.t || p.k)) return null;
-    if (!room && (p.layout || !(p.t || p.k) || (p.t && p.k))) return null;
+    if (room && (p.t || p.k || !p.r)) return null;
+    if (!room && (p.layout || p.r || !(p.t || p.k) || (p.t && p.k))) return null;
 
     var query = room
-      ? 'view=present&s=' + p.s + (p.layout ? '&layout=qr' : '')
+      ? 'view=present&s=' + p.s + '&r=' + p.r + (p.layout ? '&layout=qr' : '')
       : 's=' + p.s + (p.t ? '&t=' + p.t : '&k=' + p.k) + (p.lang ? '&lang=' + p.lang : '');
     return 'https://script.google.com/macros/s/' + p.d + '/exec?' + query;
   }

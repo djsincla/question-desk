@@ -86,7 +86,7 @@ test('moderator views without a session show a picker of assigned, unended sessi
   const page = h.app.doGet({ parameter: { view: 'present' } });
   assert.equal(page.file, 'Denied.html');
   assert.deepEqual(page.data.links.map((l) => l.label), ['Open one']);
-  assert.match(page.data.links[0].href, /\?view=present&s=[a-f0-9]{8}$/);
+  assert.match(page.data.links[0].href, /\?view=present&s=[a-f0-9]{8}&r=[a-f0-9]{16}$/);
 });
 
 test('signed-in users not on any roster are denied moderator views', () => {
@@ -98,15 +98,36 @@ test('signed-in users not on any roster are denied moderator views', () => {
   assert.equal(h.app.doGet({ parameter: { view: 'moderate', s: s.id } }).file, 'Denied.html');
 });
 
-test('the room screen is public: anonymous, other Google accounts, and staff all see it', () => {
+test('the room screen needs no sign-in, only its own link key', () => {
   const h = createApp().install({ moderators: [MOD] });
-  const s = h.session({ name: 'Open screen', active: true });
+  const s = h.session({ name: 'Open screen', active: true, moderators: [MOD] });
+  const r = h.screenKey(s);
   ['', 'someone@gmail.test', 'stranger@example.org', MOD, OWNER].forEach((who) => {
     h.env.activeUser = who;
-    const page = h.app.doGet({ parameter: { view: 'present', s: s.id } });
+    const page = h.app.doGet({ parameter: { view: 'present', s: s.id, r } });
     assert.equal(page.file, 'Present.html', 'as ' + (who || 'anonymous'));
-    assert.match(h.app.getRoomScreen(s.id).url, /[?&]t=[a-f0-9]{12}/, 'as ' + (who || 'anonymous'));
+    assert.match(h.app.getRoomScreen(s.id, 'full', r).url, /[?&]t=[a-f0-9]{12}/, 'as ' + (who || 'anonymous'));
   });
+
+  // The session id is in every participant link and QR code, so it alone must not open the screen.
+  ['', 'someone@gmail.test', 'stranger@example.org'].forEach((who) => {
+    h.env.activeUser = who;
+    [undefined, '', 'ffffffffffffffff'].forEach((bad) => {
+      const page = h.app.doGet({ parameter: { view: 'present', s: s.id, r: bad } });
+      assert.equal(page.data.heading, 'This room screen link is out of date', 'as ' + (who || 'anonymous'));
+      assert.throws(() => h.app.getRoomScreen(s.id, 'full', bad), /out of date/);
+    });
+  });
+  // Signed-in staff for the session don't need the key.
+  h.as(MOD);
+  assert.equal(h.app.doGet({ parameter: { view: 'present', s: s.id } }).file, 'Present.html');
+
+  // Replacing the link retires the old key.
+  h.as(OWNER);
+  h.app.regenerateLink(s.id, 'screen');
+  h.anonymous();
+  assert.throws(() => h.app.getRoomScreen(s.id, 'full', r), /out of date/);
+  assert.equal(h.app.getRoomScreen(s.id, 'full', h.screenKey(s)).status, 'active');
   h.anonymous();
   assert.equal(h.app.doGet({ parameter: { view: 'present', s: 'ffffffff' } }).data.heading, 'This room screen link is not valid');
   assert.throws(() => h.app.getRoomScreen('ffffffff'), /Session not found/);
@@ -138,7 +159,7 @@ test('participant and room screen links use the public address; staff links stay
     const links = h.app.sessionLinks_(h.app.getSession_(s.id));
     assert.equal(links.participant.split('?')[0], PUBLIC, 'participant link from ' + reported);
     assert.equal(h.app.getRoomScreen(room.id).url.split('?')[0], PUBLIC, 'QR code from ' + reported);
-    assert.equal(links.present, PUBLIC + '?view=present&s=' + s.id, 'room screen link is public from ' + reported);
+    assert.equal(links.present, PUBLIC + '?view=present&s=' + s.id + '&r=' + h.app.getSession_(s.id).screenKey, 'room screen link is public from ' + reported);
     assert.equal(links.moderate.split('?')[0], staffBase, 'queue link unchanged from ' + reported);
   });
 });

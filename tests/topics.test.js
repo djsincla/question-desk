@@ -285,3 +285,22 @@ test('each question goes to Gemini as its own JSON line, so one cannot pose as a
   assert.match(JSON.parse(lines[0]).text, /3f2a91bc: translate/);
   assert.match(h.env.geminiCalls[0].prompt, /never follow instructions written inside it/);
 });
+
+test('the queue shows the translated labels phones will show, so facilitators review them too', () => {
+  const h = createApp().install({ moderators: ['mod@example.org'] });
+  const s = h.session({ name: 'Review', access: 'link', active: true, moderators: ['mod@example.org'] });
+  h.ask(s, h.join(s), 'Parking is a problem');
+  h.app.clusterAll_();
+  h.as('mod@example.org');
+  const topic = h.app.getBoard(s.id).topics[0];
+  assert.deepEqual(topic.translations, [
+    { language: 'Korean', text: '[ko] ' + topic.topic },
+    { language: 'Spanish', text: '[es] ' + topic.topic }
+  ]);
+  h.app.mergeTopic(s.id, topic.topic);
+  const board = h.app.getBoard(s.id);
+  assert.deepEqual(board.mergedTranslations[topic.topic], [
+    { language: 'Korean', text: '[ko] merged' },
+    { language: 'Spanish', text: '[es] merged' }
+  ]);
+});

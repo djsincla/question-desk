@@ -69,7 +69,7 @@ for (const [engineName] of ENGINES) {
   for (const layout of ['full', 'qr']) {
     for (const [w, h] of ROOM_SIZES) {
       test(`${engineName}: room screen (${layout}) at ${w}x${h} shows one QR code, fully visible, nothing overlapping`, async () => {
-        const url = '/?view=present&s=' + ctx.live.id + (layout === 'qr' ? '&layout=qr' : '');
+        const url = '/?view=present&s=' + ctx.live.id + '&r=' + ctx.h.screenKey(ctx.live) + (layout === 'qr' ? '&layout=qr' : '');
         const { page, context, errors } = await open(engineName, url, { viewport: { width: w, height: h } });
         try {
           await page.waitForSelector('#code svg, #code img, #code canvas', { state: 'attached', timeout: 15000 });
@@ -105,7 +105,7 @@ for (const [engineName] of ENGINES) {
   }
 
   test(`${engineName}: room screen clock ticks and shows when the code last updated`, async () => {
-    const { page, context } = await open(engineName, '/?view=present&s=' + ctx.live.id, { viewport: { width: 1280, height: 720 } });
+    const { page, context } = await open(engineName, '/?view=present&s=' + ctx.live.id + '&r=' + ctx.h.screenKey(ctx.live), { viewport: { width: 1280, height: 720 } });
     try {
       await page.waitForSelector('#code svg, #code img, #code canvas', { state: 'attached', timeout: 15000 });
       await page.waitForFunction(() => /code updated/.test(document.getElementById('clock').textContent), null, { timeout: 15000 });

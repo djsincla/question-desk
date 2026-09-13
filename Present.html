@@ -362,7 +362,7 @@
       if (id !== requestId) return;
       statusLine.textContent = 'Lost connection — retrying';
       schedule(15);
-    }).getRoomScreen(BOOT.sid, BOOT.layout);
+    }).getRoomScreen(BOOT.sid, BOOT.layout, BOOT.key);
   }
 
   function clockText(ms) {
