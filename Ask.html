@@ -96,6 +96,16 @@
   .sent h2 { font-size: 0.95rem; font-weight: 600; margin: 0 0 10px; color: var(--muted); }
   .sent li { margin-bottom: 10px; color: var(--muted); }
   ul { padding-left: 20px; margin: 0; }
+
+  /* Screen-reader-only text. */
+  .sr { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .langs { flex-wrap: wrap; }
+  .langs button.size { margin-left: auto; font-weight: 700; }
+  /* Larger text for anyone who wants it, remembered on this phone. */
+  html.big body { font-size: 21px; }
+  html.big .langs button, html.big .topics button.metoo { font-size: 1rem; }
+  .sent li.done { color: var(--ink); }
+  .sent .tick { display: inline-block; margin-left: 8px; font-size: 0.78rem; font-weight: 600; color: var(--action); background: var(--action-soft); border-radius: 999px; padding: 1px 8px; }
 </style>
 </head>
 <body>
@@ -109,21 +119,22 @@
   <button type="button" data-lang="en" lang="en">English</button>
   <button type="button" data-lang="ko" lang="ko">한국어</button>
   <button type="button" data-lang="es" lang="es">Español</button>
+  <button type="button" id="bigText" class="size" aria-pressed="false" title="Larger text"><span aria-hidden="true">A+</span><span class="sr" id="bigTextLabel">Larger text</span></button>
 </nav>
 
-<div class="now" id="now" hidden><small id="nowTag">Now answering</small><strong id="nowText"></strong><span id="nowMerged" hidden></span></div>
+<div class="now" id="now" hidden role="status" aria-live="polite"><small id="nowTag">Now answering</small><strong id="nowText"></strong><span id="nowMerged" hidden></span></div>
 
 <h1 id="heading">Questions for the panel</h1>
 <p class="sub" id="sub">Your question goes to the facilitator. Your name is not attached.</p>
 <p class="welcome" id="welcome" hidden></p>
 
-<label for="q" class="visually-hidden" style="position:absolute;left:-9999px">Your question</label>
+<label for="q" class="sr" id="qLabel">Your question</label>
 <textarea id="q" placeholder="What would you like to ask?" maxlength="400"></textarea>
 <div class="meter" id="meter">0 / 300</div>
 
 <button id="send" disabled>Send question</button>
 
-<div class="note" id="note" hidden><p id="noteText"></p></div>
+<div class="note" id="note" hidden role="status" aria-live="polite"><p id="noteText"></p></div>
 
 <div class="sent" id="sent" hidden>
   <h2 id="sentHeading">You have asked</h2>
@@ -170,7 +181,12 @@
       meToo: 'Me too',
       people: '{n} people',
       person: '1 person',
-      answered: 'Answered'
+      answered: 'Answered',
+      answeredYou: 'Answered',
+      answeredNote: 'The facilitator marked a question you asked as answered.',
+      textSize: 'Larger text',
+      questionLabel: 'Your question',
+      langLabel: 'Language'
     },
     ko: {
       sub: '질문은 진행자에게 전달됩니다. 이름은 표시되지 않습니다.',
@@ -202,7 +218,12 @@
       meToo: '저도요',
       people: '{n}명',
       person: '1명',
-      answered: '답변 완료'
+      answered: '답변 완료',
+      answeredYou: '답변 완료',
+      answeredNote: '진행자가 보내신 질문을 답변 완료로 표시했습니다.',
+      textSize: '글자 크게',
+      questionLabel: '질문',
+      langLabel: '언어'
     },
     es: {
       sub: 'Tu pregunta llega al moderador. Tu nombre no se adjunta.',
@@ -234,7 +255,164 @@
       meToo: 'Yo también',
       people: '{n} personas',
       person: '1 persona',
-      answered: 'Respondida'
+      answered: 'Respondida',
+      answeredYou: 'Respondida',
+      answeredNote: 'El moderador marcó como respondida una pregunta que enviaste.',
+      textSize: 'Texto más grande',
+      questionLabel: 'Tu pregunta',
+      langLabel: 'Idioma'
+    },
+    zh: {
+      sub: '您的问题会发送给主持人，不会显示您的姓名。',
+      placeholder: '您想问什么？',
+      send: '发送问题',
+      sending: '正在发送…',
+      sent: '已发送，主持人已收到。',
+      cooldown: '您在几分钟前已经提过问题了。',
+      again: '现在可以再提一个问题。',
+      nextIn: '下一个问题倒计时 ',
+      expiredBtn: '请重新扫描二维码',
+      expired: '此链接已过期。请扫描会场屏幕上的二维码。',
+      linkExpiredBtn: '链接已过期',
+      linkExpired: '此链接已失效。请向主办方索取新链接。',
+      notFound: '此链接无效。请扫描会场屏幕上的二维码。',
+      inactiveBtn: '目前不接受提问',
+      inactive: '本场目前不接受提问，请稍后再试。',
+      endedBtn: '本场已结束',
+      ended: '本场已结束。感谢您的提问。',
+      closedBtn: '提问已关闭',
+      closed: '主持人已关闭提问。',
+      busy: '同时收到的问题很多，请稍后再试。',
+      short: '有点短，请再多写几个字。',
+      long: '太长了，请删减到 {n} 个字符以内。',
+      failed: '发送失败。请检查网络连接后重试。',
+      youAsked: '您提过的问题',
+      nowAnswering: '正在回答',
+      topicsHeading: '大家在问的话题',
+      topicsHint: '如果您也想听到回答，请点“我也想问”。',
+      meToo: '我也想问',
+      people: '{n} 人',
+      person: '1 人',
+      answered: '已回答',
+      answeredYou: '已回答',
+      answeredNote: '主持人已将您提出的一个问题标记为已回答。',
+      textSize: '放大字体',
+      questionLabel: '您的问题',
+      langLabel: '语言'
+    },
+    vi: {
+      sub: 'Câu hỏi của bạn được gửi đến người điều phối. Tên của bạn không được đính kèm.',
+      placeholder: 'Bạn muốn hỏi gì?',
+      send: 'Gửi câu hỏi',
+      sending: 'Đang gửi…',
+      sent: 'Đã gửi. Người điều phối đã nhận được.',
+      cooldown: 'Bạn vừa gửi một câu hỏi cách đây vài phút.',
+      again: 'Bây giờ bạn có thể hỏi thêm một câu.',
+      nextIn: 'Câu hỏi tiếp theo sau ',
+      expiredBtn: 'Quét lại mã',
+      expired: 'Liên kết này đã hết hạn. Hãy quét mã trên màn hình trong phòng.',
+      linkExpiredBtn: 'Liên kết đã hết hạn',
+      linkExpired: 'Liên kết này không còn hiệu lực. Hãy xin ban tổ chức liên kết mới.',
+      notFound: 'Liên kết này không hợp lệ. Hãy quét mã trên màn hình trong phòng.',
+      inactiveBtn: 'Hiện chưa nhận câu hỏi',
+      inactive: 'Phiên này hiện chưa nhận câu hỏi. Vui lòng thử lại sau ít phút.',
+      endedBtn: 'Phiên đã kết thúc',
+      ended: 'Phiên này đã kết thúc. Cảm ơn các câu hỏi của bạn.',
+      closedBtn: 'Đã ngừng nhận câu hỏi',
+      closed: 'Người điều phối đã ngừng nhận câu hỏi.',
+      busy: 'Có nhiều câu hỏi đến cùng lúc. Vui lòng thử lại sau giây lát.',
+      short: 'Hơi ngắn — hãy viết thêm vài từ.',
+      long: 'Quá dài. Hãy rút gọn còn {n} ký tự.',
+      failed: 'Chưa gửi được. Hãy kiểm tra kết nối và thử lại.',
+      youAsked: 'Bạn đã hỏi',
+      nowAnswering: 'Đang trả lời',
+      topicsHeading: 'Mọi người đang hỏi về',
+      topicsHint: 'Chạm “Tôi cũng vậy” vào chủ đề bạn cũng muốn được trả lời.',
+      meToo: 'Tôi cũng vậy',
+      people: '{n} người',
+      person: '1 người',
+      answered: 'Đã trả lời',
+      answeredYou: 'Đã trả lời',
+      answeredNote: 'Người điều phối đã đánh dấu một câu hỏi của bạn là đã trả lời.',
+      textSize: 'Chữ lớn hơn',
+      questionLabel: 'Câu hỏi của bạn',
+      langLabel: 'Ngôn ngữ'
+    },
+    tl: {
+      sub: 'Ang iyong tanong ay ipinapadala sa facilitator. Hindi isinasama ang iyong pangalan.',
+      placeholder: 'Ano ang nais mong itanong?',
+      send: 'Ipadala ang tanong',
+      sending: 'Ipinapadala…',
+      sent: 'Naipadala. Natanggap ito ng facilitator.',
+      cooldown: 'Nagpadala ka na ng tanong ilang minuto ang nakalipas.',
+      again: 'Maaari kang magtanong muli.',
+      nextIn: 'Susunod na tanong sa ',
+      expiredBtn: 'I-scan muli ang code',
+      expired: 'Nag-expire ang link na ito. I-scan ang code sa screen sa silid.',
+      linkExpiredBtn: 'Nag-expire ang link',
+      linkExpired: 'Hindi na wasto ang link na ito. Humingi ng bagong link sa organizer.',
+      notFound: 'Hindi wasto ang link na ito. I-scan ang code sa screen sa silid.',
+      inactiveBtn: 'Hindi tumatanggap ng tanong ngayon',
+      inactive: 'Hindi tumatanggap ng tanong ang session na ito ngayon. Subukang muli mamaya.',
+      endedBtn: 'Tapos na ang session',
+      ended: 'Tapos na ang session na ito. Salamat sa inyong mga tanong.',
+      closedBtn: 'Sarado ang pagtatanong',
+      closed: 'Isinara ng facilitator ang pagpapadala ng tanong.',
+      busy: 'Maraming tanong ang dumarating sabay-sabay. Subukang muli sandali.',
+      short: 'Maikli nang kaunti — magdagdag ng ilang salita.',
+      long: 'Masyadong mahaba. Paikliin sa {n} na character.',
+      failed: 'Hindi naipadala. Suriin ang koneksyon at subukang muli.',
+      youAsked: 'Iyong mga tanong',
+      nowAnswering: 'Kasalukuyang sinasagot',
+      topicsHeading: 'Mga paksang itinatanong',
+      topicsHint: 'I-tap ang \'Ako rin\' sa paksang nais mong sagutin din.',
+      meToo: 'Ako rin',
+      people: '{n} katao',
+      person: '1 katao',
+      answered: 'Nasagot',
+      answeredYou: 'Nasagot',
+      answeredNote: 'Minarkahan ng facilitator na nasagot ang isa sa iyong mga tanong.',
+      textSize: 'Mas malaking titik',
+      questionLabel: 'Iyong tanong',
+      langLabel: 'Wika'
+    },
+    hy: {
+      sub: 'Ձեր հարցը կուղարկվի վարողին։ Ձեր անունը չի նշվի։',
+      placeholder: 'Ի՞նչ կցանկանայիք հարցնել',
+      send: 'Ուղարկել հարցը',
+      sending: 'Ուղարկվում է…',
+      sent: 'Ուղարկված է։ Վարողը ստացել է։',
+      cooldown: 'Դուք արդեն հարց եք ուղարկել մի քանի րոպե առաջ։',
+      again: 'Այժմ կարող եք ևս մեկ հարց տալ։',
+      nextIn: 'Հաջորդ հարցը՝ ',
+      expiredBtn: 'Կրկին սկանավորեք կոդը',
+      expired: 'Այս հղման ժամկետն անցել է։ Սկանավորեք դահլիճի էկրանի կոդը։',
+      linkExpiredBtn: 'Հղման ժամկետն անցել է',
+      linkExpired: 'Այս հղումն այլևս վավեր չէ։ Խնդրեք կազմակերպչից նոր հղում։',
+      notFound: 'Այս հղումը վավեր չէ։ Սկանավորեք դահլիճի էկրանի կոդը։',
+      inactiveBtn: 'Հարցեր հիմա չեն ընդունվում',
+      inactive: 'Այս նիստը հիմա հարցեր չի ընդունում։ Փորձեք մի փոքր ուշ։',
+      endedBtn: 'Նիստն ավարտվել է',
+      ended: 'Այս նիստն ավարտվել է։ Շնորհակալություն ձեր հարցերի համար։',
+      closedBtn: 'Հարցերի ընդունումը փակ է',
+      closed: 'Վարողը փակել է հարցերի ընդունումը։',
+      busy: 'Միաժամանակ շատ հարցեր են գալիս։ Փորձեք մի պահ անց։',
+      short: 'Մի փոքր կարճ է․ ավելացրեք մի քանի բառ։',
+      long: 'Չափազանց երկար է։ Կրճատեք մինչև {n} նիշ։',
+      failed: 'Չուղարկվեց։ Ստուգեք կապը և նորից փորձեք։',
+      youAsked: 'Ձեր հարցերը',
+      nowAnswering: 'Այժմ պատասխանվում է',
+      topicsHeading: 'Ինչի մասին են հարցնում',
+      topicsHint: 'Սեղմեք «Ես էլ» այն թեմայի վրա, որի պատասխանն էլ եք ուզում լսել։',
+      meToo: 'Ես էլ',
+      people: '{n} մարդ',
+      person: '1 մարդ',
+      answered: 'Պատասխանված է',
+      answeredYou: 'Պատասխանված է',
+      answeredNote: 'Վարողը ձեր հարցերից մեկը նշել է որպես պատասխանված։',
+      textSize: 'Ավելի մեծ տառեր',
+      questionLabel: 'Ձեր հարցը',
+      langLabel: 'Լեզու'
     }
   };
 
@@ -251,6 +429,11 @@
     document.documentElement.lang = lang;
 
     document.getElementById('sub').textContent = T('sub');
+    document.getElementById('qLabel').textContent = T('questionLabel');
+    document.getElementById('bigTextLabel').textContent = T('textSize');
+    document.getElementById('bigText').title = T('textSize');
+    document.getElementById('langs').setAttribute('aria-label', T('langLabel'));
+    if (typeof renderSent === 'function') renderSent();
     document.getElementById('q').placeholder = T('placeholder');
     document.getElementById('sentHeading').textContent = T('youAsked');
     document.getElementById('topicsHeading').textContent = T('topicsHeading');
@@ -262,7 +445,7 @@
     if (typeof stopped !== 'undefined' && stopped) refuse(stopped);
     else if (typeof noteKey !== 'undefined' && noteKey && !note.hidden) sayKey(noteKey, noteTone);
 
-    var buttons = document.querySelectorAll('.langs button');
+    var buttons = document.querySelectorAll('.langs button[data-lang]');
     for (var i = 0; i < buttons.length; i++) {
       buttons[i].setAttribute('aria-pressed', buttons[i].dataset.lang === lang);
     }
@@ -412,7 +595,7 @@
     google.script.run
       .withSuccessHandler(function (res) {
         if (res.ok) {
-          addSent(text);
+          addSent(text, res.id);
           sayKey('sent', 'good');
           if (res.cooldownSeconds > 0) {
             countdown(res.cooldownSeconds, true);
@@ -444,12 +627,45 @@
       .submitQuestion(sid, deviceId, text, credential);
   });
 
-  function addSent(text) {
-    var box = document.getElementById('sent');
-    var li = document.createElement('li');
-    li.textContent = text;
-    document.getElementById('sentList').appendChild(li);
-    box.hidden = false;
+  // Questions this phone sent, kept on the phone so "Answered" can show next to them.
+  var SENT_KEY = 'qd.sent.' + sid;
+  var sentItems = [];
+  try { sentItems = JSON.parse(localStorage.getItem(SENT_KEY) || '[]') || []; } catch (e) { sentItems = []; }
+  var answeredIds = {};
+
+  function renderSent() {
+    var list = document.getElementById('sentList');
+    list.innerHTML = '';
+    sentItems.forEach(function (item) {
+      var li = document.createElement('li');
+      li.textContent = item.text;
+      if (answeredIds[item.id]) {
+        li.className = 'done';
+        var tick = document.createElement('span');
+        tick.className = 'tick';
+        tick.textContent = '✓ ' + T('answeredYou');
+        li.appendChild(tick);
+      }
+      list.appendChild(li);
+    });
+    document.getElementById('sent').hidden = !sentItems.length;
+  }
+
+  function addSent(text, id) {
+    sentItems.push({ id: id || '', text: text });
+    try { localStorage.setItem(SENT_KEY, JSON.stringify(sentItems.slice(-20))); } catch (e) {}
+    renderSent();
+  }
+
+  function markAnswered(ids) {
+    var fresh = false;
+    (ids || []).forEach(function (id) {
+      if (answeredIds[id]) return;
+      answeredIds[id] = true;
+      if (sentItems.some(function (item) { return item.id === id; })) fresh = true;
+    });
+    renderSent();
+    if (fresh && !stopped && !ticker) sayKey('answeredNote', 'good');
   }
 
   function applyBrand() {
@@ -552,6 +768,7 @@
       if (!res.ok) return;
       syncCooldown(res.cooldownRemaining);
       followSession(res.status, res.open);
+      markAnswered(res.mineAnswered);
       // Read before a Me too tap landed: showing it would undo the tap on screen.
       if (seqAtStart !== voteSeq) return;
       renderTopics(res);
@@ -581,14 +798,44 @@
   (function start() {
     applyBrand();
 
+    // The session's languages (its event's choice), in its order; English is always first.
+    var offered = (BOOT.languages && BOOT.languages.length ? BOOT.languages : [{ code: 'en', native: 'English' }])
+      .filter(function (l) { return STRINGS[l.code]; });
+    var nav = document.getElementById('langs');
+    var existing = nav.querySelectorAll('button[data-lang]');
+    for (var ei = 0; ei < existing.length; ei++) nav.removeChild(existing[ei]);
+    offered.forEach(function (l) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.setAttribute('data-lang', l.code);
+      b.setAttribute('lang', l.code);
+      b.textContent = l.native;
+      nav.insertBefore(b, document.getElementById('bigText'));
+    });
+    var codes = offered.map(function (l) { return l.code; });
     var saved = null;
     try { saved = localStorage.getItem(LANG_KEY); } catch (e) {}
-    setLang(saved || (navigator.language || 'en').slice(0, 2));
+    var phone = (navigator.language || 'en').slice(0, 2).toLowerCase();
+    if (phone === 'fil') phone = 'tl';
+    setLang(codes.indexOf(saved) !== -1 ? saved : codes.indexOf(phone) !== -1 ? phone : 'en');
 
-    document.getElementById('langs').addEventListener('click', function (e) {
+    nav.addEventListener('click', function (e) {
       var button = e.target.closest('button[data-lang]');
       if (button) setLang(button.dataset.lang);
     });
+
+    var big = false;
+    try { big = localStorage.getItem('qd.bigText') === '1'; } catch (e) {}
+    function applyBig() {
+      document.documentElement.classList.toggle('big', big);
+      document.getElementById('bigText').setAttribute('aria-pressed', big ? 'true' : 'false');
+    }
+    applyBig();
+    document.getElementById('bigText').onclick = function () {
+      big = !big;
+      try { localStorage.setItem('qd.bigText', big ? '1' : '0'); } catch (e) {}
+      applyBig();
+    };
 
     if (!sid) { refuse('notFound'); return; }
 

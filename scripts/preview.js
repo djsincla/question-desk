@@ -36,17 +36,18 @@ const QUESTIONS = [
 ];
 
 const LABELS = {
-  'Respite care hours': { ko: '휴식 돌봄 시간', es: 'Horas de cuidado de respiro' },
-  'IEP and school support': { ko: 'IEP 및 학교 지원', es: 'IEP y apoyo escolar' },
-  'Evaluation waitlists': { ko: '평가 대기자 명단', es: 'Listas de espera para evaluación' },
-  'Sensory-friendly events': { ko: '감각 친화적 행사', es: 'Eventos sensorialmente amigables' }
+  'Respite care hours': { ko: '휴식 돌봄 시간', es: 'Horas de cuidado de respiro', zh: '喘息照护时数' },
+  'IEP and school support': { ko: 'IEP 및 학교 지원', es: 'IEP y apoyo escolar', zh: 'IEP 与学校支持' },
+  'Evaluation waitlists': { ko: '평가 대기자 명단', es: 'Listas de espera para evaluación', zh: '评估候补名单' },
+  'Sensory-friendly events': { ko: '감각 친화적 행사', es: 'Eventos sensorialmente amigables', zh: '感官友好活动' }
 };
 
 const MERGED = {
   question: 'Will respite care hours be cut next year, and how will families be consulted before hours are assigned or changed?',
   translations: {
     ko: '내년에 휴식 돌봄 시간이 줄어드나요? 시간을 배정하거나 변경하기 전에 가족의 의견을 어떻게 들을 건가요?',
-    es: '¿Se reducirán las horas de respiro el próximo año y cómo se consultará a las familias antes de asignar o cambiar las horas?'
+    es: '¿Se reducirán las horas de respiro el próximo año y cómo se consultará a las familias antes de asignar o cambiar las horas?',
+    zh: '明年喘息照护时数会减少吗？在分配或调整时数之前，会如何征求家庭的意见？'
   }
 };
 
@@ -93,7 +94,8 @@ function buildDemo() {
   const hour = 3600 * 1000;
   const mods = ['maria@example.org', 'jin@example.org'];
 
-  const conference = h.app.saveEvent({ name: 'Fall Family Conference 2026', welcome: 'Welcome to the Fall Family Conference.' }).savedEventId;
+  // Four languages: the most an event can have, so page layouts are tested at their fullest.
+  const conference = h.app.saveEvent({ name: 'Fall Family Conference 2026', welcome: 'Welcome to the Fall Family Conference.', languages: ['ko', 'es', 'zh'] }).savedEventId;
   const partner = h.app.saveEvent({ name: 'Valley School District Partner Night', orgName: 'Valley School District', accent: '#1f6fb2' }).savedEventId;
 
   const ended = h.session({ name: 'Spring Town Hall', access: 'room', active: true, moderators: mods, emailOnEnd: true });

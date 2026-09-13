@@ -17,7 +17,7 @@
 
 /** Bump with every release; scripts/ship.sh tags git and publishes release notes from CHANGELOG.md. */
 const APP = {
-  version: '2.11.1',
+  version: '2.12.0',
   repo: 'https://github.com/djsincla/question-desk'
 };
 
@@ -32,7 +32,20 @@ const CONFIG = {
   model: 'gemini-3.5-flash',      // gemini-3.1-flash-lite is cheaper if cost matters
   moderatorLanguage: 'English',   // topic labels, translations and merged questions are written in this
   // Languages participants read topic labels and "Now answering" in. Codes match Ask.html.
-  displayLanguages: { en: 'English', ko: 'Korean', es: 'Spanish' },
+  // Every language the participant page and room screen can show. An event picks up to
+  // maxLanguages of these (English always included); others use the site default.
+  languages: {
+    en: { name: 'English', native: 'English' },
+    ko: { name: 'Korean', native: '한국어' },
+    es: { name: 'Spanish', native: 'Español' },
+    zh: { name: 'Chinese (Simplified)', native: '中文' },
+    vi: { name: 'Vietnamese', native: 'Tiếng Việt' },
+    tl: { name: 'Tagalog', native: 'Tagalog' },
+    hy: { name: 'Armenian', native: 'Հայերեն' }
+  },
+  defaultLanguages: ['en', 'ko', 'es'],
+  maxLanguages: 4,
+  displayLanguages: { en: 'English', ko: 'Korean', es: 'Spanish' },   // the default set by name (older code and tests)
   defaultMaxLength: 300,          // per session, admin can change
   maxLengthCeiling: 1024,         // no session may allow more than this
   cooldownSeconds: 300,           // default wait between questions per phone; each session can change it
@@ -90,7 +103,8 @@ function doGet(e) {
     if (screen && (screenKeyValid_(screen, p.r) || canModerate_(screen, currentEmail_()))) {
       // layout=qr is the compact QR-only view used by the PowerPoint add-in (docs/addin).
       return page_('Present.html', screen.name, {
-        sid: screen.id, key: screenKeyFor_(screen), theme: screen.theme, layout: p.layout === 'qr' ? 'qr' : 'full'
+        sid: screen.id, key: screenKeyFor_(screen), theme: screen.theme, layout: p.layout === 'qr' ? 'qr' : 'full',
+        languages: languagesFor_(screen)
       }, screen);
     }
     if (screen) return notice_('oldScreenLink');
@@ -124,7 +138,8 @@ function doGet(e) {
   const session = getSession_(sid);
   return page_('Ask.html', 'Ask a question', {
     sid: session ? session.id : '',
-    credential: String(p.t || p.k || '').slice(0, 64)
+    credential: String(p.t || p.k || '').slice(0, 64),
+    languages: languageList_(session)
   }, session);
 }
 
@@ -160,6 +175,7 @@ function home_() {
   const base = baseUrl_();
   const orgName = brand_(null).orgName;
   return page_('Home.html', orgName ? orgName + ' — Question Desk' : 'Question Desk', {
+    languages: siteLanguages_(),
     version: APP.version,   // public anyway (GitHub releases); lets the live check confirm the deploy
     signedIn: !!email,
     staff: staff,
@@ -262,6 +278,8 @@ function saveEvent(input) {
     if (v && !HEX_RE.test(v)) throw new Error(label + ' must be a color like #1b5e5a.');
     return v.toLowerCase();
   };
+  const languages = input.languages === undefined || input.languages === null || (Array.isArray(input.languages) && !input.languages.length)
+    ? null : cleanLanguages_(input.languages);
   const brand = {
     orgName: cleanText_(input.orgName, 80),
     accent: color(input.accent, 'The accent'),
@@ -277,16 +295,19 @@ function saveEvent(input) {
       if (!ev) throw new Error('Event not found.');
       ev.name = name;
       ev.brand = brand;
+      if (input.languages !== undefined) ev.languages = languages;   // null: use the site's
       saveEvent_(ev);
       audit_('Event edited', { id: ev.id, eventName: name }, '');
     } else {
       const orders = allEvents_().map(function (e) { return typeof e.order === 'number' ? e.order : 0; });
       id = newId_(8);
-      saveEvent_({ id: id, name: name, brand: brand, hasLogo: false, created: Date.now(), createdBy: me,
+      saveEvent_({ id: id, name: name, brand: brand, languages: languages, hasLogo: false, created: Date.now(), createdBy: me,
                    order: orders.length ? Math.min.apply(null, orders) - 1 : 0 });
       audit_('Event created', { id: id, eventName: name }, '');
     }
   });
+  // Phones cache topic labels per session: languages may have changed.
+  allSessions_().forEach(function (x) { if (x.eventId === id) invalidateTopics_(x.id); });
   const state = adminState();
   state.savedEventId = id;
   return state;
@@ -442,7 +463,7 @@ const SESSION_CSV = [
   ['Session', 'name'],
   ['Heading participants see', 'heading'],
   ['How people join (room or link)', 'access'],
-  ['Room screen theme (dark or light)', 'theme'],
+  ['Room screen theme (dark, light or contrast)', 'theme'],
   ['Seconds between questions', 'cooldownSeconds'],
   ['Longest question (characters)', 'maxLength'],
   ['Email summary when ended (yes or no)', 'emailOnEnd'],
@@ -620,7 +641,7 @@ function importSessionsCsv(text, options, dryRun) {
       }
       if (has('theme')) {
         const t = get.theme.trim().toLowerCase();
-        if (t && t !== 'dark' && t !== 'light') throw new Error('Theme should be dark or light, not "' + get.theme + '".');
+        if (t && t !== 'dark' && t !== 'light' && t !== 'contrast') throw new Error('Theme should be dark, light or contrast, not "' + get.theme + '".');
         if (t) input.theme = t;
       }
       if (has('cooldownSeconds') && get.cooldownSeconds.trim() !== '') input.cooldownSeconds = get.cooldownSeconds.trim();
@@ -1218,8 +1239,11 @@ function getTopics(sid, deviceId) {
   const base = publicTopicsCached_(session);
   const votes = votesFor_(sid);
   const mine = myVotes_(sid, deviceId);
+  // This phone's own questions a facilitator marked answered (never anyone else's).
+  const mineAnswered = (base.answeredByDevice || {})[String(deviceId)] || [];
   return {
     ok: true,
+    mineAnswered: mineAnswered,
     status: session.status,
     open: session.open !== false,
     cooldownRemaining: cooldownRemaining_(session, deviceId),
@@ -1290,6 +1314,14 @@ function publicTopicsCached_(session) {
   const hit = cache.get(key);
   if (hit) return JSON.parse(hit);
   const fresh = publicTopics_(session);
+  // Which devices' questions are answered rides along, so phones can show "Answered" on
+  // their own questions without a sheet read per poll. Only ever handed back per device.
+  fresh.answeredByDevice = {};
+  questionValues_().slice(1).forEach(function (r) {
+    if (String(r[COLS.session - 1]) !== session.id || r[COLS.status - 1] !== 'answered') return;
+    const d = String(r[COLS.device - 1]);
+    (fresh.answeredByDevice[d] = fresh.answeredByDevice[d] || []).push(String(r[COLS.id - 1]));
+  });
   cache.put(key, JSON.stringify(fresh), CONFIG.topicCacheSeconds);
   return fresh;
 }
@@ -1313,7 +1345,7 @@ function publicTopics_(session) {
     topics: Object.keys(groups).map(function (topic) {
       return {
         topic: topic,
-        labels: displayLabels_(topic, records[topic] && records[topic].labels),
+        labels: displayLabels_(topic, records[topic] && records[topic].labels, session),
         questions: groups[topic].questions,
         answered: groups[topic].answered === groups[topic].questions
       };
@@ -1321,30 +1353,64 @@ function publicTopics_(session) {
   };
 }
 
-/** Label in every display language, falling back to the moderator-language label. */
-function displayLabels_(text, translations) {
+/** Label in each of the session's languages, falling back to the moderator-language label. */
+function displayLabels_(text, translations, session) {
   const out = {};
   translations = translations || {};
-  Object.keys(CONFIG.displayLanguages).forEach(function (code) {
-    out[code] = CONFIG.displayLanguages[code] === CONFIG.moderatorLanguage
-      ? text
-      : (translations[code] || text);
+  languagesFor_(session).forEach(function (code) {
+    out[code] = languageName_(code) === CONFIG.moderatorLanguage ? text : (translations[code] || text);
   });
   return out;
 }
 
-/** [{ language: 'Korean', text }] for each display language that has its own translation. */
-function translationList_(labels) {
-  labels = labels || {};
-  return translationCodes_()
-    .filter(function (code) { return labels[code]; })
-    .map(function (code) { return { language: CONFIG.displayLanguages[code], text: String(labels[code]) }; });
+function languageName_(code) {
+  return CONFIG.languages[code] ? CONFIG.languages[code].name : code;
 }
 
-function translationCodes_() {
-  return Object.keys(CONFIG.displayLanguages).filter(function (code) {
-    return CONFIG.displayLanguages[code] !== CONFIG.moderatorLanguage;
+/** Validated language codes: known, unique, English first, at most CONFIG.maxLanguages. */
+function cleanLanguages_(input) {
+  const list = (Array.isArray(input) ? input : String(input || '').split(/[\s,;]+/))
+    .map(function (c) { return String(c || '').trim().toLowerCase(); })
+    .filter(Boolean);
+  const out = ['en'];
+  list.forEach(function (c) {
+    if (!CONFIG.languages[c]) throw new Error('Unknown language: ' + c + '. Choose from ' + Object.keys(CONFIG.languages).join(', ') + '.');
+    if (out.indexOf(c) === -1) out.push(c);
   });
+  if (out.length > CONFIG.maxLanguages) throw new Error('Choose at most ' + CONFIG.maxLanguages + ' languages, including English, so the room screen stays readable.');
+  return out;
+}
+
+/** The site's default languages (Branding tab). */
+function siteLanguages_() {
+  const saved = JSON.parse(props_().getProperty('LANGUAGES') || 'null');
+  return saved && saved.length ? saved : CONFIG.defaultLanguages.slice();
+}
+
+/** A session's languages: its event's choice, or the site default. */
+function languagesFor_(session) {
+  const ev = session && session.eventId ? getEvent_(session.eventId) : null;
+  return ev && ev.languages && ev.languages.length ? ev.languages.slice() : siteLanguages_();
+}
+
+/** [{ code, name, native }] for a page's language buttons and text. */
+function languageList_(session) {
+  return languagesFor_(session).map(function (code) {
+    return { code: code, name: CONFIG.languages[code].name, native: CONFIG.languages[code].native };
+  });
+}
+
+/** [{ language: 'Korean', text }] for each display language that has its own translation. */
+function translationList_(labels, session) {
+  labels = labels || {};
+  return translationCodes_(session)
+    .filter(function (code) { return labels[code]; })
+    .map(function (code) { return { language: languageName_(code), text: String(labels[code]) }; });
+}
+
+/** The session's languages other than the moderator's, which Gemini translates labels into. */
+function translationCodes_(session) {
+  return languagesFor_(session).filter(function (code) { return languageName_(code) !== CONFIG.moderatorLanguage; });
 }
 
 function nowAnsweringView_(session, records) {
@@ -1353,8 +1419,8 @@ function nowAnsweringView_(session, records) {
   const rec = records[now.topic] || {};
   return {
     topic: now.topic,
-    labels: displayLabels_(now.topic, rec.labels),
-    merged: rec.merged ? displayLabels_(rec.merged, rec.mergedLabels) : null,
+    labels: displayLabels_(now.topic, rec.labels, session),
+    merged: rec.merged ? displayLabels_(rec.merged, rec.mergedLabels, session) : null,
     since: now.at || null
   };
 }
@@ -1436,7 +1502,7 @@ function getBoard(sid) {
       answered: list.every(function (q) { return q.status === 'answered'; }),
       shown: !!(records[name] && records[name].shown),
       // What phones and the room screen show in other languages, so it is reviewed too.
-      translations: translationList_(records[name] && records[name].labels)
+      translations: translationList_(records[name] && records[name].labels, session)
     };
   }).sort(function (a, b) {
     return (a.answered - b.answered) || (b.count + b.votes) - (a.count + a.votes);
@@ -1447,7 +1513,7 @@ function getBoard(sid) {
   Object.keys(records).forEach(function (t) {
     if (records[t].merged) {
       merged[t] = records[t].merged;
-      mergedTranslations[t] = translationList_(records[t].mergedLabels);
+      mergedTranslations[t] = translationList_(records[t].mergedLabels, session);
     }
   });
 
@@ -1609,6 +1675,9 @@ function adminState() {
       return out;
     }),
     events: allEvents_(),
+    languages: Object.keys(CONFIG.languages).map(function (code) { return { code: code, name: CONFIG.languages[code].name, native: CONFIG.languages[code].native }; }),
+    siteLanguages: siteLanguages_(),
+    maxLanguages: CONFIG.maxLanguages,
     archived: archivedSessions_(),
     brand: brand_(null),
     summaryDefaults: summaryDefaults_(),
@@ -1645,7 +1714,7 @@ function saveSessionAs_(input, me, dryRun) {
   const name = cleanText_(input.name, 80);
   if (!name) throw new Error('Give the session a name.');
   const access = input.access === 'link' ? 'link' : 'room';
-  const theme = input.theme === 'light' ? 'light' : 'dark';
+  const theme = input.theme === 'light' || input.theme === 'contrast' ? input.theme : 'dark';
   const maxLength = Math.round(Number(input.maxLength) || CONFIG.defaultMaxLength);
   if (maxLength < 50 || maxLength > CONFIG.maxLengthCeiling) {
     throw new Error('Question length must be between 50 and ' + CONFIG.maxLengthCeiling + ' characters.');
@@ -2070,6 +2139,16 @@ function summaryRecipients_(session) {
   if (setting.facilitators !== false) (session.moderators || []).forEach(add);
   (setting.extra || []).forEach(add);
   return list.slice(0, CONFIG.maxRecipients);
+}
+
+/** The languages sessions outside an event use (and any event that doesn't choose). */
+function saveSiteLanguages(codes) {
+  requireAdmin_();
+  const clean = cleanLanguages_(codes);
+  props_().setProperty('LANGUAGES', JSON.stringify(clean));
+  allSessions_().forEach(function (x) { invalidateTopics_(x.id); });
+  audit_('Site languages changed', null, clean.map(languageName_).join(', '));
+  return adminState();
 }
 
 function saveSummaryDefaults(input) {
@@ -2633,8 +2712,8 @@ function clusterSessionNow_(sid) {
   if (!pending.length) return 0;
 
   const lang = CONFIG.moderatorLanguage;
-  const codes = translationCodes_();
-  const names = codes.map(function (c) { return CONFIG.displayLanguages[c]; });
+  const codes = translationCodes_(getSession_(sid));
+  const names = codes.map(languageName_);
 
   const prompt = [
     'You are preparing audience questions from a live meeting for a facilitator.',
@@ -2738,7 +2817,7 @@ function clusterSessionNow_(sid) {
 
 function labelSchema_(field, codes) {
   const translations = { type: 'OBJECT', properties: {}, required: codes };
-  codes.forEach(function (c) { translations.properties[c] = { type: 'STRING', description: CONFIG.displayLanguages[c] }; });
+  codes.forEach(function (c) { translations.properties[c] = { type: 'STRING', description: languageName_(c) }; });
   const item = { type: 'OBJECT', properties: {}, required: [field, 'translations'] };
   item.properties[field] = { type: 'STRING' };
   item.properties.translations = translations;
@@ -2764,8 +2843,8 @@ function mergeTopic(sid, topic) {
 
   if (!rows.length) return { ok: false };
 
-  const codes = translationCodes_();
-  const names = codes.map(function (c) { return CONFIG.displayLanguages[c]; });
+  const codes = translationCodes_(getSession_(sid));
+  const names = codes.map(languageName_);
   const prompt = [
     'These audience questions were all asked about "' + topic + '", by people',
     'writing in different languages.',
@@ -2966,9 +3045,10 @@ function upsertTopics_(sid, updates, onlyMissingLabels) {
       if (u.shown !== undefined) sheet.getRange(row, 7).setValue(u.shown ? 'yes' : '');
       if (u.labels) {
         const current = parseJson_(values[row - 1][4]);
-        if (!onlyMissingLabels || !Object.keys(current).length) {
-          sheet.getRange(row, 5).setValue(JSON.stringify(u.labels));
-        }
+        // Existing wording stays put so phones don't flicker between runs; languages the
+        // label doesn't have yet (say, an event added Vietnamese) are filled in.
+        const next = onlyMissingLabels ? Object.assign({}, u.labels, current) : u.labels;
+        if (JSON.stringify(next) !== JSON.stringify(current)) sheet.getRange(row, 5).setValue(JSON.stringify(next));
       }
       if (u.merged !== undefined) {
         sheet.getRange(row, 3, 1, 2).setValues([[sheetSafe_(u.merged), new Date()]]);

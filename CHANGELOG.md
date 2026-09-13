@@ -4,6 +4,28 @@ All notable changes to Question Desk. Versions follow [Semantic Versioning](http
 Each release is tagged `vX.Y.Z` and published as a GitHub release by `scripts/ship.sh`,
 which reads the notes for that version from this file.
 
+## [2.12.0] - 2026-09-13
+
+### Added
+- **Languages per event.** Chinese (Simplified), Vietnamese, Tagalog and Armenian join
+  English, Korean and Spanish. **Branding → Languages** sets the site's languages; an event
+  can choose its own (up to four including English). The participant page's language
+  buttons, the room screen's instructions and "Now answering" lines, the landing page, and
+  Gemini's topic and merged-question translations all follow the session's languages.
+  Adding a language to an event later fills it in for existing topics on the next grouping
+  without changing wording phones already show. The new languages' page text should be
+  checked by a native speaker.
+- **"Answered" on your own phone.** When a facilitator marks a question answered, the phone
+  that asked it shows "✓ Answered" beside it and a short note. Only that phone learns it.
+  Questions you asked now stay listed on your phone after a reload.
+- **Larger text** button (A+) on the participant page, remembered on the phone.
+- **High-contrast room screen theme** (black, white and yellow) for low vision and
+  washed-out projectors; **T** on the room screen now cycles dark → light → high contrast.
+
+### Changed
+- Screen readers: the question box has a translated label, the language switcher is named,
+  and notes and "Now answering" are announced when they change.
+
 ## [2.11.1] - 2026-09-13
 
 ### Fixed
@@ -435,6 +457,7 @@ Fixes from a full code review.
 - "Merge into one question" for reading a topic aloud.
 - Participant page in English, Korean and Spanish.
 
+[2.12.0]: https://github.com/djsincla/question-desk/releases/tag/v2.12.0
 [2.11.1]: https://github.com/djsincla/question-desk/releases/tag/v2.11.1
 [2.11.0]: https://github.com/djsincla/question-desk/releases/tag/v2.11.0
 [2.10.0]: https://github.com/djsincla/question-desk/releases/tag/v2.10.0

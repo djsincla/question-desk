@@ -84,7 +84,8 @@ Regenerate with `node scripts/screenshots.js` (needs Google Chrome).
 - Prepared questions, per-session wait between questions, and drag-to-reorder sessions
 - [Guest page](docs/join/README.md) that avoids Google's multi-account error for Safari and Firefox
 - [PowerPoint add-in](docs/addin/README.md) that shows the live, rotating QR code on a slide (Windows, Mac, web)
-- Participant page in English, Korean and Spanish; translations never soften criticism
+- Participant page, room screen and topic labels in English, Korean, Spanish, Chinese, Vietnamese, Tagalog and Armenian, chosen per event; translations never soften criticism
+- Larger-text option for participants, a high-contrast room screen, and "Answered" shown on the asker's own phone
 
 ## Why it's built this way
 

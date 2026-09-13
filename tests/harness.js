@@ -417,11 +417,16 @@ function defaultGemini(call) {
     const topics = Array.from(new Set(assignments.map((a) => a.topic)));
     return {
       assignments,
-      labels: topics.map((topic) => ({ topic, translations: { ko: '[ko] ' + topic, es: '[es] ' + topic } }))
+      // Translate into whichever languages the request asks for (the session's languages).
+      labels: topics.map((topic) => {
+        const wanted = call.schema.properties.labels ? Object.keys(call.schema.properties.labels.items.properties.translations.properties) : [];
+        return { topic, translations: Object.fromEntries(wanted.map((c) => [c, '[' + c + '] ' + topic])) };
+      })
     };
   }
   if (call.schema.properties.question) {
-    return { question: 'What does everyone want to know?', translations: { ko: '[ko] merged', es: '[es] merged' } };
+    const wanted = call.schema.properties.translations ? Object.keys(call.schema.properties.translations.properties) : [];
+    return { question: 'What does everyone want to know?', translations: Object.fromEntries(wanted.map((c) => [c, '[' + c + '] merged'])) };
   }
   return { ok: true };
 }

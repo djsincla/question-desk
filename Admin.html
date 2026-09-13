@@ -131,6 +131,9 @@
   .import-table .skip { color: var(--muted); }
   .import-wrap { overflow-x: auto; }
   .error-text { color: var(--stop); }
+  .lang-grid { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 4px 0 12px; }
+  .lang-grid label { display: inline-flex; align-items: center; gap: 6px; }
+  .lang-grid .native { color: var(--muted); font-size: 0.85rem; }
   .activity-filters input[type=search], .activity-filters select { font: inherit; padding: 7px 9px; border: 1px solid var(--rule); border-radius: 4px; background: #fff; }
   .activity-filters input[type=search] { flex: 1 1 16rem; min-width: 0; }
   .activity-filters select { flex: 0 1 18rem; min-width: 0; }
@@ -210,6 +213,12 @@
       <div class="hint">Groups the sessions held at one event, such as a conference with several rooms.</div>
     </label>
     <fieldset>
+      <legend>Languages</legend>
+      <label class="choice"><input type="radio" name="evLangMode" value="site" checked><span>The site's languages<small id="ev-lang-site"></small></span></label>
+      <label class="choice"><input type="radio" name="evLangMode" value="custom"><span>Choose for this event<small>For example, add Vietnamese for a community partner. English is always included.</small></span></label>
+      <div class="lang-grid" id="ev-langs" hidden style="margin:6px 0 0 24px"></div>
+    </fieldset>
+    <fieldset>
       <legend>Event branding (optional)</legend>
       <div class="hint" style="margin:0 0 10px">Overrides the site branding for this event's sessions. Leave a field blank to use the site's. A session can still set its own name, color and logo.</div>
       <div class="row">
@@ -281,6 +290,7 @@
         <span class="field-label">Room screen theme</span>
         <label class="choice"><input type="radio" name="theme" value="dark" checked><span>Dark<small>Best for dim rooms and most projectors.</small></span></label>
         <label class="choice"><input type="radio" name="theme" value="light"><span>Light<small>Best for bright rooms and TVs.</small></span></label>
+        <label class="choice"><input type="radio" name="theme" value="contrast"><span>High contrast<small>Black, white and yellow, for low vision and washed-out projectors.</small></span></label>
       </div>
     </div>
 
@@ -415,6 +425,12 @@
 
 <!-- Branding & settings -->
 <section id="tab-branding" hidden>
+  <form class="panel" id="langForm">
+    <h2>Languages</h2>
+    <p class="hint" style="margin-top:0">Shown on participants' phones, the room screen and topic labels for sessions that aren't in an event (and events that don't choose their own). English is always included; choose up to <span id="langMax">3</span> more so the room screen stays readable. Questions can be asked in any language either way.</p>
+    <div class="lang-grid" id="siteLangs"></div>
+    <button type="submit" class="primary" id="saveLangs">Save languages</button>
+  </form>
   <div class="row">
     <form class="panel" id="brandForm">
       <h2>Branding</h2>
@@ -914,6 +930,7 @@
     var bits = [sessions.length + (sessions.length === 1 ? ' session' : ' sessions')];
     var active = sessions.filter(function (x) { return x.status === 'active'; }).length;
     if (active) bits.push(active + ' active');
+    if (ev.languages && ev.languages.length) bits.push(languageNames(ev.languages));
     if (b.orgName) bits.push('branded as ' + b.orgName);
     else if (b.accent || b.welcome || b.footer || ev.hasLogo) bits.push('own branding');
     else bits.push('site branding');
@@ -1031,7 +1048,7 @@
     info.appendChild(h);
     var meta = [
       s.access === 'link' ? 'Shareable link' : 'In-room QR',
-      s.theme === 'light' ? 'Light screen' : 'Dark screen',
+      s.theme === 'light' ? 'Light screen' : s.theme === 'contrast' ? 'High-contrast screen' : 'Dark screen',
       s.questionCount + (s.questionCount === 1 ? ' question' : ' questions') +
         (s.prepared && s.prepared.length ? ' (+' + s.prepared.length + ' prepared)' : ''),
       s.moderators.length + (s.moderators.length === 1 ? ' QA Facilitator' : ' QA Facilitators'),
@@ -1464,6 +1481,11 @@
     $('ev-dark').value = b.roomBgDark || state.brand.roomBgDark;
     $('ev-light-on').checked = !!b.roomBgLight;
     $('ev-light').value = b.roomBgLight || state.brand.roomBgLight;
+    var custom = ev.languages && ev.languages.length;
+    radio('evLangMode', custom ? 'custom' : 'site');
+    $('ev-lang-site').textContent = languageNames(state.siteLanguages);
+    languageBoxes($('ev-langs'), custom ? ev.languages : state.siteLanguages, 'evLang');
+    $('ev-langs').hidden = !custom;
     editingEvent = ev.id || '';
     $('ev-logo-box').hidden = !ev.id;
     $('ev-logo-later').hidden = !!ev.id;
@@ -1625,7 +1647,8 @@
       welcome: $('ev-welcome').value,
       footer: $('ev-footer').value,
       roomBgDark: $('ev-dark-on').checked ? $('ev-dark').value : '',
-      roomBgLight: $('ev-light-on').checked ? $('ev-light').value : ''
+      roomBgLight: $('ev-light-on').checked ? $('ev-light').value : '',
+      languages: radio('evLangMode') === 'custom' ? chosenLanguages($('ev-langs')) : null
     };
     call('saveEvent', [input], function (res) {
       $('eventForm').hidden = true;
@@ -1773,7 +1796,64 @@
 
   // ------------------------------------------------------------ branding
 
+  // ------------------------------------------------------------ languages
+
+  function languageBoxes(box, chosen, name) {
+    box.innerHTML = '';
+    state.languages.forEach(function (l) {
+      var label = el('label');
+      var cb = el('input');
+      cb.type = 'checkbox';
+      cb.value = l.code;
+      cb.name = name;
+      cb.checked = l.code === 'en' || chosen.indexOf(l.code) !== -1;
+      cb.disabled = l.code === 'en';
+      cb.addEventListener('change', function () { limitLanguages(box); });
+      label.appendChild(cb);
+      label.appendChild(document.createTextNode(l.name + ' '));
+      if (l.native !== l.name) label.appendChild(el('span', 'native', l.native));
+      box.appendChild(label);
+    });
+    limitLanguages(box);
+  }
+
+  /** Past the limit, unticked boxes are disabled until one is unticked. */
+  function limitLanguages(box) {
+    var boxes = box.querySelectorAll('input[type=checkbox]');
+    var count = 0;
+    for (var i = 0; i < boxes.length; i++) if (boxes[i].checked) count++;
+    for (var j = 0; j < boxes.length; j++) {
+      if (boxes[j].value !== 'en') boxes[j].disabled = !boxes[j].checked && count >= state.maxLanguages;
+    }
+  }
+
+  function chosenLanguages(box) {
+    var out = [];
+    var boxes = box.querySelectorAll('input[type=checkbox]');
+    for (var i = 0; i < boxes.length; i++) if (boxes[i].checked) out.push(boxes[i].value);
+    return out;
+  }
+
+  function languageNames(codes) {
+    return codes.map(function (c) {
+      for (var i = 0; i < state.languages.length; i++) if (state.languages[i].code === c) return state.languages[i].name;
+      return c;
+    }).join(', ');
+  }
+
+  $('langForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    call('saveSiteLanguages', [chosenLanguages($('siteLangs'))], function (res) { render(res); toast('Languages saved'); }, $('saveLangs'));
+  });
+
+  var evLangRadios = document.querySelectorAll('input[name=evLangMode]');
+  for (var lr = 0; lr < evLangRadios.length; lr++) {
+    evLangRadios[lr].addEventListener('change', function () { $('ev-langs').hidden = radio('evLangMode') !== 'custom'; });
+  }
+
   function renderBranding() {
+    $('langMax').textContent = String(state.maxLanguages - 1);
+    languageBoxes($('siteLangs'), state.siteLanguages, 'siteLang');
     $('b-org').value = state.brand.orgName;
     $('b-accent').value = state.brand.accent;
     $('b-accent-pick').value = state.brand.accent;

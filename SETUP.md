@@ -206,9 +206,14 @@ to yours before the first push.
 
 ## Languages
 
-Participants can submit in any language. The submission page ships with English,
-Korean and Spanish and picks one from the phone's own language setting, with a
-switcher at the top for anyone whose phone is set to something else.
+Participants can submit in any language. The participant page, room screen and topic
+labels can show English, Korean, Spanish, Chinese (Simplified), Vietnamese, Tagalog and
+Armenian. **Branding → Languages** sets the site's languages (English, Korean and Spanish
+to start); an event can choose its own on **Edit event → Languages** — up to four including
+English, so the room screen stays readable. The page picks the phone's own language when
+it's one of them, with a switcher at the top. The Chinese, Vietnamese, Tagalog and Armenian
+page text was written for this project: have a native speaker look it over before relying
+on it at an event.
 
 For the facilitator, translation happens inside the clustering call — one Gemini
 request per batch handles language detection, translation and topic assignment

@@ -46,6 +46,8 @@
   .brand img { max-height: 9vh; max-width: 24vw; }
   .brand span { font-size: clamp(0.9rem, 1.5vw, 1.4rem); color: var(--muted); }
   body.dark .brand img { background: #fff; padding: 0.8vh 1vw; border-radius: 6px; }
+  body.contrast h1, body.contrast .now .label { font-weight: 700; }
+  body.contrast .code { box-shadow: 0 0 0 0.9vh var(--accent); }
   /* The text takes whatever the QR code doesn't need, so headings stay on one or two lines. */
   .words { flex: 1 1 auto; min-width: 0; max-width: 62vw; }
   .code, .waiting { flex: 0 0 auto; }
@@ -161,11 +163,10 @@
 <div class="words">
   <h1 id="heading">Ask the panel</h1>
   <p lang="en">Point your camera at the code. Ask in any language.</p>
-  <p lang="ko">카메라로 코드를 스캔하세요. 어떤 언어로도 질문할 수 있습니다.</p>
-  <p lang="es">Apunta la cámara al código. Pregunta en cualquier idioma.</p>
+  <span id="scanLines"></span>
   <!-- Google can refuse to open Apps Script pages in browsers signed into several Google
        accounts ("Sorry, unable to open the file"). Its error page can't carry our help. -->
-  <p class="help"><span lang="en">Page won’t open? Try a private browsing window.</span> <span lang="ko">페이지가 열리지 않으면 시크릿(개인 정보 보호) 창에서 열어 보세요.</span> <span lang="es">¿No se abre la página? Prueba en una ventana privada.</span></p>
+  <p class="help" id="helpLine"><span lang="en">Page won’t open? Try a private browsing window.</span></p>
 </div>
 
 <div class="code" id="code" hidden></div>
@@ -178,7 +179,7 @@
   <div class="merged" id="nowMerged" hidden></div>
 </div>
 
-<div class="caption" id="caption" lang="en">Scan to ask a question<br><span lang="ko">질문하려면 스캔하세요</span> · <span lang="es">Escanea para preguntar</span><small class="help">Page won’t open? Try a private browsing window.</small></div>
+<div class="caption" id="caption" lang="en">Scan to ask a question<br><span id="captionLines"></span><small class="help">Page won’t open? Try a private browsing window.</small></div>
 
 <div class="status" id="status"></div>
 <div class="clock" id="clock" aria-live="off"></div>
@@ -193,7 +194,46 @@
   var shownUrl = '';
   var theme = BOOT.theme || 'dark';
   var brand = BOOT.brand;
-  var themeOverride = null;   // press T to flip locally, e.g. if the projector washes out
+  var themeOverride = null;   // press T to cycle dark → light → high contrast, e.g. if the projector washes out
+
+  // Instructions in the session's languages (its event's choice); English is in the page.
+  var PHRASES = {
+    ko: { scan: '카메라로 코드를 스캔하세요. 어떤 언어로도 질문할 수 있습니다.', help: '페이지가 열리지 않으면 시크릿(개인 정보 보호) 창에서 열어 보세요.', caption: '질문하려면 스캔하세요' },
+    es: { scan: 'Apunta la cámara al código. Pregunta en cualquier idioma.', help: '¿No se abre la página? Prueba en una ventana privada.', caption: 'Escanea para preguntar' },
+    zh: { scan: '用相机扫描二维码。可以用任何语言提问。', help: '页面打不开？请试试无痕浏览窗口。', caption: '扫码提问' },
+    vi: { scan: 'Hướng camera vào mã. Hỏi bằng bất kỳ ngôn ngữ nào.', help: 'Không mở được trang? Hãy thử cửa sổ duyệt riêng tư.', caption: 'Quét để đặt câu hỏi' },
+    tl: { scan: 'Itutok ang camera sa code. Magtanong sa anumang wika.', help: 'Hindi bumubukas ang page? Subukan ang private browsing window.', caption: 'I-scan para magtanong' },
+    hy: { scan: 'Ուղղեք տեսախցիկը կոդին։ Հարցրեք ցանկացած լեզվով։', help: 'Էջը չի՞ բացվում։ Փորձեք գաղտնի դիտարկման պատուհան։', caption: 'Սկանավորեք՝ հարց տալու համար' }
+  };
+  var LANGS = (BOOT.languages && BOOT.languages.length ? BOOT.languages : ['en', 'ko', 'es'])
+    .filter(function (c) { return c === 'en' || PHRASES[c]; });
+
+  (function writeLanguages() {
+    var lines = document.getElementById('scanLines');
+    var help = document.getElementById('helpLine');
+    var caption = document.getElementById('captionLines');
+    var captionParts = [];
+    LANGS.forEach(function (code) {
+      if (code === 'en') return;
+      var p = document.createElement('p');
+      p.lang = code;
+      p.textContent = PHRASES[code].scan;
+      lines.parentNode.insertBefore(p, lines);
+      var h = document.createElement('span');
+      h.lang = code;
+      h.textContent = ' ' + PHRASES[code].help;
+      help.appendChild(h);
+      captionParts.push(code);
+    });
+    lines.parentNode.removeChild(lines);
+    captionParts.forEach(function (code, i) {
+      if (i) caption.appendChild(document.createTextNode(' · '));
+      var c = document.createElement('span');
+      c.lang = code;
+      c.textContent = PHRASES[code].caption;
+      caption.appendChild(c);
+    });
+  })();
 
   function inkFor(hex) {
     var h = String(hex || '').replace('#', '');
@@ -205,8 +245,19 @@
     var t = themeOverride || theme;
     var idle = document.body.classList.contains('idle');
     var qrOnly = BOOT.layout === 'qr';
-    document.body.className = t + (qrOnly ? ' qr-only' : (document.getElementById('now').hidden ? '' : ' answering')) + (idle ? ' idle' : '');
+    var contrast = t === 'contrast';
+    // High contrast: black, white and a strong yellow, whatever the branding.
+    document.body.className = (contrast ? 'dark contrast' : t) + (qrOnly ? ' qr-only' : (document.getElementById('now').hidden ? '' : ' answering')) + (idle ? ' idle' : '');
     var s = document.body.style;
+    if (contrast) {
+      s.setProperty('--bg', '#000000');
+      s.setProperty('--accent', '#ffd400');
+      s.setProperty('--accent-ink', '#000000');
+      s.setProperty('--ink', '#ffffff');
+      s.setProperty('--muted', '#ffffff');
+      s.setProperty('--faint', '#d6d6d6');
+      return;
+    }
     s.setProperty('--bg', t === 'light' ? brand.roomBgLight : brand.roomBgDark);
     s.setProperty('--accent', brand.accent);
     s.setProperty('--accent-ink', inkFor(brand.accent));
@@ -245,7 +296,8 @@
 
   document.addEventListener('keydown', function (e) {
     if (e.key === 't' || e.key === 'T') {
-      themeOverride = (themeOverride || theme) === 'dark' ? 'light' : 'dark';
+      var order = ['dark', 'light', 'contrast'];
+      themeOverride = order[(order.indexOf(themeOverride || theme) + 1) % order.length];
       applyTheme();
     }
   });
@@ -306,8 +358,9 @@
     if (now) {
       document.getElementById('nowLabel').textContent = now.labels.en;
       var others = [];
-      if (now.labels.ko && now.labels.ko !== now.labels.en) others.push(now.labels.ko);
-      if (now.labels.es && now.labels.es !== now.labels.en) others.push(now.labels.es);
+      LANGS.forEach(function (code) {
+        if (code !== 'en' && now.labels[code] && now.labels[code] !== now.labels.en) others.push(now.labels[code]);
+      });
       document.getElementById('nowOthers').textContent = others.join('  ·  ');
       var merged = document.getElementById('nowMerged');
       merged.hidden = !now.merged;

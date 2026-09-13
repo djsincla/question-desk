@@ -181,12 +181,22 @@ test('chromium: events collapse and expand, one at a time or all, and stay that 
     assert.equal(await page.locator('.event[data-event].collapsed').count(), 0);
 
     // It slides rather than jumps: halfway through, the sessions area is partly open.
-    const fold = page.locator('.event[data-event]').first().locator('.event-fold');
-    const full = (await fold.boundingBox()).height;
-    await page.locator('.event[data-event]').first().locator('button.collapse').click();
-    await page.waitForTimeout(90);
-    const mid = (await fold.boundingBox()).height;
-    assert.ok(mid > 2 && mid < full - 2, 'mid-animation height ' + mid + ' of ' + full);
+    // Sampled every frame, so a busy machine can't make the check miss the animation.
+    const heights = await page.evaluate(() => new Promise((resolve) => {
+      const block = document.querySelector('.event[data-event]');
+      const fold = block.querySelector('.event-fold');
+      const full = fold.getBoundingClientRect().height;
+      const seen = [];
+      block.querySelector('button.collapse').click();
+      const start = performance.now();
+      (function sample() {
+        seen.push(fold.getBoundingClientRect().height);
+        if (performance.now() - start < 600) requestAnimationFrame(sample); else resolve({ full, seen });
+      })();
+    }));
+    const between = heights.seen.filter((x) => x > 2 && x < heights.full - 2);
+    assert.ok(between.length > 0, 'slides through in-between heights: ' + heights.seen.map(Math.round).join(','));
+    assert.ok(heights.seen[heights.seen.length - 1] <= 1, 'ends closed');
   });
 });
 
@@ -234,5 +244,40 @@ test('webkit: the panelist view shows the question being answered, large, with a
 
     as('mod', 'setNowAnswering', ctx.live.id, null);
     await page.waitForFunction(() => document.getElementById('live').hidden && !document.getElementById('waiting').hidden, null, { timeout: 15000 });
+  });
+});
+
+test('webkit: participant page offers the event\'s languages, larger text, and marks your answered question', async () => {
+  await withDemo('webkit', (ctx) => {
+    ctx.h.env.activeUser = USERS.owner;
+    const token = new URL(ctx.h.app.getRoomScreen(ctx.live.id).url).searchParams.get('t');
+    return '/?s=' + ctx.live.id + '&t=' + token + '&lang=en';
+  }, { ...devices['iPhone 15'] }, async ({ page, ctx, as }) => {
+    await page.waitForFunction(() => !document.getElementById('q').disabled, null, { timeout: 20000 });
+    const langs = await page.$$eval('#langs button[data-lang]', (b) => b.map((x) => x.getAttribute('data-lang')));
+    assert.deepEqual(langs, ['en', 'ko', 'es', 'zh']);
+    await page.click('#langs button[data-lang="zh"]');
+    assert.equal(await page.getAttribute('#send', 'id'), 'send');
+    assert.match(await page.textContent('#sub'), /主持人/);
+    assert.equal(await page.getAttribute('html', 'lang'), 'zh');
+    await page.click('#langs button[data-lang="en"]');
+
+    const before = await page.$eval('#q', (el) => parseFloat(getComputedStyle(el).fontSize));
+    await page.click('#bigText');
+    const after = await page.$eval('#q', (el) => parseFloat(getComputedStyle(el).fontSize));
+    assert.ok(after > before, 'larger text: ' + before + ' → ' + after);
+    assert.equal(await page.getAttribute('#bigText', 'aria-pressed'), 'true');
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
+    assert.ok(overflow <= 1, 'still no sideways scrolling with larger text');
+
+    const session = ctx.h.app.getSession_(ctx.live.id);
+    as('owner', 'saveSession', { id: session.id, name: session.name, access: session.access, moderators: session.moderators, cooldownSeconds: 0 });
+    await page.fill('#q', 'When do respite hours get assigned?');
+    await page.click('#send');
+    await page.waitForSelector('#sentList li');
+    const row = ctx.h.questions().rows.find((r) => r[3] === 'When do respite hours get assigned?');
+    as('mod', 'setStatus', ctx.live.id, [row[0]], 'answered');
+    await page.waitForSelector('#sentList li.done .tick', { timeout: 25000 });
+    assert.match(await page.textContent('#noteText'), /marked a question you asked as answered/);
   });
 });
