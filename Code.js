@@ -17,7 +17,7 @@
 
 /** Bump with every release; scripts/ship.sh tags git and publishes release notes from CHANGELOG.md. */
 const APP = {
-  version: '2.9.0',
+  version: '2.10.0',
   repo: 'https://github.com/djsincla/question-desk'
 };
 
@@ -119,6 +119,8 @@ function doGet(e) {
 /** Renders a page with server data injected as a JSON literal (see BOOT in each file). */
 function page_(file, title, boot, session) {
   const template = HtmlService.createTemplateFromFile(file);
+  // Shared design tokens and components (Styles.html), inlined so pages stay one request.
+  template.styles = HtmlService.createHtmlOutputFromFile('Styles').getContent();
   boot.brand = brand_(session);
   template.boot = JSON.stringify(boot)
     .replace(/</g, '\\u003c')

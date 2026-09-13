@@ -87,10 +87,27 @@ for (const page of PAGES) {
 
   test(page + ': uses template boot data only through BOOT', () => {
     const scriptlets = html.match(/<\?[\s\S]*?\?>/g) || [];
-    scriptlets.forEach((s) => assert.equal(s, '<?!= boot ?>', page + ' has an unexpected scriptlet ' + s));
-    if (scriptlets.length) assert.match(html, /var BOOT = <\?!= boot \?>;/);
+    scriptlets.forEach((s) => assert.ok(s === '<?!= boot ?>' || s === '<?!= styles ?>', page + ' has an unexpected scriptlet ' + s));
+    if (scriptlets.indexOf('<?!= boot ?>') !== -1) assert.match(html, /var BOOT = <\?!= boot \?>;/);
+    // The shared stylesheet goes in the head, before the page's own styles so they can override it.
+    if (scriptlets.indexOf('<?!= styles ?>') !== -1) {
+      assert.ok(html.indexOf('<?!= styles ?>') < html.indexOf('<style>'), page + ': shared styles come before the page styles');
+      assert.ok(html.indexOf('<?!= styles ?>') < html.indexOf('</head>'), page + ': shared styles are in the head');
+    }
   });
 }
+
+test('the shared stylesheet is one style block, uploaded with the app, and used by every page but the room screen', () => {
+  const css = fs.readFileSync(path.join(ROOT, 'Styles.html'), 'utf8').trim();
+  assert.match(css, /^<style>[\s\S]*<\/style>$/);
+  assert.equal((css.match(/<style>/g) || []).length, 1);
+  assert.doesNotMatch(css, /<\?|<script|@import|url\(/, 'no scriptlets, scripts or external resources');
+  assert.match(fs.readFileSync(path.join(ROOT, '.claspignore'), 'utf8'), /^!Styles\.html$/m);
+  PAGES.filter((p) => p !== 'Present.html').forEach((p) => {
+    assert.match(fs.readFileSync(path.join(ROOT, p), 'utf8'), /<\?!= styles \?>/, p + ' includes the shared styles');
+  });
+  assert.match(SERVER, /template\.styles = HtmlService\.createHtmlOutputFromFile\('Styles'\)\.getContent\(\);/);
+});
 
 test('no raw U+2028/U+2029 in any source file', () => {
   const files = ['Code.js'].concat(PAGES, fs.readdirSync(__dirname).map((f) => path.join('tests', f)));

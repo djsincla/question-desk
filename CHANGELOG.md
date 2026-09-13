@@ -4,6 +4,29 @@ All notable changes to Question Desk. Versions follow [Semantic Versioning](http
 Each release is tagged `vX.Y.Z` and published as a GitHub release by `scripts/ship.sh`,
 which reads the notes for that version from this file.
 
+## [2.10.0] - 2026-09-13
+
+### Added
+- **Collapse and expand events** on the Sessions tab: click an event's arrow or name, or use
+  **Collapse all events** / **Expand all events**. The session count stays visible, and your
+  browser remembers which events are collapsed.
+
+### Changed
+- **A fresher look** across the Admin page, QA Facilitator queue, participant page,
+  landing page and notices:
+  - Softer page background with white cards, rounder corners and gentle shadows.
+  - Buttons and fields with smooth hover and press states, and a clear focus ring in your
+    brand color for keyboard users.
+  - Tabs with a sliding accent underline; forms and dialogs ease in; dialogs blur the page
+    behind them.
+  - "Active" badges pulse gently; language buttons and Me too are pill-shaped; the
+    participant page has a light accent wash and a bolder Send button.
+  - Each event's card has an edge in its own accent color.
+  - Motion is switched off for people who ask their device to reduce motion.
+  - The room screen is unchanged.
+- The pages share one stylesheet (`Styles.html`), inlined by the server so they still load
+  in a single request.
+
 ## [2.9.0] - 2026-09-13
 
 ### Added
@@ -386,6 +409,7 @@ Fixes from a full code review.
 - "Merge into one question" for reading a topic aloud.
 - Participant page in English, Korean and Spanish.
 
+[2.10.0]: https://github.com/djsincla/question-desk/releases/tag/v2.10.0
 [2.9.0]: https://github.com/djsincla/question-desk/releases/tag/v2.9.0
 [2.8.0]: https://github.com/djsincla/question-desk/releases/tag/v2.8.0
 [2.7.0]: https://github.com/djsincla/question-desk/releases/tag/v2.7.0

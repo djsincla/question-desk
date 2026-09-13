@@ -39,7 +39,9 @@ grouped into topics by Gemini instead of as one long undifferentiated list.
   branding — organization name, accent, welcome text, footer, room screen backgrounds and
   logo — which overrides the site's for its sessions; a session can still override the
   name, accent and logo. Blank fields inherit. Deleting an event keeps its sessions (they
-  move to *Not in an event*). Use ▲ ▼ on an event to reorder events.
+  move to *Not in an event*). Use ▲ ▼ on an event to reorder events. Click an event's
+  arrow or name to collapse or expand its sessions, or use **Collapse all events**; your
+  browser remembers which are collapsed.
 - **Export CSV / Import CSV** — export every session's settings to a CSV, edit it in
   Google Sheets or Excel, and import it (or a new file) back. **Check file** shows what each
   row will do before anything is saved. A row matches an existing session by name plus

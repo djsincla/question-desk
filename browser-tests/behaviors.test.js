@@ -152,3 +152,28 @@ test('chromium: the Activity tab lists what staff did, newest first, and filters
     assert.match(await page.textContent('#actTable'), /maria@example\.org/);
   });
 });
+
+test('chromium: events collapse and expand, one at a time or all, and stay that way after a reload', async () => {
+  await withDemo('chromium', '/?view=admin&as=owner', { viewport: { width: 1280, height: 900 } }, async ({ page }) => {
+    await page.waitForSelector('.event[data-event]');
+    const first = page.locator('.event[data-event]').first();
+    const sessionsVisible = () => first.locator('.event-sessions').isVisible();
+    assert.equal(await sessionsVisible(), true);
+    await first.locator('button.collapse').click();
+    assert.equal(await sessionsVisible(), false, 'collapsed');
+    assert.equal(await first.locator('button.collapse').getAttribute('aria-expanded'), 'false');
+    assert.match(await first.locator('.event-head .meta').textContent(), /session/, 'the count stays visible while collapsed');
+
+    await page.reload();
+    await page.waitForSelector('.event[data-event]');
+    assert.equal(await page.locator('.event[data-event]').first().locator('.event-sessions').isVisible(), false, 'remembered');
+
+    await page.locator('.event[data-event]').first().locator('h2').click();
+    assert.equal(await page.locator('.event[data-event]').first().locator('.event-sessions').isVisible(), true, 'clicking the name expands it');
+
+    await page.click('button:has-text("Collapse all events")');
+    assert.equal(await page.locator('.event[data-event]:not(.collapsed)').count(), 0);
+    await page.click('button:has-text("Expand all events")');
+    assert.equal(await page.locator('.event[data-event].collapsed').count(), 0);
+  });
+});

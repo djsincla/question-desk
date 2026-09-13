@@ -1,0 +1,155 @@
+<style>
+  /*
+   * Question Desk shared styles: design tokens and base components for Admin, the queue,
+   * the participant page, the landing page and notices. page_() inlines this file into
+   * each page where it says "styles", so it costs no extra request on venue wifi. Page-specific
+   * rules follow in each page's own style block and may override these. The room screen
+   * (Present.html) keeps its own projector styles.
+   */
+  [hidden] { display: none !important; }
+
+  :root {
+    --ink: #172230;
+    --muted: #5d6877;
+    --faint: #8a94a1;
+    --rule: #e2e6eb;
+    --rule-strong: #cfd5dc;
+    --paper: #f5f7f9;
+    --card: #ffffff;
+    --action: #1b5e5a;          /* replaced by the brand accent at runtime */
+    --accent: var(--action);
+    --action-ink: #ffffff;
+    --action-soft: #e8f1f0;
+    --action-soft: color-mix(in srgb, var(--action) 10%, #fff);
+    --action-ring: rgba(27, 94, 90, 0.28);
+    --action-ring: color-mix(in srgb, var(--action) 32%, transparent);
+    --stop: #a3321f;
+    --stop-soft: #fbeeeb;
+    --hold: #8a6d1f;
+    --good: #2e7d5b;
+    --radius: 12px;
+    --radius-sm: 8px;
+    --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.05);
+    --shadow: 0 1px 3px rgba(16, 24, 40, 0.07), 0 1px 2px rgba(16, 24, 40, 0.04);
+    --shadow-lg: 0 12px 32px rgba(16, 24, 40, 0.14), 0 2px 6px rgba(16, 24, 40, 0.06);
+    --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+    --font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    font-family: var(--font);
+    color: var(--ink);
+    background: var(--paper);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  h1, h2, h3 { letter-spacing: -0.01em; }
+  a { color: var(--action); text-underline-offset: 2px; }
+  a:hover { text-decoration-thickness: 2px; }
+  ::selection { background: var(--action-soft); }
+
+  /* ---- buttons */
+  button {
+    font: inherit;
+    font-weight: 500;
+    padding: 7px 13px;
+    border: 1px solid var(--rule-strong);
+    background: var(--card);
+    color: var(--ink);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    box-shadow: var(--shadow-sm);
+    transition: background-color 0.15s var(--ease), border-color 0.15s var(--ease), box-shadow 0.15s var(--ease), transform 0.08s var(--ease), color 0.15s var(--ease);
+  }
+  button:hover { background: var(--paper); border-color: var(--faint); }
+  button:active:not(:disabled) { transform: translateY(1px); box-shadow: none; }
+  button:disabled { opacity: 0.5; cursor: default; box-shadow: none; }
+  button.primary {
+    background: var(--action);
+    border-color: var(--action);
+    color: var(--action-ink);
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  }
+  button.primary:hover { background: var(--action); filter: brightness(1.08) saturate(1.05); border-color: var(--action); }
+  button.danger { color: var(--stop); }
+  button.danger:hover { background: var(--stop-soft); border-color: var(--stop); }
+  button.danger-solid { background: var(--stop); border-color: var(--stop); color: #fff; }
+  button.quiet { border-color: transparent; background: transparent; color: var(--muted); box-shadow: none; }
+  button.quiet:hover { background: rgba(16, 24, 40, 0.05); color: var(--ink); border-color: transparent; }
+
+  /* ---- form fields */
+  input[type=text], input[type=email], input[type=number], input[type=url], input[type=search],
+  input[type=datetime-local], select, textarea {
+    font: inherit;
+    color: inherit;
+    padding: 8px 10px;
+    border: 1px solid var(--rule-strong);
+    border-radius: var(--radius-sm);
+    background: var(--card);
+    box-shadow: inset 0 1px 1px rgba(16, 24, 40, 0.03);
+    transition: border-color 0.15s var(--ease), box-shadow 0.15s var(--ease);
+  }
+  input[type=color] { border: 1px solid var(--rule-strong); border-radius: var(--radius-sm); background: var(--card); padding: 2px; height: 2.2rem; cursor: pointer; }
+  input:hover, select:hover, textarea:hover { border-color: var(--faint); }
+  input[type=checkbox], input[type=radio] { accent-color: var(--action); }
+
+  /* One focus ring everywhere, in the brand color: clear for keyboard users, quiet for clicks. */
+  button:focus-visible, a:focus-visible, summary:focus-visible, select:focus-visible,
+  input:focus-visible, textarea:focus-visible {
+    outline: none;
+    border-color: var(--action);
+    box-shadow: 0 0 0 3px var(--action-ring);
+  }
+  input:focus, textarea:focus, select:focus { outline: none; border-color: var(--action); box-shadow: 0 0 0 3px var(--action-ring); }
+
+  /* ---- surfaces */
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+  }
+  .pill {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    border-radius: 999px;
+    padding: 2px 9px;
+    background: var(--paper);
+    color: var(--muted);
+    border: 1px solid var(--rule);
+  }
+  .pill.active { background: var(--action-soft); color: var(--action); border-color: transparent; }
+  .pill.active::before {
+    content: "";
+    display: inline-block;
+    width: 6px; height: 6px;
+    margin-right: 5px;
+    border-radius: 50%;
+    background: currentColor;
+    vertical-align: 1px;
+    animation: qd-pulse 2s ease-in-out infinite;
+  }
+  .pill.ended { background: var(--stop-soft); color: var(--stop); border-color: transparent; }
+  .hint { color: var(--muted); }
+
+  details > summary { cursor: pointer; }
+
+  @keyframes qd-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
+  }
+  @keyframes qd-rise {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: none; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
+</style>

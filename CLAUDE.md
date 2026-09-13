@@ -13,6 +13,8 @@ Workspace account. See SETUP.md for install and deployment.
 - `Moderate.html` — facilitator queue for one session, grouped by topic, Now answering
 - `Admin.html` — sessions (schedule, per-session branding), people, branding, health, load test
 - `Denied.html` — not-allowed page, also the session picker
+- `Styles.html` — shared design tokens and components (one `<style>` block), inlined into
+  every page except Present.html by `page_()` through `<?!= styles ?>`
 - `appsscript.json` — manifest; web app set to execute as owner, anonymous access
 - `.claspignore` — allowlist of what `clasp push` uploads; add new pages here
 - `tests/` — Node test suite that runs `Code.js` against fake Apps Script services
@@ -36,7 +38,9 @@ Workspace account. See SETUP.md for install and deployment.
   frames addresses from `room-url.js` (public `/macros/s/` form, `&layout=qr`)
 
 Pages get server data through a single template scriptlet, `var BOOT = <?!= boot ?>;`,
-filled by `page_()` with `<` and U+2028/2029 escaped. Do not add other scriptlets, and
+filled by `page_()` with `<` and U+2028/2029 escaped. The only other scriptlet is
+`<?!= styles ?>` in the head (the trusted Styles.html, before the page's own styles, which
+may override it). Do not add other scriptlets, and
 never read `window.location` for parameters — pages run in a sandboxed iframe whose URL
 does not carry the query string. That exact bug shipped once (v2): every QR scan failed.
 
