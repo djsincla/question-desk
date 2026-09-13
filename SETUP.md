@@ -71,6 +71,12 @@ grouped into topics by Gemini instead of as one long undifferentiated list.
 - **Branding** — organization name, logo (resized in the browser before upload),
   accent color, welcome text, footer, room screen background colors, tab icon (a link
   to an image on your website), and the app address used in QR codes and emails.
+- **Activity** — the activity log: who did what and when. It covers administrators (sessions,
+  events, people, branding, imports), QA Facilitators (answered, dismissed, Answer now,
+  shown on phones, merged, paused) and the automatic schedule (starts, ends, archiving).
+  Search it or pick one session or event. The full log is the *Activity log* tab of the
+  spreadsheet (the newest 20,000 entries are kept). Participants' questions aren't logged
+  there.
 - **Health & testing** — run a health check (Gemini key and model, trigger, sheet,
   email quota, app address) and start or finish a load test. Admins are emailed
   automatically if question grouping fails three minutes in a row, and again when it

@@ -150,6 +150,11 @@
   .import-table .skip { color: var(--muted); }
   .import-wrap { overflow-x: auto; }
   .error-text { color: var(--stop); }
+  .activity-filters input[type=search], .activity-filters select { font: inherit; padding: 7px 9px; border: 1px solid var(--rule); border-radius: 4px; background: #fff; }
+  .activity-filters input[type=search] { flex: 1 1 16rem; min-width: 0; }
+  .activity-filters select { flex: 0 1 18rem; min-width: 0; }
+  .activity-table td:first-child { white-space: nowrap; color: var(--muted); }
+  .activity-table .who { white-space: nowrap; }
   .swatch-dot { display: inline-block; width: 0.8em; height: 0.8em; border-radius: 50%; vertical-align: -1px; margin-right: 4px; border: 1px solid rgba(0,0,0,0.15); }
   details.archived { margin-top: 8px; }
   details.archived summary { cursor: pointer; font-weight: 600; }
@@ -172,6 +177,7 @@
   <button type="button" role="tab" data-tab="sessions" aria-selected="true">Sessions</button>
   <button type="button" role="tab" data-tab="people" aria-selected="false">People</button>
   <button type="button" role="tab" data-tab="branding" aria-selected="false">Branding</button>
+  <button type="button" role="tab" data-tab="activity" aria-selected="false">Activity</button>
   <button type="button" role="tab" data-tab="health" aria-selected="false">Health &amp; testing</button>
 </nav>
 
@@ -496,6 +502,20 @@
 </section>
 
 <!-- Health & testing -->
+<section id="tab-activity" hidden>
+  <div class="panel">
+    <h2>Activity log</h2>
+    <p class="hint" style="margin-top:0">Who changed what, and when: administrators, QA Facilitators and the automatic schedule. Participants' questions aren't listed here. The full log is the <b>Activity log</b> tab of the spreadsheet.</p>
+    <div class="actions activity-filters">
+      <input type="search" id="actSearch" placeholder="Search people, actions, sessions…" aria-label="Search the activity log">
+      <select id="actTarget" aria-label="Show one session or event"></select>
+      <button type="button" id="actRefresh">Refresh</button>
+    </div>
+    <div class="import-wrap"><table class="import-table activity-table" id="actTable"></table></div>
+    <p class="hint" id="actNote"></p>
+  </div>
+</section>
+
 <section id="tab-health" hidden>
   <div class="row">
     <div class="panel">
@@ -684,8 +704,64 @@
         tabs[j].setAttribute('aria-selected', on ? 'true' : 'false');
         $('tab-' + tabs[j].getAttribute('data-tab')).hidden = !on;
       }
+      if (this.getAttribute('data-tab') === 'activity') loadActivity();
     });
   }
+
+  // ------------------------------------------------------------ activity
+
+  var activityTimer = null;
+
+  function fillActivityTargets() {
+    var select = $('actTarget');
+    var current = select.value;
+    select.innerHTML = '';
+    var all = el('option', null, 'All sessions and events');
+    all.value = '';
+    select.appendChild(all);
+    (state ? state.events : []).forEach(function (ev) {
+      var o = el('option', null, 'Event: ' + ev.name);
+      o.value = ev.id;
+      select.appendChild(o);
+    });
+    (state ? state.sessions : []).forEach(function (s) {
+      var ev = s.eventId ? eventById(s.eventId) : null;
+      var o = el('option', null, (ev ? ev.name + ' — ' : '') + s.name);
+      o.value = s.id;
+      select.appendChild(o);
+    });
+    select.value = current;
+  }
+
+  function loadActivity() {
+    fillActivityTargets();
+    $('actNote').textContent = 'Loading…';
+    call('getActivity', [{ query: $('actSearch').value, target: $('actTarget').value, limit: 300 }], function (res) {
+      var table = $('actTable');
+      table.innerHTML = '';
+      var head = el('tr');
+      ['When', 'Who', 'Action', 'Session or event', 'Details'].forEach(function (t) { head.appendChild(el('th', null, t)); });
+      table.appendChild(head);
+      res.entries.forEach(function (e) {
+        var tr = el('tr');
+        tr.appendChild(el('td', null, fmtDate(e.at)));
+        tr.appendChild(el('td', 'who', e.who));
+        tr.appendChild(el('td', null, e.action));
+        tr.appendChild(el('td', null, e.label));
+        tr.appendChild(el('td', null, e.details));
+        table.appendChild(tr);
+      });
+      $('actNote').textContent = !res.entries.length ? 'Nothing matches.'
+        : 'Showing the ' + res.entries.length + ' most recent' + (res.total > res.scanned ? ' of the last ' + res.scanned + ' entries' : '') + '.';
+    }, $('actRefresh'), function () { $('actNote').textContent = ''; });
+  }
+
+  $('actRefresh').onclick = loadActivity;
+  $('actTarget').addEventListener('change', loadActivity);
+  $('actSearch').addEventListener('input', function () {
+    clearTimeout(activityTimer);
+    activityTimer = setTimeout(loadActivity, 400);
+  });
 
   // ------------------------------------------------------------ render
 

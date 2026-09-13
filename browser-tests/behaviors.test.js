@@ -136,3 +136,19 @@ test('chromium: export sessions to CSV, then check and import an edited file', a
     await conference.locator('.session h3', { hasText: 'Evening wrap-up' }).waitFor({ timeout: 10000 });
   });
 });
+
+test('chromium: the Activity tab lists what staff did, newest first, and filters', async () => {
+  await withDemo('chromium', '/?view=admin&as=owner', { viewport: { width: 1280, height: 900 } }, async ({ page }) => {
+    await page.waitForSelector('.event');
+    await page.click('[data-tab="activity"]');
+    await page.waitForFunction(() => document.querySelectorAll('#actTable tr').length > 3, null, { timeout: 10000 });
+    const first = await page.locator('#actTable tr').nth(1).locator('td').allTextContents();
+    assert.ok(first[1].length > 0 && first[2].length > 0, 'who and action shown: ' + first.join(' | '));
+    await page.fill('#actSearch', 'Answer now');
+    await page.waitForFunction(() => {
+      const rows = Array.from(document.querySelectorAll('#actTable tr')).slice(1);
+      return rows.length && rows.every((r) => /Answer now/.test(r.textContent));
+    }, null, { timeout: 10000 });
+    assert.match(await page.textContent('#actTable'), /maria@example\.org/);
+  });
+});

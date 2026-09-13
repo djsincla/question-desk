@@ -132,6 +132,7 @@ function createApp(options) {
       getLastRow() { return sheet.rows.length; },
       getName() { return sheet.name; },
       deleteRow(row) { sheet.rows.splice(row - 1, 1); return sheet; },
+      deleteRows(row, howMany) { sheet.rows.splice(row - 1, howMany); return sheet; },
       setFrozenRows() { return sheet; },
       getDataRange() {
         env.sheetReads++;

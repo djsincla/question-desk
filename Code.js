@@ -17,7 +17,7 @@
 
 /** Bump with every release; scripts/ship.sh tags git and publishes release notes from CHANGELOG.md. */
 const APP = {
-  version: '2.8.0',
+  version: '2.9.0',
   repo: 'https://github.com/djsincla/question-desk'
 };
 
@@ -26,6 +26,8 @@ const CONFIG = {
   topicSheetName: 'Topics',
   assetSheetName: 'Assets',
   archiveSheetName: 'Archive',
+  auditSheetName: 'Activity log',
+  auditMaxRows: 20000,            // oldest entries are trimmed past this
   archiveAfterDays: 30,           // ended sessions move out of Script Properties after this
   model: 'gemini-3.5-flash',      // gemini-3.1-flash-lite is cheaper if cost matters
   moderatorLanguage: 'English',   // topic labels, translations and merged questions are written in this
@@ -262,11 +264,13 @@ function saveEvent(input) {
       ev.name = name;
       ev.brand = brand;
       saveEvent_(ev);
+      audit_('Event edited', { id: ev.id, eventName: name }, '');
     } else {
       const orders = allEvents_().map(function (e) { return typeof e.order === 'number' ? e.order : 0; });
       id = newId_(8);
       saveEvent_({ id: id, name: name, brand: brand, hasLogo: false, created: Date.now(), createdBy: me,
                    order: orders.length ? Math.min.apply(null, orders) - 1 : 0 });
+      audit_('Event created', { id: id, eventName: name }, '');
     }
   });
   const state = adminState();
@@ -303,6 +307,7 @@ function deleteEvent(eid, typedName) {
     props_().deleteProperty('EVENT_' + eid);
   });
   setAsset_('event:' + eid, '');
+  audit_('Event deleted', { id: eid, eventName: ev.name }, 'its sessions were kept');
   return adminState();
 }
 
@@ -311,6 +316,7 @@ function saveEventLogo(eid, dataUrl) {
   if (!getEvent_(eid)) throw new Error('Event not found.');
   setAsset_('event:' + eid, cleanLogo_(dataUrl));
   withLock_(function () { const ev = getEvent_(eid); ev.hasLogo = true; saveEvent_(ev); });
+  audit_('Event logo changed', { id: eid, eventName: getEvent_(eid).name }, '');
   return adminState();
 }
 
@@ -319,6 +325,7 @@ function removeEventLogo(eid) {
   if (!getEvent_(eid)) throw new Error('Event not found.');
   setAsset_('event:' + eid, '');
   withLock_(function () { const ev = getEvent_(eid); ev.hasLogo = false; saveEvent_(ev); });
+  audit_('Event logo removed', { id: eid, eventName: getEvent_(eid).name }, '');
   return adminState();
 }
 
@@ -326,6 +333,87 @@ function getEventLogo(eid) {
   requireAdmin_();
   const ev = getEvent_(eid);
   return ev && ev.hasLogo ? asset_('event:' + eid) : '';
+}
+
+// ---------------------------------------------------------------- activity log
+
+/**
+ * Who did what, when: every administrator and QA Facilitator change, and what the schedule
+ * did on its own, appended to the "Activity log" sheet. Participants' questions are not
+ * logged here (they are in the Questions sheet, anonymously). Never throws: a logging
+ * failure must not undo or block the action it describes.
+ */
+function audit_(action, session, details) {
+  try {
+    const who = EXEC_.auditWho || currentEmail_() || 'unknown';
+    const label = !session ? '' : session.eventName !== undefined ? session.eventName
+      : (eventName_(session) ? eventName_(session) + ' — ' : '') + (session.name || '');
+    auditSheet_().appendRow([
+      new Date(), sheetSafe_(who), sheetSafe_(action), session && session.id ? session.id : '',
+      sheetSafe_(String(label).slice(0, 200)),
+      sheetSafe_(String((details || '') + (EXEC_.auditVia ? ' (' + EXEC_.auditVia + ')' : '')).slice(0, 1000))
+    ]);
+  } catch (err) {
+    console.error('Activity log: ' + err);
+  }
+}
+
+function auditSheet_() {
+  const ss = spreadsheet_();
+  let sheet = ss.getSheetByName(CONFIG.auditSheetName);
+  if (!sheet) {
+    sheet = ss.insertSheet(CONFIG.auditSheetName);
+    sheet.appendRow(['Time', 'Who', 'Action', 'Session or event ID', 'Session or event', 'Details']);
+  }
+  return sheet;
+}
+
+/** Newest first. options: { query, target, limit } — query matches who, action, name or details. */
+function getActivity(options) {
+  requireAdmin_();
+  options = options || {};
+  if (!props_().getProperty('SHEET_ID')) return { entries: [], total: 0 };
+  const sheet = spreadsheet_().getSheetByName(CONFIG.auditSheetName);
+  if (!sheet || sheet.getLastRow() < 2) return { entries: [], total: 0 };
+  const last = sheet.getLastRow();
+  const scan = Math.min(last - 1, 3000);
+  const values = sheet.getRange(last - scan + 1, 1, scan, 6).getValues();
+  const q = String(options.query || '').trim().toLowerCase();
+  const target = String(options.target || '');
+  const limit = Math.min(Number(options.limit) || 200, 500);
+  const entries = [];
+  for (let i = values.length - 1; i >= 0 && entries.length < limit; i--) {
+    const r = values[i];
+    if (target && String(r[3]) !== target) continue;
+    if (q && [r[1], r[2], r[4], r[5]].join(' ').toLowerCase().indexOf(q) === -1) continue;
+    entries.push({ at: new Date(r[0]).getTime(), who: String(r[1]), action: String(r[2]), target: String(r[3]), label: String(r[4]), details: String(r[5]) });
+  }
+  return { entries: entries, total: last - 1, scanned: scan };
+}
+
+function trimAudit_() {
+  if (!props_().getProperty('SHEET_ID')) return;
+  const sheet = spreadsheet_().getSheetByName(CONFIG.auditSheetName);
+  if (!sheet) return;
+  const extra = sheet.getLastRow() - 1 - CONFIG.auditMaxRows;
+  if (extra > 0) sheet.deleteRows(2, extra + Math.floor(CONFIG.auditMaxRows / 10));   // trim in chunks, not every minute
+}
+
+/** A short "what changed" for a session edit. */
+function sessionChanges_(before, after) {
+  const labels = {
+    name: 'name', heading: 'heading', access: 'how people join', theme: 'theme', maxLength: 'length limit',
+    cooldownSeconds: 'wait between questions', moderators: 'QA Facilitators', emailOnEnd: 'summary email',
+    summary: 'summary recipients', scheduledStart: 'scheduled start', scheduledEnd: 'scheduled end',
+    brand: 'session branding', guestPage: 'guest page', eventId: 'event'
+  };
+  return Object.keys(labels).filter(function (k) {
+    return JSON.stringify(before[k] === undefined ? null : before[k]) !== JSON.stringify(after[k] === undefined ? null : after[k]);
+  }).map(function (k) {
+    if (k === 'name') return 'renamed from "' + before.name + '"';
+    if (k === 'eventId') return 'event: ' + (eventName_(after) || 'none');
+    return labels[k];
+  }).join(', ');
 }
 
 // ---------------------------------------------------------------- CSV export and import
@@ -392,6 +480,7 @@ function exportSessionsCsv() {
     return c[1] === 'scheduledStart' || c[1] === 'scheduledEnd' ? c[0] + ' (' + tz + ')' : c[0];
   });
   const csv = [header].concat(rows).map(function (r) { return r.map(csvCell_).join(','); }).join('\r\n');
+  audit_('Sessions exported', null, rows.length + ' sessions');
   return { filename: 'question-desk-sessions-' + Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd') + '.csv', csv: '\ufeff' + csv, count: rows.length };
 }
 
@@ -485,6 +574,7 @@ function importSessionsCsv(text, options, dryRun) {
   const result = { rows: [], created: 0, updated: 0, skipped: 0, failed: 0, events: [] };
   const createdIds = [];
   const unquote = function (v) { return /^'[=+\-@]/.test(v) ? v.slice(1) : v; };   // undo csvCell_'s guard
+  if (!dryRun) EXEC_.auditVia = 'CSV import';
 
   table.slice(1).forEach(function (cells, i) {
     const rowNumber = i + 2;
@@ -587,6 +677,8 @@ function importSessionsCsv(text, options, dryRun) {
     }
   });
   if (!dryRun) {
+    delete EXEC_.auditVia;
+    audit_('Sessions imported', null, result.created + ' created, ' + result.updated + ' updated, ' + result.skipped + ' skipped, ' + result.failed + ' with problems');
     // New sessions go on top one by one, which would reverse the file: keep the file's order.
     if (createdIds.length > 1) reorderSessions_(createdIds.concat(allSessions_().map(function (x) { return x.id; }).filter(function (id) { return createdIds.indexOf(id) === -1; })));
     result.state = adminState();
@@ -611,6 +703,7 @@ function createEvent_(name, me) {
     const ev = { id: newId_(8), name: cleanText_(name, 80), brand: {}, hasLogo: false, created: Date.now(), createdBy: me,
                  order: orders.length ? Math.min.apply(null, orders) - 1 : 0 };
     saveEvent_(ev);
+    audit_('Event created', { id: ev.id, eventName: ev.name }, '');
     return ev;
   });
 }
@@ -633,8 +726,10 @@ function archiveSheet_() {
 }
 
 function archiveSession_(sid) {
+  let archived = null;
   withLock_(function () {
     const session = getSession_(sid);
+    archived = session;
     if (!session || session.status !== 'ended') throw new Error('Only ended sessions can be archived.');
     archiveSheet_().appendRow([
       sid, sheetSafe_(session.name), session.eventId || '', new Date(session.ended || Date.now()), new Date(),
@@ -643,6 +738,7 @@ function archiveSession_(sid) {
     ['SESSION_', 'TOKEN_', 'VOTES_'].forEach(function (prefix) { props_().deleteProperty(prefix + sid); });
   });
   invalidateTopics_(sid);
+  audit_('Session archived', archived, '');
 }
 
 function archiveSession(sid) {
@@ -664,6 +760,7 @@ function restoreSession(sid) {
       saveSession_(session);
       if (values[i][6] && values[i][6] !== '{}') props_().setProperty('VOTES_' + sid, String(values[i][6]));
       sheet.deleteRow(i + 1);
+      audit_('Session restored', session, '');
       return;
     }
     throw new Error('Archived session not found.');
@@ -1369,6 +1466,7 @@ function setStatus(sid, ids, status) {
 
   const wanted = {};
   ids.forEach(function (id) { wanted[String(id)] = true; });
+  const changedText = [];
   withLock_(function () {
     const sheet = questionSheet_();
     const values = sheet.getDataRange().getValues();
@@ -1376,17 +1474,23 @@ function setStatus(sid, ids, status) {
       if (String(values[i][COLS.session - 1]) === sid && wanted[String(values[i][COLS.id - 1])] &&
           values[i][COLS.status - 1] !== 'prepared') {
         sheet.getRange(i + 1, COLS.status).setValue(status);
+        changedText.push(String(values[i][COLS.text - 1]));
       }
     }
     questionsChanged_();
   });
   invalidateTopics_(sid);
+  if (changedText.length) {
+    const verb = status === 'answered' ? 'Marked answered' : status === 'dismissed' ? 'Dismissed' : 'Reopened';
+    audit_(verb, session, changedText.length === 1 ? '"' + changedText[0].slice(0, 120) + '"' : changedText.length + ' questions');
+  }
   return getBoard(sid);
 }
 
 function setBoardOpen(sid, open) {
   requireSession_(sid);
-  updateSession_(sid, function (s) { s.open = !!open; });
+  const session = updateSession_(sid, function (s) { s.open = !!open; });
+  audit_(open ? 'Questions resumed' : 'Questions paused', session, '');
   return getBoard(sid);
 }
 
@@ -1404,6 +1508,7 @@ function setTopicShown(sid, topic, shown) {
   update[topic] = { shown: !!shown };
   upsertTopics_(sid, update, true);
   invalidateTopics_(sid);
+  audit_(shown ? 'Topic shown on phones' : 'Topic hidden from phones', session, topic);
   return getBoard(sid);
 }
 
@@ -1433,6 +1538,7 @@ function usePrepared(sid, ids) {
   });
   if (!added) throw new Error('Those prepared questions were already added or removed.');
   invalidateTopics_(sid);
+  audit_('Prepared question added', session, added + (added === 1 ? ' question' : ' questions'));
   return getBoard(sid);
 }
 
@@ -1444,11 +1550,13 @@ function setNowAnswering(sid, topic) {
     s.nowAnswering = topic ? { topic: String(topic).slice(0, 200), at: Date.now() } : null;
   });
   invalidateTopics_(sid);
+  audit_(topic ? 'Answer now' : 'Stopped answering', session, topic ? String(topic) : (session.nowAnswering ? session.nowAnswering.topic : ''));
   return getBoard(sid);
 }
 
 function groupNow(sid) {
-  requireSession_(sid);
+  const session = requireSession_(sid);
+  audit_('Group now', session, '');
   return clusterSession_(sid);
 }
 
@@ -1588,13 +1696,16 @@ function saveSessionAs_(input, me, dryRun) {
   if (input.eventId === undefined) delete fields.eventId;   // edits that don't mention it keep it
   if (dryRun) return input.id || null;
   if (input.id) {
-    updateSession_(input.id, function (s) {
+    const was = getSession_(input.id);
+    const now = updateSession_(input.id, function (s) {
       if (s.scheduledStart !== fields.scheduledStart) s.scheduleStarted = false;
       Object.keys(fields).forEach(function (k) { s[k] = fields[k]; });
       if (!s.eventId) delete s.eventId;
       if (s.access === 'link' && !s.linkKey) s.linkKey = newId_(16);
     });
     invalidateTopics_(input.id);
+    const changed = was ? sessionChanges_(was, now) : '';
+    if (changed || preparedList) audit_('Session edited', now, [changed, preparedList ? 'prepared questions (' + preparedList.length + ')' : ''].filter(Boolean).join(', '));
   } else {
     withLock_(function () {
       const session = fields;
@@ -1611,6 +1722,7 @@ function saveSessionAs_(input, me, dryRun) {
       saveSession_(session);
       savedId = session.id;
     });
+    audit_('Session created', getSession_(savedId), '');
   }
   if (preparedList) setPrepared_(savedId, preparedList);
   return savedId;
@@ -1682,6 +1794,7 @@ function setSessionActive(sid, active) {
     s.status = active ? 'active' : 'inactive';
     if (active && !s.started) s.started = Date.now();
   });
+  audit_(active ? 'Session activated' : 'Session deactivated', getSession_(sid), '');
   return adminState();
 }
 
@@ -1693,6 +1806,7 @@ function regenerateLink(sid, which) {
     // Phones that already joined keep their device token until it expires (6h).
     else s.linkKey = newId_(16);
   });
+  audit_(which === 'screen' ? 'Room screen link replaced' : 'Participant link replaced', getSession_(sid), '');
   return adminState();
 }
 
@@ -1732,6 +1846,7 @@ function endSession_(sid) {
   });
   props_().deleteProperty('TOKEN_' + sid);
   invalidateTopics_(sid);
+  audit_('Session ended', session, '');
 
   let groupingNote = '';
   try {
@@ -1786,6 +1901,7 @@ function deleteSession(sid, typedName) {
   if (session.status === 'active') throw new Error('Deactivate or end the session before deleting it.');
   requireTypedName_(session, typedName);
   deleteSession_(sid);
+  audit_('Session deleted', session, 'with its questions, topics and votes');
   return adminState();
 }
 
@@ -1813,7 +1929,9 @@ function emailSummary(sid, recipients) {
   if (!session) throw new Error('Session not found.');
   const to = parseEmails_(recipients && recipients.length ? recipients : summaryRecipients_(session));
   if (!to.length) throw new Error('Add at least one recipient.');
-  return sendSummary_(session, to);
+  const sent = sendSummary_(session, to);
+  audit_('Summary emailed', session, 'to ' + to.join(', '));
+  return sent;
 }
 
 /** options: { to: [emails], participant: bool, present: bool, moderate: bool } */
@@ -1858,6 +1976,7 @@ function emailLinks(sid, options) {
   to.forEach(function (address) {
     MailApp.sendEmail({ to: address, subject: session.name + ' — Question Desk links', htmlBody: html, name: brand.orgName || 'Question Desk' });
   });
+  audit_('Links emailed', session, 'to ' + to.join(', '));
   return to.length;
 }
 
@@ -1877,6 +1996,7 @@ function addPerson(role, email) {
     props_().setProperty(key, list.join(','));
   });
   console.log(me + ' added ' + address + ' as ' + role);
+  audit_(role === 'admin' ? 'Administrator added' : 'QA Facilitator added', null, address);
   return adminState();
 }
 
@@ -1897,6 +2017,7 @@ function removePerson(role, email) {
       });
     }
   });
+  audit_(role === 'admin' ? 'Administrator removed' : 'QA Facilitator removed', null, address);
   return adminState();
 }
 
@@ -1939,6 +2060,7 @@ function saveSummaryDefaults(input) {
   // Nobody at all is allowed: then summaries go only to sessions with their own recipients.
   const clean = cleanSummaryRecipients_(input);
   props_().setProperty('SUMMARY_DEFAULTS', JSON.stringify(clean));
+  audit_('Summary recipients changed', null, (clean.facilitators ? 'QA Facilitators, ' : '') + (clean.extra.join(', ') || 'no other addresses'));
   return adminState();
 }
 
@@ -1978,6 +2100,7 @@ function saveBrand(input) {
   }
   if (url) props_().setProperty('PUBLIC_URL', url);
   else props_().deleteProperty('PUBLIC_URL');
+  audit_('Branding saved', null, '');
   return adminState();
 }
 
@@ -2036,6 +2159,7 @@ function saveLogo(dataUrl, sid) {
   } else {
     setAsset_('global', dataUrl);
   }
+  audit_(sid ? 'Session logo changed' : 'Site logo changed', sid ? getSession_(sid) : null, '');
   return adminState();
 }
 
@@ -2047,6 +2171,7 @@ function removeLogo(sid) {
   } else {
     setAsset_('global', '');
   }
+  audit_(sid ? 'Session logo removed' : 'Site logo removed', sid ? getSession_(sid) : null, '');
   return adminState();
 }
 
@@ -2312,6 +2437,7 @@ function startLoadTest() {
     props_().setProperty('LOADTEST', JSON.stringify({
       key: newId_(32), sid: session.id, expires: Date.now() + CONFIG.loadTestMinutes * 60000
     }));
+    audit_('Load test started', null, CONFIG.loadTestMinutes + ' minutes');
   }
   return adminState();
 }
@@ -2323,6 +2449,7 @@ function stopLoadTest() {
   if (lt) {
     if (getSession_(lt.sid)) deleteSession_(lt.sid);
     props_().deleteProperty('LOADTEST');
+    audit_('Load test finished', null, '');
   }
   return adminState();
 }
@@ -2375,6 +2502,7 @@ function json_(value) {
 
 /** Starts and ends scheduled sessions. Called every minute by the trigger. */
 function runSchedule_() {
+  EXEC_.auditWho = 'Schedule (automatic)';
   const now = Date.now();
   let changed = 0;
   allSessions_().forEach(function (s) {
@@ -2385,11 +2513,12 @@ function runSchedule_() {
         changed++;
       } else if (s.scheduledStart && now >= s.scheduledStart && !s.scheduleStarted) {
         // Starts once. If an admin deactivates it afterwards, the schedule leaves it alone.
-        updateSession_(s.id, function (x) {
+        const started = updateSession_(s.id, function (x) {
           x.scheduleStarted = true;
           x.status = 'active';
           if (!x.started) x.started = now;
         });
+        audit_('Session started', started, 'by its schedule');
         changed++;
       }
     } catch (err) {
@@ -2398,6 +2527,8 @@ function runSchedule_() {
   });
   try { retrySummaries_(); } catch (err) { console.error('Summary retry: ' + err); }
   try { archiveOld_(); } catch (err) { console.error('Archive: ' + err); }
+  try { trimAudit_(); } catch (err) { console.error('Activity log trim: ' + err); }
+  delete EXEC_.auditWho;
   return changed;
 }
 
@@ -2651,6 +2782,7 @@ function mergeTopic(sid, topic) {
   };
   upsertTopics_(sid, update, false);
   invalidateTopics_(sid);
+  audit_('Topic merged', getSession_(sid), topic + ': "' + String(response.data.question).slice(0, 200) + '"');
   return { ok: true, question: response.data.question };
 }
 
@@ -2916,6 +3048,9 @@ function setUp() {
     topicSheet.getRange(1, 1, 1, TOPIC_HEADERS.length).setValues([TOPIC_HEADERS]);
   }
 
+  if (!ss.getSheetByName(CONFIG.auditSheetName)) {
+    ss.insertSheet(CONFIG.auditSheetName).appendRow(['Time', 'Who', 'Action', 'Session or event ID', 'Session or event', 'Details']);
+  }
   if (!ss.getSheetByName(CONFIG.archiveSheetName)) {
     ss.insertSheet(CONFIG.archiveSheetName).appendRow(['Session', 'Name', 'Event', 'Ended', 'Archived', 'Session data', 'Me too votes']);
   }

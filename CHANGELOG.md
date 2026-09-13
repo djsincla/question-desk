@@ -4,6 +4,23 @@ All notable changes to Question Desk. Versions follow [Semantic Versioning](http
 Each release is tagged `vX.Y.Z` and published as a GitHub release by `scripts/ship.sh`,
 which reads the notes for that version from this file.
 
+## [2.9.0] - 2026-09-13
+
+### Added
+- **Activity log.** A new **Activity** tab on the Admin page shows who did what and when,
+  newest first, with search and a session or event filter. It records:
+  - **Administrators:** sessions created, edited (with what changed), activated, ended,
+    deleted, archived and restored; links replaced; events; people added and removed;
+    branding, logos and summary recipients; summaries and links emailed; CSV export and
+    import; load tests.
+  - **QA Facilitators:** questions marked answered, dismissed or reopened (with the
+    question), Answer now, topics shown on or hidden from phones, merges, pausing and
+    resuming, prepared questions added, Group now.
+  - **The schedule:** sessions it started, ended and archived.
+- The full log is the new *Activity log* tab of the spreadsheet; the newest 20,000 entries
+  are kept. Participants' questions are not logged there, and logging can never block an
+  action.
+
 ## [2.8.0] - 2026-09-13
 
 ### Added
@@ -369,6 +386,7 @@ Fixes from a full code review.
 - "Merge into one question" for reading a topic aloud.
 - Participant page in English, Korean and Spanish.
 
+[2.9.0]: https://github.com/djsincla/question-desk/releases/tag/v2.9.0
 [2.8.0]: https://github.com/djsincla/question-desk/releases/tag/v2.8.0
 [2.7.0]: https://github.com/djsincla/question-desk/releases/tag/v2.7.0
 [2.6.0]: https://github.com/djsincla/question-desk/releases/tag/v2.6.0

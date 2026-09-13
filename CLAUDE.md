@@ -47,6 +47,11 @@ does not carry the query string. That exact bug shipped once (v2): every QR scan
   session; event logos are `event:<id>` in the Assets sheet. Deleting an event keeps its
   sessions (their `eventId` is removed). `saveSession` leaves `eventId` alone when the input
   omits it; `''` removes it.
+- Activity log: `audit_(action, sessionOrEvent, details)` appends to the `Activity log` sheet
+  after every staff action (never participants). Who is `currentEmail_()`, or
+  `EXEC_.auditWho` ('Schedule (automatic)' inside `runSchedule_`); `EXEC_.auditVia` tags
+  CSV-imported changes. It never throws. New staff actions must call it; `getActivity()`
+  reads it for the Admin Activity tab; `trimAudit_()` keeps `CONFIG.auditMaxRows`.
 - Sessions CSV: columns are `SESSION_CSV` (header text → input key). `importSessionsCsv(text,
   {duplicates}, dryRun)` validates each row with `saveSessionAs_(input, me, true)` (the same
   code as the form), so check and import agree. The duplicate key is `sessionKey_`: name

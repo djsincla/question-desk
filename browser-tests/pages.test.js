@@ -208,7 +208,7 @@ test('chromium: admin page loads its tabs without script errors', async () => {
   const { page, context, errors } = await open('chromium', '/?view=admin&as=owner', { viewport: { width: 1280, height: 900 } });
   try {
     await page.waitForSelector('.session', { timeout: 15000 });
-    for (const tab of ['people', 'branding', 'health', 'sessions']) {
+    for (const tab of ['people', 'branding', 'activity', 'health', 'sessions']) {
       await page.click('[data-tab="' + tab + '"]');
       assert.ok(await page.isVisible('#tab-' + tab));
     }
