@@ -4,6 +4,15 @@ All notable changes to Question Desk. Versions follow [Semantic Versioning](http
 Each release is tagged `vX.Y.Z` and published as a GitHub release by `scripts/ship.sh`,
 which reads the notes for that version from this file.
 
+## [2.4.4] - 2026-09-13
+
+### Changed
+- A session's guest page choice is now two checkboxes under **Use the guest page for**:
+  **Room screen** (the room screen link and its QR code) and **PowerPoint slide** (the
+  slide's QR code). A shareable questions link uses the guest page when either is ticked.
+  Sessions already set to "Guest page" have both ticked; sessions set to "directly" have
+  neither.
+
 ## [2.4.3] - 2026-09-13
 
 ### Changed
@@ -243,6 +252,7 @@ which reads the notes for that version from this file.
 - "Merge into one question" for reading a topic aloud.
 - Participant page in English, Korean and Spanish.
 
+[2.4.4]: https://github.com/djsincla/question-desk/releases/tag/v2.4.4
 [2.4.3]: https://github.com/djsincla/question-desk/releases/tag/v2.4.3
 [2.4.2]: https://github.com/djsincla/question-desk/releases/tag/v2.4.2
 [2.4.1]: https://github.com/djsincla/question-desk/releases/tag/v2.4.1

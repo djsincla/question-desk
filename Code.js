@@ -17,7 +17,7 @@
 
 /** Bump with every release; scripts/ship.sh tags git and publishes release notes from CHANGELOG.md. */
 const APP = {
-  version: '2.4.3',
+  version: '2.4.4',
   repo: 'https://github.com/djsincla/question-desk'
 };
 
@@ -322,12 +322,12 @@ function sessionLinks_(session) {
   const base = baseUrl_();
   return {
     // Guest pages: public form, or through the session's guest page (see guestLink_).
-    present: guestLink_(session, 'view=present&s=' + session.id),
+    present: guestLink_(session, 'view=present&s=' + session.id, 'room'),
     moderate: base + '?view=moderate&s=' + session.id,
     // For the PowerPoint add-in, always direct: the add-in already embeds from outside Google.
     slide: participantBaseUrl_() + '?view=present&s=' + session.id + '&layout=qr',
     participant: session.access === 'link'
-      ? guestLink_(session, 's=' + session.id + '&k=' + session.linkKey)
+      ? guestLink_(session, 's=' + session.id + '&k=' + session.linkKey, 'any')
       : null
   };
 }
@@ -338,12 +338,21 @@ function sessionLinks_(session) {
  * The guest page is a two-file wrapper (docs/join) hosted on any website. It embeds the
  * Question Desk page, so browsers that block third-party cookies (Safari, Firefox) send
  * Google no sign-in, which avoids Google's multi-account "Sorry, unable to open the file".
- * Returns '' when the session opens guest pages directly.
+ * Chosen per session for the room screen and the PowerPoint slide separately; `where` is
+ * 'room', 'slide', or 'any' (a shareable questions link: either choice turns it on).
+ * Returns '' when that place opens Question Desk directly.
  */
-function guestPageFor_(session) {
-  const own = session && session.guestPage;
-  if (!own || own.mode !== 'wrapper') return '';
-  return own.url || orgGuestPage_();
+function guestPageFor_(session, where) {
+  const g = guestChoice_(session && session.guestPage);
+  const on = where === 'room' ? g.room : where === 'slide' ? g.slide : (g.room || g.slide);
+  return on ? (g.url || orgGuestPage_()) : '';
+}
+
+/** { room, slide, url } from a stored or submitted choice; before 2.4.4 it was { mode, url }. */
+function guestChoice_(input) {
+  input = input || {};
+  const both = input.mode === 'wrapper';
+  return { room: both || input.room === true, slide: both || input.slide === true, url: String(input.url || '') };
 }
 
 /** This project's public copy of docs/join; works for any Question Desk deployment. */
@@ -355,9 +364,9 @@ function orgGuestPage_() {
 }
 
 /** Address for a guest page (participant page or room screen) with the given query. */
-function guestLink_(session, query) {
+function guestLink_(session, query, where) {
   const direct = participantBaseUrl_();
-  const wrapper = guestPageFor_(session);
+  const wrapper = guestPageFor_(session, where);
   const deployment = (direct.match(/\/macros\/s\/([A-Za-z0-9_-]+)\/exec$/) || [])[1];
   if (!wrapper || !deployment) return direct + '?' + query;
   return wrapper + (wrapper.indexOf('?') === -1 ? '?' : '&') + 'd=' + deployment + '&' + query;
@@ -694,8 +703,11 @@ function nowAnsweringView_(session, records) {
 
 // ---------------------------------------------------------------- room screen
 
-/** Public, like the room screen itself: it only ever returns what the screen displays. */
-function getRoomScreen(sid) {
+/**
+ * Public, like the room screen itself: it only ever returns what the screen displays.
+ * `layout` 'qr' is the PowerPoint slide, whose QR code has its own guest page choice.
+ */
+function getRoomScreen(sid, layout) {
   const session = getSession_(sid);
   if (!session) throw new Error('Session not found.');
   const brand = brand_(session);
@@ -712,11 +724,12 @@ function getRoomScreen(sid) {
   };
   if (session.status !== 'active') return screen;
 
+  const where = layout === 'qr' ? 'slide' : 'room';
   if (session.access === 'link') {
-    screen.url = guestLink_(session, 's=' + sid + '&k=' + session.linkKey);
+    screen.url = guestLink_(session, 's=' + sid + '&k=' + session.linkKey, where);
   } else {
     const tok = roomToken_(sid);
-    screen.url = guestLink_(session, 's=' + sid + '&t=' + tok.token);
+    screen.url = guestLink_(session, 's=' + sid + '&t=' + tok.token, where);
     screen.refreshInSeconds = Math.min(5, tok.expiresIn + 1);
   }
   return screen;
@@ -905,6 +918,7 @@ function adminState() {
     sessions: allSessions_().map(function (s) {
       const out = JSON.parse(JSON.stringify(s));
       out.links = sessionLinks_(s);
+      out.guestPage = guestChoice_(s.guestPage);
       out.questionCount = counts[s.id] || 0;
       out.prepared = prepared[s.id] || [];
       out.summaryTo = summaryRecipients_(s);
@@ -1037,9 +1051,9 @@ function setPrepared_(sid, list) {
 }
 
 function cleanGuestPageChoice_(input) {
-  if (!input || input.mode !== 'wrapper') return { mode: 'direct', url: '' };
+  const g = guestChoice_(input);
   // Blank means the Branding tab's address (or the built-in one), looked up when links are made.
-  return { mode: 'wrapper', url: cleanGuestPageUrl_(input.url) };
+  return { room: g.room, slide: g.slide, url: g.room || g.slide ? cleanGuestPageUrl_(g.url) : '' };
 }
 
 function optionalTime_(value, label) {

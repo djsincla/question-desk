@@ -197,9 +197,9 @@ test('a session can use its own guest page address, and the choice is validated'
 test('guest page with no address anywhere uses the built-in GitHub Pages copy', () => {
   // Choosing "Guest page" and leaving the box blank must save, even if Branding is blank too.
   const bare = createApp().install();
-  bare.app.saveSession({ name: 'No default', access: 'link', guestPage: { mode: 'wrapper', url: '' } });
+  bare.app.saveSession({ name: 'No default', access: 'link', guestPage: { room: true, slide: true, url: '' } });
   const s = bare.app.adminState().sessions[0];
-  assert.deepEqual(s.guestPage, { mode: 'wrapper', url: '' });
+  assert.deepEqual(s.guestPage, { room: true, slide: true, url: '' });
   assert.equal(bare.app.adminState().guestPageDefault, 'https://djsincla.github.io/question-desk/join/');
   assert.ok(s.links.participant.startsWith('https://djsincla.github.io/question-desk/join/?d='), s.links.participant);
 
@@ -223,7 +223,62 @@ test('the PowerPoint slide shows a QR code that goes through the guest page', ()
   // The add-in shows the room screen in QR-only layout; that page asks getRoomScreen for its code.
   const slide = h.app.doGet({ parameter: { view: 'present', s: s.id, layout: 'qr' } });
   assert.equal(slide.data.layout, 'qr');
-  const qr = h.app.getRoomScreen(s.id).url;
+  const qr = h.app.getRoomScreen(s.id, 'qr').url;
   assert.ok(qr.startsWith(GUEST + '?d=AKfycbTESTDEPLOYMENT_id-123456789&s=' + s.id + '&t='), qr);
   assert.ok(JoinUrl.target(new URL(qr).search), 'scanning it opens the questions page through the guest page');
+});
+
+test('room screen and PowerPoint slide each have their own guest page choice', () => {
+  const h = guestSetup();
+  const DIRECT = 'https://script.google.com/macros/s/AKfycbTESTDEPLOYMENT_id-123456789/exec';
+  const make = (name, access, guestPage) => {
+    h.app.saveSession({ name, access, guestPage });
+    const s = h.app.adminState().sessions.find((x) => x.name === name);
+    h.app.setSessionActive(s.id, true);
+    return h.app.adminState().sessions.find((x) => x.name === name);
+  };
+  const viaGuest = (url) => url.startsWith(GUEST + '?d=');
+  const viaDirect = (url) => url.startsWith(DIRECT + '?');
+
+  const slideOnly = make('Slide only', 'room', { room: false, slide: true });
+  assert.deepEqual(slideOnly.guestPage, { room: false, slide: true, url: '' });
+  assert.ok(viaGuest(h.app.getRoomScreen(slideOnly.id, 'qr').url), 'slide QR uses the guest page');
+  assert.ok(viaDirect(h.app.getRoomScreen(slideOnly.id).url), 'room screen QR stays direct');
+  assert.ok(viaDirect(h.app.getRoomScreen(slideOnly.id, 'full').url), 'full layout is the room screen');
+  assert.ok(viaDirect(slideOnly.links.present), 'room screen link stays direct');
+  assert.ok(viaDirect(slideOnly.links.slide), 'the add-in always frames Question Desk directly');
+
+  const roomOnly = make('Room only', 'link', { room: true, slide: false });
+  assert.ok(viaGuest(h.app.getRoomScreen(roomOnly.id).url));
+  assert.ok(viaDirect(h.app.getRoomScreen(roomOnly.id, 'qr').url));
+  assert.ok(viaGuest(roomOnly.links.present));
+  assert.ok(viaGuest(roomOnly.links.participant), 'shareable questions link: either choice turns it on');
+
+  const neither = make('Neither', 'link', { room: false, slide: false, url: 'https://partner.example/ask/' });
+  assert.deepEqual(neither.guestPage, { room: false, slide: false, url: '' }, 'no address kept when unused');
+  assert.ok(viaDirect(neither.links.participant));
+  assert.ok(viaDirect(h.app.getRoomScreen(neither.id, 'qr').url));
+});
+
+test('sessions saved before the split keep working: Guest page meant both, directly meant neither', () => {
+  const h = guestSetup();
+  h.app.saveSession({ name: 'Old wrapped', access: 'room' });
+  h.app.saveSession({ name: 'Old direct', access: 'room' });
+  const ids = Object.fromEntries(h.app.adminState().sessions.map((s) => [s.name, s.id]));
+  // Write the old stored shape straight into the property, as 2.4.3 left it.
+  const store = (id, guestPage) => {
+    const raw = JSON.parse(h.props.getProperty('SESSION_' + id));
+    raw.guestPage = guestPage;
+    h.props.setProperty('SESSION_' + id, JSON.stringify(raw));
+  };
+  store(ids['Old wrapped'], { mode: 'wrapper', url: '' });
+  store(ids['Old direct'], { mode: 'direct', url: '' });
+  Object.values(ids).forEach((id) => h.app.setSessionActive(id, true));
+
+  const byName = Object.fromEntries(h.app.adminState().sessions.map((s) => [s.name, s]));
+  assert.deepEqual(byName['Old wrapped'].guestPage, { room: true, slide: true, url: '' });
+  assert.deepEqual(byName['Old direct'].guestPage, { room: false, slide: false, url: '' });
+  assert.ok(h.app.getRoomScreen(ids['Old wrapped']).url.startsWith(GUEST + '?d='));
+  assert.ok(h.app.getRoomScreen(ids['Old wrapped'], 'qr').url.startsWith(GUEST + '?d='));
+  assert.ok(!h.app.getRoomScreen(ids['Old direct'], 'qr').url.startsWith(GUEST));
 });

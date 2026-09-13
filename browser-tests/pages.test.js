@@ -220,6 +220,21 @@ test('chromium: admin page loads its tabs without script errors', async () => {
     await card.locator('input[type=email]').fill('board@example.org');
     await card.locator('button', { hasText: 'Add' }).click();
     await page.waitForFunction(() => /board@example\.org/.test(document.getElementById('summaryList').textContent), null, { timeout: 5000 });
+
+    // Guest page: two checkboxes (room screen, slide); the address box shows when either is ticked.
+    await page.click('[data-tab="sessions"]');
+    await page.locator('.session').first().locator('button', { hasText: 'Edit' }).click();
+    await page.waitForSelector('#sessionForm:not([hidden])');
+    assert.equal(await page.locator('#sessionForm input[type=radio][name=guestMode]').count(), 0);
+    const urlBox = page.locator('#f-guest-url-box');
+    if (await page.isChecked('#f-guest-room')) await page.uncheck('#f-guest-room');
+    if (await page.isChecked('#f-guest-slide')) await page.uncheck('#f-guest-slide');
+    assert.equal(await urlBox.isVisible(), false);
+    await page.check('#f-guest-slide');
+    assert.equal(await urlBox.isVisible(), true);
+    await page.uncheck('#f-guest-slide');
+    await page.check('#f-guest-room');
+    assert.equal(await urlBox.isVisible(), true);
     assert.deepEqual(errors, []);
   } finally {
     await context.close();

@@ -265,9 +265,11 @@ anonymous visitor and can't show the error.
    `https://djsincla.github.io/question-desk/join/`. Save branding.
    - Don't use **Advanced → Question Desk Google address** for this. Leave it blank; it's only
      for Question Desk's own `https://script.google.com/macros/s/…/exec` address.
-3. **For each session:** Sessions → **Edit** → **Open guest pages through → Guest page** →
-   **Save session**. (A session can use a different guest page address, such as a partner's
-   website, in the field that appears.)
+3. **For each session:** Sessions → **Edit** → **Use the guest page for** → tick
+   **Room screen**, **PowerPoint slide**, or both → **Save session**. Each box controls the QR
+   code shown there. (A session can use a different guest page address, such as a partner's
+   website, in the field that appears. Blank uses the Branding address, or this project's
+   copy if that is blank too.)
 4. **Use the new links.** Sessions → **Links** now shows guest page addresses for the room
    screen and the questions link, and the room screen's QR code points through the guest
    page. Re-copy any links you saved or emailed before, and reload open room screens.
@@ -278,9 +280,11 @@ anonymous visitor and can't show the error.
 
 | Page | Opens through |
 |---|---|
-| Questions page (QR code, shareable link) | Guest page, for sessions set to use it |
-| Room screen link | Guest page, for sessions set to use it |
-| PowerPoint slide (add-in) | Directly — the add-in already embeds from outside Google |
+| QR code on the room screen | Guest page when **Room screen** is ticked |
+| Room screen link | Guest page when **Room screen** is ticked |
+| QR code on the PowerPoint slide | Guest page when **PowerPoint slide** is ticked |
+| Shareable questions link (and emailed links) | Guest page when either box is ticked |
+| PowerPoint slide itself (add-in) | Directly — the add-in already embeds from outside Google |
 | QA Facilitator queue, Admin page | Directly on Google — staff sign in with the organization account |
 
 **Which browsers the guest page fixes**

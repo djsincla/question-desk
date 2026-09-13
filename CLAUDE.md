@@ -22,7 +22,9 @@ Workspace account. See SETUP.md for install and deployment.
 - `CHANGELOG.md` — release notes; `ship.sh` publishes the section for `APP.version`
 - `docs/join/` — the guest page: frames guest pages from another site so Safari/Firefox send
   Google no cookies (Google's multi-account "unable to open the file"). `guestLink_()` builds
-  `<guest page>?d=<deployment>&<query>`; `join-url.js` only frames script.google.com guest
+  `<guest page>?d=<deployment>&<query>`. Sessions choose it separately for the room screen and
+  the slide (`guestPage: {room, slide, url}`, read via `guestChoice_()`, which also accepts the
+  pre-2.4.4 `{mode:'wrapper'}`); the slide's QR comes from `getRoomScreen(sid, 'qr')`. `join-url.js` only frames script.google.com guest
   pages. Tested in-browser that data calls from other sites (ContentService doPost) are slow
   and fail ~half the time on Google's side — don't build guest pages on fetch(); frame instead.
 - `docs/addin/install/` — add-in installers (Mac `.sh`/`.command`, Windows `.ps1`/`.cmd`) and

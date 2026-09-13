@@ -199,15 +199,16 @@
     </div>
 
     <fieldset>
-      <legend>Open guest pages through</legend>
-      <label class="choice"><input type="radio" name="guestMode" value="direct" checked>
-        <span>Question Desk directly<small>Google's address. Browsers signed into several Google accounts can show "Sorry, unable to open the file".</small></span></label>
-      <label class="choice"><input type="radio" name="guestMode" value="wrapper">
-        <span>Guest page<small id="f-guest-default">The questions page and room screen open inside your guest page, so Safari and Firefox send Google no sign-in.</small></span></label>
+      <legend>Use the guest page for</legend>
+      <p class="hint" style="margin-top:0">Avoids Google's "Sorry, unable to open the file" on phones and browsers signed into several Google accounts. Unticked opens Google's address directly.</p>
+      <label class="choice"><input type="checkbox" id="f-guest-room">
+        <span>Room screen<small>The room screen link, and the QR code on the room screen.</small></span></label>
+      <label class="choice"><input type="checkbox" id="f-guest-slide">
+        <span>PowerPoint slide<small>The QR code on the slide. The slide itself always shows Question Desk directly.</small></span></label>
       <label class="field" id="f-guest-url-box" hidden style="margin:6px 0 0 24px">
         <span>Guest page address for this session (optional)</span>
         <input type="url" id="f-guest-url" placeholder="Uses the address on the Branding tab">
-        <div class="hint">Leave blank to use the organization's guest page. Fill in to use another site, such as a partner's.</div>
+        <div class="hint">Leave blank to use the organization's guest page. Fill in to use another site, such as a partner's. A shareable questions link uses the guest page when either box is ticked.</div>
       </label>
     </fieldset>
 
@@ -662,7 +663,8 @@
     if (s.status !== 'ended' && s.scheduledStart && !s.scheduleStarted) meta.push('starts ' + fmtDate(s.scheduledStart));
     if (s.status !== 'ended' && s.scheduledEnd) meta.push('ends ' + fmtDate(s.scheduledEnd));
     if (s.brand && s.brand.orgName) meta.push('branded for ' + s.brand.orgName);
-    if (s.guestPage && s.guestPage.mode === 'wrapper') meta.push('guest page: ' + (s.guestPage.url || state.guestPageUrl || state.guestPageDefault));
+    var gp = s.guestPage || {};
+    if (gp.room || gp.slide) meta.push('guest page for ' + (gp.room && gp.slide ? 'room screen and slide' : gp.room ? 'room screen' : 'slide'));
     if (s.summarySent) meta.push('summary emailed ' + fmtDate(s.summarySent));
     info.appendChild(el('div', 'meta', meta.join(' · ')));
     head.appendChild(info);
@@ -897,10 +899,11 @@
     $('maxHint').textContent = 'Between 50 and ' + state.limits.maxLengthCeiling + '. Shorter questions are easier to read aloud.';
     $('f-email').checked = s.id ? !!s.emailOnEnd : true;
     $('f-prepared').value = (s.prepared || []).join('\n');
-    var guest = s.guestPage && s.guestPage.mode === 'wrapper' ? s.guestPage : null;
-    radio('guestMode', guest ? 'wrapper' : 'direct');
-    $('f-guest-url').value = guest ? (guest.url || '') : '';
-    $('f-guest-url-box').hidden = !guest;
+    var guest = s.guestPage || {};
+    $('f-guest-room').checked = !!guest.room;
+    $('f-guest-slide').checked = !!guest.slide;
+    $('f-guest-url').value = guest.url || '';
+    $('f-guest-url-box').hidden = !(guest.room || guest.slide);
     $('f-guest-url').placeholder = 'Uses ' + (state.guestPageUrl || state.guestPageDefault);
     var summary = s.summary && s.summary.mode === 'custom' ? s.summary : null;
     radio('summaryMode', summary ? 'custom' : 'default');
@@ -973,10 +976,11 @@
   }
 
   $('f-accent').addEventListener('input', function () { $('f-accent-on').checked = true; });
-  var guestRadios = document.querySelectorAll('input[name=guestMode]');
-  for (var gr = 0; gr < guestRadios.length; gr++) {
-    guestRadios[gr].addEventListener('change', function () { $('f-guest-url-box').hidden = radio('guestMode') !== 'wrapper'; });
-  }
+  ['f-guest-room', 'f-guest-slide'].forEach(function (id) {
+    $(id).addEventListener('change', function () {
+      $('f-guest-url-box').hidden = !($('f-guest-room').checked || $('f-guest-slide').checked);
+    });
+  });
   var summaryRadios = document.querySelectorAll('input[name=summaryMode]');
   for (var sr = 0; sr < summaryRadios.length; sr++) {
     summaryRadios[sr].addEventListener('change', function () { $('f-summary-custom').hidden = radio('summaryMode') !== 'custom'; });
@@ -1018,7 +1022,7 @@
       maxLength: $('f-max').value,
       cooldownSeconds: $('f-cooldown').value,
       prepared: $('f-prepared').value,
-      guestPage: { mode: radio('guestMode'), url: $('f-guest-url').value },
+      guestPage: { room: $('f-guest-room').checked, slide: $('f-guest-slide').checked, url: $('f-guest-url').value },
       summary: radio('summaryMode') === 'custom'
         ? { mode: 'custom', facilitators: $('f-summary-facilitators').checked, extra: $('f-summary-extra').value }
         : { mode: 'default' },

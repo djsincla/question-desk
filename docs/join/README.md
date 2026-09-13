@@ -23,9 +23,10 @@ are fixed: [SETUP.md → "Sorry, unable to open the file at this time"](../../SE
    (see below). This project's copy is already live at
    `https://djsincla.github.io/question-desk/join/`.
 2. Admin page → **Branding → Guest page address**: paste the address of that folder.
-3. For each session that should use it: **Edit → Open guest pages through → Guest page**.
-   Its QR codes, questions link, room screen link and emailed links now go through the
-   guest page. A session can also use its own address (for example a partner's site).
+3. For each session that should use it: **Edit → Use the guest page for**, then tick
+   **Room screen** (its link and QR code), **PowerPoint slide** (the slide's QR code), or both.
+   A shareable questions link and emailed links use the guest page when either is ticked.
+   A session can also use its own address (for example a partner's site).
 
 One guest page serves every session; each link carries the session in its address.
 

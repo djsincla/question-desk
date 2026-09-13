@@ -360,7 +360,7 @@
       if (id !== requestId) return;
       status.textContent = 'Lost connection — retrying';
       schedule(15);
-    }).getRoomScreen(BOOT.sid);
+    }).getRoomScreen(BOOT.sid, BOOT.layout);
   }
 
   function clockText(ms) {
