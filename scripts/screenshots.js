@@ -36,6 +36,7 @@ function shots(ctx) {
   return [
     { name: 'room-screen', url: () => '/?view=present&s=' + s + '&as=owner', size: [1600, 900], before: setNow(null) },
     { name: 'room-screen-answering', url: () => '/?view=present&s=' + s + '&as=owner', size: [1600, 900], before: setNow('Respite care hours') },
+    { name: 'slide-qr', url: () => '/?view=present&s=' + s + '&layout=qr', size: [640, 560] },
     { name: 'room-screen-1280', url: () => '/?view=present&s=' + s + '&as=owner', size: [1280, 720], check: true },
     { name: 'room-screen-1024', url: () => '/?view=present&s=' + s + '&as=owner', size: [1024, 768], check: true },
     { name: 'participant-phone', url: () => phone('/?s=' + s + '&t=' + token() + '&lang=en'), size: [600, 844], crop: [390, 844], scale: 2, before: setNow('Respite care hours') },

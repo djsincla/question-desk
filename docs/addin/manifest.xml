@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Question Desk QR — PowerPoint content add-in.
+  Shows a Question Desk session's live, rotating QR code on a slide.
+  Install: see docs/addin/README.md. Hosted from GitHub Pages; nothing else to run.
+-->
+<OfficeApp
+  xmlns="http://schemas.microsoft.com/office/appforoffice/1.1"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:type="ContentApp">
+  <Id>cbe57d61-2cd8-4fdf-ae94-438fc403a58e</Id>
+  <Version>2.2.0.0</Version>
+  <ProviderName>Question Desk</ProviderName>
+  <DefaultLocale>en-US</DefaultLocale>
+  <DisplayName DefaultValue="Question Desk QR" />
+  <Description DefaultValue="Shows a Question Desk session's live QR code on a slide. The code keeps rotating during the slideshow, so only people in the room can ask." />
+  <IconUrl DefaultValue="https://djsincla.github.io/question-desk/addin/icon-32.png" />
+  <HighResolutionIconUrl DefaultValue="https://djsincla.github.io/question-desk/addin/icon-80.png" />
+  <SupportUrl DefaultValue="https://github.com/djsincla/question-desk/blob/main/docs/addin/README.md" />
+  <AppDomains>
+    <AppDomain>https://script.google.com</AppDomain>
+  </AppDomains>
+  <Hosts>
+    <Host Name="Presentation" />
+  </Hosts>
+  <DefaultSettings>
+    <SourceLocation DefaultValue="https://djsincla.github.io/question-desk/addin/index.html" />
+    <RequestedWidth>480</RequestedWidth>
+    <RequestedHeight>520</RequestedHeight>
+  </DefaultSettings>
+  <Permissions>ReadWriteDocument</Permissions>
+  <AllowSnapshot>true</AllowSnapshot>
+</OfficeApp>

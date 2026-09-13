@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Question Desk QR</title>
+<script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+<script src="room-url.js"></script>
+<style>
+  [hidden] { display: none !important; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    color: #16202b;
+    background: #10171f;
+  }
+  iframe { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; background: #10171f; }
+  form {
+    position: fixed; inset: 0; overflow: auto;
+    background: #fff; padding: 16px 18px; font-size: 14px; line-height: 1.45;
+  }
+  h1 { font-size: 16px; margin: 0 0 6px; }
+  p { margin: 0 0 10px; color: #5c6874; }
+  label { display: block; margin: 10px 0; }
+  input[type=url] { width: 100%; font: inherit; padding: 7px 9px; border: 1px solid #d9dee3; border-radius: 4px; }
+  .choice { display: flex; gap: 8px; align-items: flex-start; }
+  .choice input { margin-top: 3px; }
+  button { font: inherit; padding: 7px 14px; border-radius: 4px; border: 1px solid #1b5e5a; background: #1b5e5a; color: #fff; cursor: pointer; }
+  button.quiet { background: #fff; color: #5c6874; border-color: #d9dee3; }
+  .error { color: #8c2f22; }
+  #gear {
+    position: fixed; top: 6px; right: 6px; z-index: 2;
+    padding: 3px 8px; font-size: 12px; background: rgba(255,255,255,0.9); color: #16202b; border-color: #d9dee3;
+  }
+</style>
+</head>
+<body>
+
+<iframe id="screen" title="Question Desk room screen" hidden></iframe>
+
+<form id="setup" hidden>
+  <h1>Question Desk QR code</h1>
+  <p>Shows a session's live QR code on this slide. It keeps changing during the slideshow, just like the room screen.</p>
+  <label>Session link
+    <input type="url" id="link" placeholder="https://script.google.com/…/exec?view=present&s=…" autocomplete="off" spellcheck="false" required>
+  </label>
+  <p>Copy it from the Question Desk Admin page: <strong>Sessions → Links → PowerPoint slide</strong> (the room screen link works too).</p>
+  <label class="choice"><input type="checkbox" id="full"><span>Show the full room screen (heading, instructions and "Now answering") instead of the QR code only</span></label>
+  <p class="error" id="error" role="alert" hidden></p>
+  <button type="submit">Show on slide</button>
+  <button type="button" class="quiet" id="cancel" hidden>Cancel</button>
+</form>
+
+<button type="button" id="gear" hidden title="Change the session shown on this slide">Change session</button>
+
+<script>
+  var KEY = 'questionDeskRoom';
+  var FULL_KEY = 'questionDeskFull';
+  var office = false;       // true when running inside PowerPoint
+  var saved = { link: '', full: false };
+
+  function $(id) { return document.getElementById(id); }
+
+  function load() {
+    if (office) {
+      saved.link = Office.context.document.settings.get(KEY) || '';
+      saved.full = !!Office.context.document.settings.get(FULL_KEY);
+    } else {
+      // Outside PowerPoint (e.g. testing in a browser): ?room= or this browser's storage.
+      var fromQuery = new URLSearchParams(location.search).get('room');
+      try { saved.link = fromQuery || localStorage.getItem(KEY) || ''; } catch (e) { saved.link = fromQuery || ''; }
+    }
+  }
+
+  function save(link, full, done) {
+    saved = { link: link, full: full };
+    if (!office) {
+      try { localStorage.setItem(KEY, link); } catch (e) {}
+      done();
+      return;
+    }
+    // Stored in the presentation itself, so the slide works on any computer with the add-in.
+    Office.context.document.settings.set(KEY, link);
+    Office.context.document.settings.set(FULL_KEY, full);
+    Office.context.document.settings.saveAsync(function () { done(); });
+  }
+
+  function showScreen() {
+    var url = RoomUrl.forSlide(saved.link, saved.full);
+    if (!url) { showSetup(); return; }
+    $('setup').hidden = true;
+    var frame = $('screen');
+    if (frame.getAttribute('src') !== url) frame.setAttribute('src', url);
+    frame.hidden = false;
+    updateGear();
+  }
+
+  function showSetup() {
+    $('link').value = saved.link;
+    $('full').checked = saved.full;
+    $('cancel').hidden = !RoomUrl.forSlide(saved.link, false);
+    $('error').hidden = true;
+    $('setup').hidden = false;
+    $('gear').hidden = true;
+  }
+
+  // The "Change session" button shows while editing, never during the slideshow.
+  var view = 'edit';
+  function updateGear() {
+    $('gear').hidden = view === 'read' || !$('setup').hidden;
+  }
+
+  function watchView() {
+    var doc = Office.context.document;
+    if (!doc.getActiveViewAsync) return;
+    doc.getActiveViewAsync(function (result) {
+      if (result.status === Office.AsyncResultStatus.Succeeded) { view = result.value; updateGear(); }
+    });
+    if (doc.addHandlerAsync && Office.EventType && Office.EventType.ActiveViewChanged) {
+      doc.addHandlerAsync(Office.EventType.ActiveViewChanged, function (event) {
+        view = event.activeView;
+        updateGear();
+      });
+    }
+  }
+
+  $('setup').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var link = $('link').value.trim();
+    if (!RoomUrl.forSlide(link, false)) {
+      $('error').textContent = 'That is not a Question Desk session link. Copy "PowerPoint slide" or "Room screen" from Sessions → Links on the Admin page.';
+      $('error').hidden = false;
+      return;
+    }
+    save(link, $('full').checked, showScreen);
+  });
+  $('cancel').onclick = showScreen;
+  $('gear').onclick = showSetup;
+
+  function start() {
+    load();
+    if (RoomUrl.forSlide(saved.link, saved.full)) showScreen(); else showSetup();
+  }
+
+  if (window.Office && Office.onReady) {
+    Office.onReady(function (info) {
+      office = !!(info && info.host);
+      if (office) watchView();
+      start();
+    });
+  } else {
+    start();   // office.js didn't load (offline, or opened as a plain web page)
+  }
+</script>
+</body>
+</html>

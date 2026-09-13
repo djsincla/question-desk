@@ -78,6 +78,10 @@ code when the session is active, "Questions open soon" when it isn't, and switch
 light/dark if an admin changes the theme. Press **T** on the room screen to flip the
 theme locally if the projector washes out.
 
+**Showing the code in PowerPoint:** install the free *Question Desk QR* add-in
+(`docs/addin/README.md`) and paste the session's **PowerPoint slide** link. The QR code
+keeps rotating during the slideshow.
+
 Several sessions can run at once (breakout rooms); each has its own code, queue,
 cooldown and question cap.
 

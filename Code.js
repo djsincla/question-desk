@@ -17,7 +17,7 @@
 
 /** Bump with every release; scripts/ship.sh tags git and publishes release notes from CHANGELOG.md. */
 const APP = {
-  version: '2.1.1',
+  version: '2.2.0',
   repo: 'https://github.com/djsincla/question-desk'
 };
 
@@ -79,7 +79,12 @@ function doGet(e) {
   // whatever Google account the browser uses. Only admin and queue need a login.
   if (view === 'present') {
     const screen = getSession_(sid);
-    if (screen) return page_('Present.html', screen.name, { sid: screen.id, theme: screen.theme }, screen);
+    if (screen) {
+      // layout=qr is the compact QR-only view used by the PowerPoint add-in (docs/addin).
+      return page_('Present.html', screen.name, {
+        sid: screen.id, theme: screen.theme, layout: p.layout === 'qr' ? 'qr' : 'full'
+      }, screen);
+    }
     if (!currentEmail_()) return notice_('noSession');
     return notice_('pick', view);
   }
@@ -318,6 +323,8 @@ function sessionLinks_(session) {
   return {
     present: base + '?view=present&s=' + session.id,
     moderate: base + '?view=moderate&s=' + session.id,
+    // For the PowerPoint add-in: public address (slides can't sign in to Google), QR only.
+    slide: participantBaseUrl_() + '?view=present&s=' + session.id + '&layout=qr',
     participant: session.access === 'link'
       ? participantBaseUrl_() + '?s=' + session.id + '&k=' + session.linkKey
       : null

@@ -30,6 +30,15 @@
     --faint: #9aa4ad;
   }
   body.answering { padding-bottom: 30vh; }
+  /* QR-only layout for a box on a slide (PowerPoint add-in). */
+  .caption { display: none; }
+  body.qr-only { flex-direction: column; gap: 2.5vh; padding: 4vh 4vw; }
+  body.qr-only .words, body.qr-only .brand, body.qr-only .footer, body.qr-only .band,
+  body.qr-only .now, body.qr-only .status { display: none !important; }
+  body.qr-only .code img, body.qr-only .code canvas, body.qr-only .waiting { width: min(76vh, 88vw); }
+  body.qr-only .code { padding: 2vmin; box-shadow: 0 0 0 0.6vmin var(--accent); }
+  body.qr-only .caption { display: block; text-align: center; color: var(--ink); font-size: clamp(0.8rem, 4.2vmin, 2.2rem); line-height: 1.25; }
+  body.qr-only .caption span { color: var(--muted); }
   .band { position: fixed; top: 0; left: 0; right: 0; height: 0.8vh; background: var(--accent); }
   .brand { position: fixed; top: 4vh; left: 5vw; display: flex; align-items: center; gap: 1.2vw; }
   .brand img { max-height: 9vh; max-width: 24vw; }
@@ -112,6 +121,8 @@
   <div class="merged" id="nowMerged" hidden></div>
 </div>
 
+<div class="caption" id="caption" lang="en">Scan to ask a question<br><span lang="ko">질문하려면 스캔하세요</span> · <span lang="es">Escanea para preguntar</span></div>
+
 <div class="status" id="status"></div>
 
 <script>
@@ -135,7 +146,8 @@
   function applyTheme() {
     var t = themeOverride || theme;
     var idle = document.body.classList.contains('idle');
-    document.body.className = t + (document.getElementById('now').hidden ? '' : ' answering') + (idle ? ' idle' : '');
+    var qrOnly = BOOT.layout === 'qr';
+    document.body.className = t + (qrOnly ? ' qr-only' : (document.getElementById('now').hidden ? '' : ' answering')) + (idle ? ' idle' : '');
     var s = document.body.style;
     s.setProperty('--bg', t === 'light' ? brand.roomBgLight : brand.roomBgDark);
     s.setProperty('--accent', brand.accent);

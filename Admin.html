@@ -120,6 +120,12 @@
   .session .grip button:disabled { visibility: hidden; }
   .session .body { flex: 1; min-width: 0; }
   .session.dragging { opacity: 0.45; }
+  /* Active sessions stand out: tinted with the brand accent and an accent edge. */
+  .session.is-active { background: #eef6f4; box-shadow: inset 4px 0 0 var(--action); }
+  .session.is-active { background: color-mix(in srgb, var(--action) 9%, #fff); border-color: color-mix(in srgb, var(--action) 45%, #fff); box-shadow: inset 4px 0 0 var(--action); }
+  .session.is-active .grip { background: color-mix(in srgb, var(--action) 14%, #fff); }
+  .session.is-ended { background: #fafbfb; }
+  .session.is-ended h3 { color: var(--muted); }
   .session.drop-before { box-shadow: 0 -3px 0 var(--action); }
   .session.drop-after { box-shadow: 0 3px 0 var(--action); }
 </style>
@@ -587,7 +593,7 @@
   }
 
   function sessionCard(s, index, total) {
-    var card = el('div', 'session');
+    var card = el('div', 'session' + (s.status === 'active' ? ' is-active' : s.status === 'ended' ? ' is-ended' : ''));
     card.setAttribute('data-id', s.id);
     var grip = el('div', 'grip');
     var handle = el('span', 'handle', '⋮⋮');
@@ -730,6 +736,7 @@
     if (openLinks[s.id]) {
       var links = el('div', 'links');
       linkRow(links, 'Room screen', s.links.present);
+      linkRow(links, 'PowerPoint slide', s.links.slide);
       linkRow(links, 'QA Facilitator queue', s.links.moderate);
       if (s.links.participant) {
         linkRow(links, 'Participant link', s.links.participant);

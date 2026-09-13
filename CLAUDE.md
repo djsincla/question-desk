@@ -20,6 +20,9 @@ Workspace account. See SETUP.md for install and deployment.
 - `scripts/loadtest.js` — simulates a full room against a running load test
 - `scripts/check-secrets.js` — blocks keys, IDs and real email addresses (hook and CI)
 - `CHANGELOG.md` — release notes; `ship.sh` publishes the section for `APP.version`
+- `docs/addin/` — *Question Desk QR* PowerPoint content add-in, served by GitHub Pages
+  (`main` branch, `/docs`). `manifest.xml` `<Version>` tracks `APP.version`. The page only
+  frames addresses from `room-url.js` (public `/macros/s/` form, `&layout=qr`)
 
 Pages get server data through a single template scriptlet, `var BOOT = <?!= boot ?>;`,
 filled by `page_()` with `<` and U+2028/2029 escaped. Do not add other scriptlets, and

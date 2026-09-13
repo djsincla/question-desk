@@ -4,6 +4,20 @@ All notable changes to Question Desk. Versions follow [Semantic Versioning](http
 Each release is tagged `vX.Y.Z` and published as a GitHub release by `scripts/ship.sh`,
 which reads the notes for that version from this file.
 
+## [2.2.0] - 2026-09-12
+
+### Added
+- **Question Desk QR, a PowerPoint add-in** (`docs/addin`) that shows a session's live,
+  rotating QR code on a slide in PowerPoint for Windows, Mac and the web. Served free
+  from GitHub Pages; the session link is saved in the presentation. See
+  `docs/addin/README.md` for installing it for one computer or your whole organization.
+- A **QR-only room screen layout** (`&layout=qr`) sized for a box on a slide, and a
+  **PowerPoint slide** link under each session's Links on the Admin page.
+
+### Changed
+- Active sessions stand out on the Admin page with a tinted background and accent edge;
+  ended sessions are muted.
+
 ## [2.1.1] - 2026-09-12
 
 ### Changed
@@ -104,6 +118,7 @@ which reads the notes for that version from this file.
 - "Merge into one question" for reading a topic aloud.
 - Participant page in English, Korean and Spanish.
 
+[2.2.0]: https://github.com/djsincla/question-desk/releases/tag/v2.2.0
 [2.1.1]: https://github.com/djsincla/question-desk/releases/tag/v2.1.1
 [2.1.0]: https://github.com/djsincla/question-desk/releases/tag/v2.1.0
 [2.0.0]: https://github.com/djsincla/question-desk/releases/tag/v2.0.0
