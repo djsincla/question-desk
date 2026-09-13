@@ -117,7 +117,8 @@ load testing. You need a Google Workspace account that can publish web apps to
 ```bash
 node --test tests/*.test.js     # functional tests against fake Apps Script services
 npm install && npx playwright install webkit chromium
-npm run test:browsers           # real-browser layout and behavior tests (WebKit, Chromium)
+npm run test:browsers           # real-browser layout, behavior and visual comparison tests (WebKit, Chromium)
+npm run test:visual:update      # accept an intended visual change as the new baseline
 node scripts/check-secrets.js   # blocks keys, IDs and real email addresses
 git config core.hooksPath .githooks
 ```

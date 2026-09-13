@@ -74,11 +74,13 @@ function logoDataUrl() {
   return fs.existsSync(file) ? 'data:image/png;base64,' + fs.readFileSync(file).toString('base64') : '';
 }
 
-function buildDemo() {
+/** options.fixedTime: build the demo at this moment (ms), so screenshots are the same every run. */
+function buildDemo(options) {
+  options = options || {};
   const h = createApp({ owner: USERS.owner }).install({ moderators: ['maria@example.org', 'jin@example.org'], admins: ['alex@example.org'] });
   h.env.gemini = demoGemini;
   // Start the demo just before now, so pages comparing against the real clock look normal.
-  h.env.clock.now = Date.now() - 6 * 60 * 1000;
+  h.env.clock.now = (options.fixedTime || Date.now()) - 6 * 60 * 1000;
   h.app.saveBrand({
     orgName: 'Community Family Network',
     accent: '#5b3f9a',
@@ -160,7 +162,7 @@ function shim(as, params) {
 /** options.rpcDelayMs slows every server call, to prove pages don't wait for the server. */
 function serve(port, options) {
   options = options || {};
-  const { h, live } = buildDemo();
+  const { h, live } = buildDemo(options);
   const server = http.createServer((req, res) => {
     const url = new URL(req.url, 'http://localhost');
     if (req.method === 'POST' && url.pathname === '/rpc') {

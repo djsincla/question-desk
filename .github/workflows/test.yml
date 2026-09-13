@@ -36,8 +36,18 @@ jobs:
           node-version: 22
       - name: Install Playwright
         run: npm ci && npx playwright install --with-deps webkit chromium
-      - name: Browser tests (WebKit and Chromium)
+      - name: Browser tests (WebKit and Chromium), including visual comparisons
         run: npm run test:browsers
+      - name: Upload screenshots from the visual comparisons
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: visual-output
+          path: |
+            browser-tests/visual-output/
+            browser-tests/baselines/linux/
+          if-no-files-found: ignore
+          retention-days: 14
 
   installers-macos:
     runs-on: macos-latest

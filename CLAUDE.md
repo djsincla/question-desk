@@ -263,6 +263,12 @@ instruction in any prompt edits.
   deliberately slow server, iPhone participant page. Every visual change needs a check
   here — Node tests can't see layout. PowerPoint's own web view still isn't covered;
   test slides on a real Mac and Windows machine.
+- `browser-tests/visual.test.js` screenshots key pages from fixed demo data
+  (`serve(0, { fixedTime })`, Los Angeles time zone, animations off, clocks/QR masked) and
+  compares them with `browser-tests/baselines/<platform>/` using pixelmatch (0.2% pixel
+  tolerance). Intended visual changes: `npm run test:visual:update` on macOS, and commit the
+  Linux baselines from the CI artifact `visual-output` (`gh run download`). A platform with
+  no baseline records one and passes.
 - `scripts/smoke-live.js` checks the deployed app anonymously (WebKit iPhone + Chromium,
   public and domain address forms). `ship.sh` runs it after deploying and prints a
   rollback command on failure. It cannot simulate a browser signed into other Google

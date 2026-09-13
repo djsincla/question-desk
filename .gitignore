@@ -9,3 +9,6 @@ node_modules/
 .env.*
 *.pem
 *.p12
+
+# Screenshots from the last visual test run (baselines live in browser-tests/baselines).
+browser-tests/visual-output/
