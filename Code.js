@@ -17,7 +17,7 @@
 
 /** Bump with every release; scripts/ship.sh tags git and publishes release notes from CHANGELOG.md. */
 const APP = {
-  version: '2.12.1',
+  version: '2.13.0',
   repo: 'https://github.com/djsincla/question-desk'
 };
 
@@ -92,6 +92,21 @@ function doGet(e) {
   if (view === 'admin') {
     if (!isAdmin_()) return notice_('denied');
     return page_('Admin.html', 'Question Desk admin', {}, null);
+  }
+
+  // Printable QR sheets for an event's shareable-link sessions (admins; opened in a new tab to print).
+  if (view === 'qrsheet') {
+    if (!isAdmin_()) return notice_('denied');
+    const ev = getEvent_(p.e);
+    if (!ev) return notice_('pick', 'admin');
+    const sessions = allSessions_().filter(function (s) { return s.eventId === ev.id && !s.loadTest && s.status !== 'ended'; });
+    return page_('Sheet.html', ev.name + ' — QR sheets', {
+      eventName: ev.name,
+      languages: ev.languages && ev.languages.length ? ev.languages : siteLanguages_(),
+      sessions: sessions.map(function (s) {
+        return { name: s.name, heading: s.heading || '', url: s.access === 'link' ? sessionLinks_(s).participant : '' };
+      })
+    }, { eventId: ev.id });
   }
 
   // The room screen needs no sign-in: anyone with its link can show it, whatever Google
@@ -280,6 +295,10 @@ function saveEvent(input) {
   };
   const languages = input.languages === undefined || input.languages === null || (Array.isArray(input.languages) && !input.languages.length)
     ? null : cleanLanguages_(input.languages);
+  const roster = roster_('MODERATORS');
+  const moderators = input.moderators === undefined ? undefined : (input.moderators || [])
+    .map(function (e) { return String(e).toLowerCase(); })
+    .filter(function (e) { return roster.indexOf(e) !== -1; });
   const brand = {
     orgName: cleanText_(input.orgName, 80),
     accent: color(input.accent, 'The accent'),
@@ -296,12 +315,13 @@ function saveEvent(input) {
       ev.name = name;
       ev.brand = brand;
       if (input.languages !== undefined) ev.languages = languages;   // null: use the site's
+      if (moderators !== undefined) ev.moderators = moderators;
       saveEvent_(ev);
       audit_('Event edited', { id: ev.id, eventName: name }, '');
     } else {
       const orders = allEvents_().map(function (e) { return typeof e.order === 'number' ? e.order : 0; });
       id = newId_(8);
-      saveEvent_({ id: id, name: name, brand: brand, languages: languages, hasLogo: false, created: Date.now(), createdBy: me,
+      saveEvent_({ id: id, name: name, brand: brand, languages: languages, moderators: moderators || [], hasLogo: false, created: Date.now(), createdBy: me,
                    order: orders.length ? Math.min.apply(null, orders) - 1 : 0 });
       audit_('Event created', { id: id, eventName: name }, '');
     }
@@ -743,6 +763,164 @@ function createEvent_(name, me) {
   });
 }
 
+// ---------------------------------------------------------------- event tools
+
+/** One email for a whole event: every session's topics and questions, and one CSV. */
+function emailEventSummary(eid, recipients) {
+  requireAdmin_();
+  const ev = getEvent_(eid);
+  if (!ev) throw new Error('Event not found.');
+  const sessions = allSessions_().filter(function (s) { return s.eventId === eid && !s.loadTest; });
+  if (!sessions.length) throw new Error('This event has no sessions yet.');
+  let to = recipients && recipients.length ? parseEmails_(recipients) : [];
+  if (!to.length) {
+    sessions.forEach(function (s) { summaryRecipients_(s).forEach(function (e) { if (to.indexOf(e) === -1) to.push(e); }); });
+    to = to.slice(0, CONFIG.maxRecipients);
+  }
+  if (!to.length) throw new Error('Add at least one recipient.');
+  checkQuota_(to.length);
+
+  const brand = brand_(sessions[0]);
+  let body = '<p style="color:#5c6874;margin:0 0 8px">' + sessions.length + (sessions.length === 1 ? ' session' : ' sessions') + '</p>';
+  let header = null;
+  const csvRows = [];
+  let questions = 0;
+  sessions.forEach(function (s) {
+    const content = summaryContent_(s, brand_(s));
+    header = ['Session'].concat(content.header);
+    questions += content.questions;
+    body += '<h1 style="font-size:19px;margin:32px 0 4px;padding-top:12px;border-top:1px solid #d9dee3">' + esc_(s.name) + '</h1>' + content.body;
+    content.rows.forEach(function (r) { csvRows.push([s.name].concat(r)); });
+  });
+  body = body.replace('</p>', ' · ' + questions + ' questions</p>');
+  const csv = [header].concat(csvRows).map(function (r) { return r.map(csvCell_).join(','); }).join('\r\n');
+  const filename = ev.name.replace(/[^\w -]+/g, '').trim().replace(/\s+/g, '-') || 'event';
+  const blob = Utilities.newBlob('\ufeff' + csv, 'text/csv', filename + '-questions.csv');
+  to.forEach(function (address) {
+    MailApp.sendEmail({
+      to: address,
+      subject: ev.name + ' — questions summary for the whole event',
+      htmlBody: emailShell_(brand, esc_(ev.name) + ' — questions', body),
+      attachments: [blob],
+      name: brand.orgName || 'Question Desk'
+    });
+  });
+  audit_('Event summary emailed', { id: eid, eventName: ev.name }, 'to ' + to.join(', '));
+  return to.length;
+}
+
+/** A copy of a session's settings and unused prepared questions: inactive, unscheduled, new links. */
+function duplicateSession(sid, eventId) {
+  const me = requireAdmin_();
+  const id = duplicateSession_(sid, eventId, me);
+  audit_('Session duplicated', getSession_(id), 'from "' + getSession_(sid).name + '"');
+  const state = adminState();
+  state.newSessionId = id;
+  return state;
+}
+
+function duplicateSession_(sid, eventId, me, keepName) {
+  const src = getSession_(sid);
+  if (!src) throw new Error('Session not found.');
+  const input = sessionInput_(src);
+  delete input.id;
+  input.name = keepName ? src.name : cleanText_(src.name + ' (copy)', 80);
+  input.scheduledStart = null;
+  input.scheduledEnd = null;
+  if (eventId !== undefined) input.eventId = eventId || '';
+  input.prepared = sessionRows_(sid, true).filter(function (q) { return q.status === 'prepared'; }).map(function (q) { return q.text; });
+  const id = saveSessionAs_(input, me, false);
+  if (src.hasLogo) {
+    const logo = asset_(sid);
+    if (logo) { setAsset_(id, logo); updateSession_(id, function (x) { x.hasLogo = true; }); }
+  }
+  return id;
+}
+
+/** A copy of an event (branding, languages, logo, QA Facilitators) and of all its sessions. */
+function duplicateEvent(eid) {
+  const me = requireAdmin_();
+  const ev = getEvent_(eid);
+  if (!ev) throw new Error('Event not found.');
+  const copy = createEvent_(cleanText_(ev.name + ' (copy)', 80), me);
+  withLock_(function () {
+    const fresh = getEvent_(copy.id);
+    fresh.brand = JSON.parse(JSON.stringify(ev.brand || {}));
+    fresh.languages = ev.languages ? ev.languages.slice() : null;
+    fresh.moderators = (ev.moderators || []).slice();
+    saveEvent_(fresh);
+  });
+  if (ev.hasLogo) {
+    const logo = asset_('event:' + eid);
+    if (logo) {
+      setAsset_('event:' + copy.id, logo);
+      withLock_(function () { const x = getEvent_(copy.id); x.hasLogo = true; saveEvent_(x); });
+    }
+  }
+  const ids = allSessions_().filter(function (s) { return s.eventId === eid && !s.loadTest; })
+    .map(function (s) { return duplicateSession_(s.id, copy.id, me, true); });
+  if (ids.length > 1) {
+    reorderSessions_(ids.concat(allSessions_().map(function (x) { return x.id; }).filter(function (x) { return ids.indexOf(x) === -1; })));
+  }
+  audit_('Event duplicated', { id: copy.id, eventName: getEvent_(copy.id).name }, 'from "' + ev.name + '" with ' + ids.length + ' sessions');
+  const state = adminState();
+  state.savedEventId = copy.id;
+  return state;
+}
+
+/**
+ * Day-of readiness for an event: a row per session with what's set and what isn't.
+ * Each check is { label, ok, detail }; warnings (ok: null) don't block but deserve a look.
+ */
+function eventChecklist(eid) {
+  requireAdmin_();
+  const ev = getEvent_(eid);
+  if (!ev) throw new Error('Event not found.');
+  const tz = Session.getScriptTimeZone();
+  const fmt = function (ms) { return Utilities.formatDate(new Date(ms), tz, 'EEE MMM d, h:mm a'); };
+  const now = Date.now();
+  const health = health_();
+  const trigger = ScriptApp.getProjectTriggers().some(function (t) { return t.getHandlerFunction() === 'clusterQuestions'; });
+  const site = [
+    { label: 'Question grouping runs every minute', ok: trigger, detail: trigger ? '' : 'Run setUp() in the Apps Script editor.' },
+    { label: 'Gemini is set up', ok: !!props_().getProperty('GEMINI_API_KEY') && !health.failures,
+      detail: !props_().getProperty('GEMINI_API_KEY') ? 'No Gemini API key in Script Properties.' : health.failures ? 'Grouping failed ' + health.failures + ' times in a row: ' + (health.lastError || '') : '' },
+    { label: 'Email quota', ok: MailApp.getRemainingDailyQuota() >= 20, detail: MailApp.getRemainingDailyQuota() + ' emails left today' }
+  ];
+  const sessions = allSessions_().filter(function (s) { return s.eventId === eid && !s.loadTest; }).map(function (s) {
+    const links = sessionLinks_(s);
+    const facilitators = facilitatorsFor_(s);
+    const recipients = summaryRecipients_(s);
+    const checks = [];
+    if (s.status === 'ended') {
+      checks.push({ label: 'Ended', ok: true, detail: s.summarySent ? 'Summary emailed ' + fmt(s.summarySent) : (s.summaryPending ? 'Summary not sent yet: ' + s.summaryPending.error : '') });
+    } else {
+      checks.push(s.status === 'active'
+        ? { label: 'Active and taking questions', ok: s.open !== false, detail: s.open === false ? 'Questions are paused.' : '' }
+        : s.scheduledStart && !s.scheduleStarted
+          ? { label: 'Starts on its own', ok: s.scheduledStart > now, detail: fmt(s.scheduledStart) }
+          : { label: 'Not active', ok: null, detail: 'Activate it on the Sessions tab when doors open.' });
+      checks.push(s.scheduledEnd
+        ? { label: 'Ends on its own', ok: s.scheduledEnd > now, detail: fmt(s.scheduledEnd) }
+        : { label: 'No scheduled end', ok: null, detail: 'End it by hand afterwards.' });
+      checks.push({ label: 'QA Facilitators', ok: facilitators.length > 0, detail: facilitators.join(', ') || 'Nobody can run the queue except administrators.' });
+      checks.push({ label: 'Summary email', ok: !s.emailOnEnd ? null : recipients.length > 0,
+        detail: !s.emailOnEnd ? 'Not emailed when it ends.' : recipients.length ? 'To ' + recipients.join(', ') : 'Turned on, but nobody would get it.' });
+      const g = guestChoice_(s.guestPage);
+      checks.push({ label: 'Guest page', ok: g.room || g.slide ? true : null,
+        detail: g.room || g.slide ? 'For ' + (g.room && g.slide ? 'room screen and slide' : g.room ? 'room screen' : 'slide') : 'Off: browsers signed into several Google accounts may see "Sorry, unable to open the file".' });
+      checks.push({ label: 'Prepared questions', ok: true, detail: String(sessionRows_(s.id, true).filter(function (q) { return q.status === 'prepared'; }).length) });
+    }
+    return {
+      id: s.id, name: s.name, status: s.status, access: s.access,
+      languages: languagesFor_(s).map(languageName_).join(', '),
+      links: { present: links.present, slide: links.slide, panel: links.panel, moderate: links.moderate, participant: links.participant },
+      checks: checks
+    };
+  });
+  return { event: { id: ev.id, name: ev.name }, site: site, sessions: sessions, generated: now };
+}
+
 // ---------------------------------------------------------------- archive
 
 /**
@@ -848,9 +1026,17 @@ function isAdmin_(email) {
   return !!email && (email === ownerEmail_() || onRoster_('ADMINS', email));
 }
 
+/** A session's QA Facilitators: its own, plus its event's (who run every session in it). */
+function facilitatorsFor_(session) {
+  const out = (session && session.moderators || []).slice();
+  const ev = session && session.eventId ? getEvent_(session.eventId) : null;
+  (ev && ev.moderators || []).forEach(function (e) { if (out.indexOf(e) === -1) out.push(e); });
+  return out;
+}
+
 function canModerate_(session, email) {
   if (isAdmin_(email)) return true;
-  return onRoster_('MODERATORS', email) && (session.moderators || []).indexOf(email) !== -1;
+  return onRoster_('MODERATORS', email) && facilitatorsFor_(session).indexOf(email) !== -1;
 }
 
 function requireAdmin_() {
@@ -1685,6 +1871,7 @@ function adminState() {
     guestPageUrl: props_().getProperty('GUEST_PAGE_URL') || '',
     guestPageDefault: DEFAULT_GUEST_PAGE,
     detectedUrl: baseUrlDetected_(),
+    appUrl: baseUrl_(),
     geminiKeySet: !!props_().getProperty('GEMINI_API_KEY'),
     sheetUrl: spreadsheet_().getUrl(),
     mailQuota: MailApp.getRemainingDailyQuota(),
@@ -2027,7 +2214,7 @@ function emailLinks(sid, options) {
   if (!session) throw new Error('Session not found.');
   options = options || {};
 
-  const to = options.toModerators ? session.moderators.slice() : parseEmails_(options.to);
+  const to = options.toModerators ? facilitatorsFor_(session) : parseEmails_(options.to);
   if (!to.length) {
     throw new Error(options.toModerators ? 'This session has no QA Facilitators assigned.' : 'Add at least one recipient.');
   }
@@ -2101,6 +2288,10 @@ function removePerson(role, email) {
         const i = (s.moderators || []).indexOf(address);
         if (i !== -1) { s.moderators.splice(i, 1); saveSession_(s); }
       });
+      allEvents_().forEach(function (ev) {
+        const j = (ev.moderators || []).indexOf(address);
+        if (j !== -1) { ev.moderators.splice(j, 1); saveEvent_(ev); }
+      });
     }
   });
   audit_(role === 'admin' ? 'Administrator removed' : 'QA Facilitator removed', null, address);
@@ -2136,7 +2327,7 @@ function summaryRecipients_(session) {
   const setting = session.summary && session.summary.mode === 'custom' ? session.summary : summaryDefaults_();
   const list = [];
   const add = function (e) { e = String(e).toLowerCase(); if (list.indexOf(e) === -1) list.push(e); };
-  if (setting.facilitators !== false) (session.moderators || []).forEach(add);
+  if (setting.facilitators !== false) facilitatorsFor_(session).forEach(add);
   (setting.extra || []).forEach(add);
   return list.slice(0, CONFIG.maxRecipients);
 }
@@ -2320,6 +2511,28 @@ function sendSummary_(session, recipients) {
   if (!to.length) return 0;
   checkQuota_(to.length);
 
+  const brand = brand_(session);
+  const content = summaryContent_(session, brand);
+  const csv = [content.header].concat(content.rows).map(function (r) { return r.map(csvCell_).join(','); }).join('\r\n');
+  const filename = session.name.replace(/[^\w -]+/g, '').trim().replace(/\s+/g, '-') || 'session';
+  const blob = Utilities.newBlob('\ufeff' + csv, 'text/csv', filename + '-questions.csv');
+
+  // One message each, so outside recipients don't see everyone else's address.
+  to.forEach(function (address) {
+    MailApp.sendEmail({
+      to: address,
+      subject: (brand.eventName ? brand.eventName + ': ' : '') + session.name + ' — questions summary',
+      htmlBody: emailShell_(brand, esc_(session.name) + ' — questions', content.body),
+      attachments: [blob],
+      name: brand.orgName || 'Question Desk'
+    });
+  });
+  updateSession_(session.id, function (s) { s.summarySent = Date.now(); delete s.summaryPending; });
+  return to.length;
+}
+
+/** One session's summary: the email body (topics and every question) and CSV rows. */
+function summaryContent_(session, brand) {
   const rows = sessionRows_(session.id);
   const records = topicRecords_(session.id);
   const votes = votesFor_(session.id);
@@ -2336,7 +2549,6 @@ function sendSummary_(session, recipients) {
   const weight = function (t) { return groups[t].length + (votes[t] || 0); };
   const order = Object.keys(groups).sort(function (a, b) { return weight(b) - weight(a); });
 
-  const brand = brand_(session);
   let body = '<p style="color:#5c6874;margin:0 0 20px">' +
     esc_(fmt(session.started)) + ' – ' + esc_(fmt(session.ended)) + '<br>' +
     kept.length + ' questions in ' + order.length + ' topics' +
@@ -2372,27 +2584,12 @@ function sendSummary_(session, recipients) {
   const header = ['ID', 'Submitted', 'Status', 'Topic', 'Original language', 'Original question',
                   CONFIG.moderatorLanguage + ' translation', 'Merged question for topic', 'Me too (topic)',
                   'Topic shown on phones'];
-  const csv = [header].concat(rows.map(function (q) {
+  const csvRows = rows.map(function (q) {
     const translation = q.translation || (sameLanguage_(q) ? q.text : '(not translated)');
     return [q.id, fmt(q.submitted), q.status, q.topic, q.lang, q.text, translation, merged(q.topic),
             votes[q.topic] || 0, records[q.topic] && records[q.topic].shown ? 'yes' : 'no'];
-  })).map(function (r) { return r.map(csvCell_).join(','); }).join('\r\n');
-
-  const filename = session.name.replace(/[^\w -]+/g, '').trim().replace(/\s+/g, '-') || 'session';
-  const blob = Utilities.newBlob('\ufeff' + csv, 'text/csv', filename + '-questions.csv');
-
-  // One message each, so outside recipients don't see everyone else's address.
-  to.forEach(function (address) {
-    MailApp.sendEmail({
-      to: address,
-      subject: (brand.eventName ? brand.eventName + ': ' : '') + session.name + ' — questions summary',
-      htmlBody: emailShell_(brand, esc_(session.name) + ' — questions', body),
-      attachments: [blob],
-      name: brand.orgName || 'Question Desk'
-    });
   });
-  updateSession_(session.id, function (s) { s.summarySent = Date.now(); delete s.summaryPending; });
-  return to.length;
+  return { body: body, header: header, rows: csvRows, questions: kept.length, topics: order.length };
 }
 
 /** True when the question was asked in the moderator language (no separate translation needed). */

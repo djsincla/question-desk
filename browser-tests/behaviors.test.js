@@ -311,3 +311,35 @@ test('chromium: collapsing events never shifts the page sideways (the scrollbar 
     ctx.server.close();
   }
 });
+
+test('chromium: event More menu opens the day-of checklist; sessions duplicate; QR sheets render a code per link session', async () => {
+  await withDemo('chromium', '/?view=admin&as=owner', { viewport: { width: 1280, height: 900 } }, async ({ page, ctx }) => {
+    await page.waitForSelector('.event[data-event]');
+    const conference = page.locator('.event', { has: page.locator('h2', { hasText: 'Fall Family Conference 2026' }) });
+    await conference.locator('details.more summary').click();
+    await conference.locator('details.more button', { hasText: 'Day-of checklist' }).click();
+    await page.waitForFunction(() => /checked/.test(document.getElementById('checklistWhen').textContent), null, { timeout: 10000 });
+    const text = await page.textContent('#checklistBody');
+    assert.match(text, /Whole app/);
+    assert.match(text, /Family Resource Night — September/);
+    assert.match(text, /QA Facilitators/);
+    assert.ok(await page.locator('#checklistBody .linkrow').count() > 0, 'links to copy for each session');
+
+    const before = await conference.locator('.session').count();
+    await conference.locator('.session', { hasText: 'Parent Support Circle' }).locator('button', { hasText: 'Duplicate' }).click();
+    await conference.locator('.session h3', { hasText: 'Parent Support Circle (Spanish) (copy)' }).waitFor({ timeout: 10000 });
+    assert.equal(await conference.locator('.session').count(), before + 1);
+
+    const eid = await conference.getAttribute('data-event');
+    const base = 'http://127.0.0.1:' + ctx.server.address().port;
+    const sheet = await page.context().newPage();
+    await sheet.goto(base + '/?view=qrsheet&e=' + eid + '&as=owner');
+    await sheet.waitForSelector('.page .qr svg');
+    const pages = await sheet.locator('.page').count();
+    assert.equal(pages, 2, 'the link session and its copy');
+    assert.equal(await sheet.locator('.page').first().locator('.qr svg').count(), 1);
+    assert.match(await sheet.textContent('#skipped'), /Family Resource Night — September/);
+    assert.match(await sheet.textContent('.page .scan'), /扫码提问/, 'the event\'s languages');
+    await sheet.close();
+  });
+});

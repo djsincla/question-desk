@@ -42,6 +42,19 @@ grouped into topics by Gemini instead of as one long undifferentiated list.
   move to *Not in an event*). Use ▲ ▼ on an event to reorder events. Click an event's
   arrow or name to collapse or expand its sessions, or use **Collapse all events**; your
   browser remembers which are collapsed.
+- **Event tools** — each event's **More** menu:
+  - **Day-of checklist**: for the whole app (grouping trigger, Gemini, email quota) and each
+    session (active or scheduled, end time, QA Facilitators, summary recipients, guest page,
+    prepared questions), marked ✓ ready, ! worth a look or ✗ needs fixing, with every link to
+    copy.
+  - **Print QR sheets**: a printable page per shareable-link session, with the QR code, the
+    event's languages and the link (in-room sessions use the room screen's changing code).
+  - **Email summary for the whole event**: one email with every session's topics and
+    questions and one CSV (with a Session column).
+  - **Duplicate event**: copies branding, languages, logo, QA Facilitators and every session
+    (not active, not scheduled) — handy for a recurring meeting.
+  - Sessions have **Duplicate** too. An event's form can assign **QA Facilitators for every
+    session** in it.
 - **Export CSV / Import CSV** — export every session's settings to a CSV, edit it in
   Google Sheets or Excel, and import it (or a new file) back. **Check file** shows what each
   row will do before anything is saved. A row matches an existing session by name plus

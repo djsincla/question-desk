@@ -134,6 +134,23 @@
   .import-table .skip { color: var(--muted); }
   .import-wrap { overflow-x: auto; }
   .error-text { color: var(--stop); }
+  details.more { position: relative; }
+  details.more > summary { list-style: none; cursor: pointer; padding: 7px 12px; border-radius: var(--radius-sm); color: var(--muted); font-weight: 500; border: 1px solid transparent; }
+  details.more > summary::-webkit-details-marker { display: none; }
+  details.more > summary:hover, details.more[open] > summary { background: rgba(16, 24, 40, 0.05); color: var(--ink); }
+  details.more .menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 6; min-width: 15rem; background: var(--card); border: 1px solid var(--rule); border-radius: var(--radius); box-shadow: var(--shadow-lg); padding: 6px; animation: qd-rise 0.15s var(--ease); }
+  details.more .menu button, details.more .menu a { display: block; width: 100%; text-align: left; border: 0; box-shadow: none; background: none; padding: 8px 10px; border-radius: var(--radius-sm); color: var(--ink); text-decoration: none; font-weight: 500; }
+  details.more .menu button:hover, details.more .menu a:hover { background: var(--paper); }
+  details.more .menu .danger { color: var(--stop); }
+  details.more .menu hr { border: 0; border-top: 1px solid var(--rule); margin: 4px 0; }
+  .checklist h3 { margin: 18px 0 6px; }
+  .checklist table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+  .checklist td { padding: 6px 8px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  .checklist td.mark { width: 1.6rem; font-weight: 700; text-align: center; }
+  .checklist td.mark.ok { color: var(--good); }
+  .checklist td.mark.bad { color: var(--stop); }
+  .checklist td.mark.warn { color: var(--hold); }
+  .checklist .muted { color: var(--muted); }
   .lang-grid { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 4px 0 12px; }
   .lang-grid label { display: inline-flex; align-items: center; gap: 6px; }
   .lang-grid .native { color: var(--muted); font-size: 0.85rem; }
@@ -188,6 +205,18 @@
     </div>
   </div>
 
+  <div class="panel form checklist" id="checklistPanel" hidden>
+    <div class="actions" style="justify-content:space-between">
+      <h2 id="checklistTitle" style="margin:0">Day-of checklist</h2>
+      <span>
+        <button type="button" id="checklistRefresh">Check again</button>
+        <button type="button" class="quiet" id="checklistClose">Close</button>
+      </span>
+    </div>
+    <p class="hint" id="checklistWhen"></p>
+    <div id="checklistBody"></div>
+  </div>
+
   <form class="panel form" id="importForm" hidden autocomplete="off">
     <h2>Import sessions from CSV</h2>
     <p class="hint" style="margin-top:0">Use the format from <b>Export CSV</b> — edit it in Google Sheets or Excel, then save as CSV. Only the <b>Session</b> column is required; columns you leave out keep their current settings. Times are in the app's time zone, like <code>2026-10-03 18:30</code>. Events that don't exist yet are created; a blank Event cell takes a session out of its event. Ended sessions are never changed.</p>
@@ -215,6 +244,11 @@
       <input type="text" id="ev-name" maxlength="80" required placeholder="Spring Family Conference 2027">
       <div class="hint">Groups the sessions held at one event, such as a conference with several rooms.</div>
     </label>
+    <div class="field">
+      <span class="field-label">QA Facilitators for every session in this event</span>
+      <div id="ev-mods"></div>
+      <div class="hint">They can run the queue for all of this event's sessions, and get their summaries when summaries go to QA Facilitators. Sessions can add more of their own.</div>
+    </div>
     <fieldset>
       <legend>Languages</legend>
       <label class="choice"><input type="radio" name="evLangMode" value="site" checked><span>The site's languages<small id="ev-lang-site"></small></span></label>
@@ -950,9 +984,34 @@
     edit.type = 'button';
     edit.onclick = function () { openEventForm(ev); };
     acts.appendChild(edit);
-    var del = el('button', 'quiet', 'Delete event');
-    del.type = 'button';
+    var more = el('details', 'more');
+    var moreLabel = el('summary', null, 'More ▾');
+    moreLabel.setAttribute('aria-label', 'More actions for ' + ev.name);
+    more.appendChild(moreLabel);
+    var menu = el('div', 'menu');
+    var menuItem = function (label, fn, cls) {
+      var b = el('button', cls || null, label);
+      b.type = 'button';
+      b.onclick = function () { more.open = false; fn(b); };
+      menu.appendChild(b);
+      return b;
+    };
+    menuItem('Day-of checklist', function () { openChecklist(ev); });
+    var sheet = el('a', null, 'Print QR sheets');
+    sheet.href = state.appUrl + '?view=qrsheet&e=' + ev.id;
+    sheet.target = '_blank';
+    sheet.rel = 'noopener';
+    sheet.title = 'A printable page with the QR code for each shareable-link session';
+    menu.appendChild(sheet);
+    menuItem('Email summary for the whole event', function () { openEmail({ id: ev.id, name: ev.name, eventSummary: true, sessions: sessions }, 'eventSummary'); });
+    menuItem('Duplicate event', function (b) {
+      call('duplicateEvent', [ev.id], function (res) { render(res); toast('Copied ' + ev.name + ' with its ' + sessions.length + (sessions.length === 1 ? ' session' : ' sessions')); });
+    });
+    menu.appendChild(el('hr'));
+    var del = menuItem('Delete event', function () {}, 'danger');
+    more.appendChild(menu);
     del.onclick = function () {
+      more.open = false;
       ask({
         title: 'Delete this event?',
         body: sessions.length
@@ -962,10 +1021,10 @@
         danger: true,
         typeToConfirm: ev.name
       }, function (typed) {
-        call('deleteEvent', [ev.id, typed], function (res) { render(res); toast('Event deleted'); }, del);
+        call('deleteEvent', [ev.id, typed], function (res) { render(res); toast('Event deleted'); });
       });
     };
-    acts.appendChild(del);
+    acts.appendChild(more);
     head.appendChild(acts);
     // Reorder arrows sit at the far end, away from the collapse arrow.
     if (total > 1) head.appendChild(order);
@@ -1090,6 +1149,19 @@
     linksBtn.type = 'button';
     linksBtn.onclick = function () { openLinks[s.id] = !openLinks[s.id]; renderSessions(); };
     acts.appendChild(linksBtn);
+
+    if (!s.loadTest) {
+      var dup = el('button', 'quiet', 'Duplicate');
+      dup.type = 'button';
+      dup.title = 'A copy with the same settings, facilitators and prepared questions — not active, not scheduled';
+      dup.onclick = function () {
+        call('duplicateSession', [s.id], function (res) {
+          render(res);
+          toast('Copied — edit the copy to rename or schedule it');
+        }, dup);
+      };
+      acts.appendChild(dup);
+    }
 
     if (!ended) {
       var edit = el('button', null, 'Edit');
@@ -1484,6 +1556,19 @@
     $('ev-dark').value = b.roomBgDark || state.brand.roomBgDark;
     $('ev-light-on').checked = !!b.roomBgLight;
     $('ev-light').value = b.roomBgLight || state.brand.roomBgLight;
+    var modBox = $('ev-mods');
+    modBox.innerHTML = '';
+    if (!state.moderators.length) modBox.appendChild(el('div', 'hint', 'No QA Facilitators yet. Add them on the People tab.'));
+    state.moderators.forEach(function (email) {
+      var label = el('label', 'choice');
+      var cb = el('input');
+      cb.type = 'checkbox';
+      cb.value = email;
+      cb.checked = (ev.moderators || []).indexOf(email) !== -1;
+      label.appendChild(cb);
+      label.appendChild(el('span', null, email));
+      modBox.appendChild(label);
+    });
     var custom = ev.languages && ev.languages.length;
     radio('evLangMode', custom ? 'custom' : 'site');
     $('ev-lang-site').textContent = languageNames(state.siteLanguages);
@@ -1533,6 +1618,72 @@
   };
 
   $('newEvent').onclick = function () { openEventForm(null); };
+
+  // ------------------------------------------------------------ day-of checklist
+
+  var checklistEvent = null;
+
+  function mark(ok) {
+    return ok === true ? ['ok', '✓'] : ok === false ? ['bad', '✗'] : ['warn', '!'];
+  }
+
+  function openChecklist(ev) {
+    checklistEvent = ev;
+    $('sessionForm').hidden = true;
+    $('eventForm').hidden = true;
+    $('importForm').hidden = true;
+    $('checklistTitle').textContent = 'Day-of checklist — ' + ev.name;
+    $('checklistBody').innerHTML = '';
+    $('checklistWhen').textContent = 'Checking…';
+    $('checklistPanel').hidden = false;
+    call('eventChecklist', [ev.id], drawChecklist, $('checklistRefresh'));
+  }
+
+  function checkTable(checks) {
+    var table = el('table');
+    checks.forEach(function (c) {
+      var tr = el('tr');
+      var m = mark(c.ok);
+      tr.appendChild(el('td', 'mark ' + m[0], m[1]));
+      tr.appendChild(el('td', null, c.label));
+      tr.appendChild(el('td', 'muted', c.detail || ''));
+      table.appendChild(tr);
+    });
+    return table;
+  }
+
+  function drawChecklist(res) {
+    var body = $('checklistBody');
+    body.innerHTML = '';
+    var problems = 0, warnings = 0;
+    var count = function (checks) { checks.forEach(function (c) { if (c.ok === false) problems++; else if (c.ok === null) warnings++; }); };
+    count(res.site);
+    res.sessions.forEach(function (s) { count(s.checks); });
+    $('checklistWhen').textContent = (problems ? problems + (problems === 1 ? ' problem' : ' problems') : 'No problems') +
+      (warnings ? ', ' + warnings + ' to look at' : '') + ' · checked ' + fmtDate(res.generated) + '. ✓ ready · ! worth a look · ✗ needs fixing.';
+    body.appendChild(el('h3', null, 'Whole app'));
+    body.appendChild(checkTable(res.site));
+    if (!res.sessions.length) body.appendChild(el('p', 'hint', 'This event has no sessions yet.'));
+    res.sessions.forEach(function (s) {
+      var h = el('h3', null, s.name);
+      h.appendChild(el('span', 'pill ' + s.status, s.status === 'active' ? 'Active' : s.status === 'ended' ? 'Ended' : 'Not active'));
+      body.appendChild(h);
+      body.appendChild(el('p', 'hint', (s.access === 'link' ? 'Shareable link' : 'In-room QR') + ' · ' + s.languages));
+      body.appendChild(checkTable(s.checks));
+      if (s.status !== 'ended') {
+        var links = el('div', 'links');
+        linkRow(links, 'Room screen', s.links.present);
+        linkRow(links, 'PowerPoint slide', s.links.slide);
+        linkRow(links, 'Panelist view', s.links.panel);
+        linkRow(links, 'QA Facilitator queue', s.links.moderate);
+        if (s.links.participant) linkRow(links, 'Participant link', s.links.participant);
+        body.appendChild(links);
+      }
+    });
+  }
+
+  $('checklistRefresh').onclick = function () { if (checklistEvent) openChecklist(checklistEvent); };
+  $('checklistClose').onclick = function () { $('checklistPanel').hidden = true; };
 
   // ------------------------------------------------------------ CSV
 
@@ -1651,7 +1802,9 @@
       footer: $('ev-footer').value,
       roomBgDark: $('ev-dark-on').checked ? $('ev-dark').value : '',
       roomBgLight: $('ev-light-on').checked ? $('ev-light').value : '',
-      languages: radio('evLangMode') === 'custom' ? chosenLanguages($('ev-langs')) : null
+      languages: radio('evLangMode') === 'custom' ? chosenLanguages($('ev-langs')) : null,
+      moderators: Array.prototype.slice.call($('ev-mods').querySelectorAll('input[type=checkbox]'))
+        .filter(function (cb) { return cb.checked; }).map(function (cb) { return cb.value; })
     };
     call('saveEvent', [input], function (res) {
       $('eventForm').hidden = true;
@@ -1704,8 +1857,16 @@
   function openEmail(s, mode) {
     emailTarget = s;
     emailMode = mode;
-    $('emailTitle').textContent = (mode === 'summary' ? 'Email summary — ' : 'Email links — ') + s.name;
-    $('e-kinds').hidden = mode === 'summary';
+    $('emailTitle').textContent = (mode === 'summary' ? 'Email summary — ' : mode === 'eventSummary' ? 'Email event summary — ' : 'Email links — ') + s.name;
+    $('e-kinds').hidden = mode === 'summary' || mode === 'eventSummary';
+    if (mode === 'eventSummary') {
+      var everyone = [];
+      (s.sessions || []).forEach(function (x) { (x.summaryTo || []).forEach(function (e) { if (everyone.indexOf(e) === -1) everyone.push(e); }); });
+      $('e-to').value = everyone.join(', ');
+      $('emailModal').hidden = false;
+      $('e-to').focus();
+      return;
+    }
     $('e-to').value = mode === 'summary' ? (s.summaryTo || []).join(', ') : '';
     var hasLink = !!s.links.participant;
     $('e-participant').disabled = !hasLink;
@@ -1727,6 +1888,13 @@
   $('emailForm').addEventListener('submit', function (e) {
     e.preventDefault();
     var to = $('e-to').value;
+    if (emailMode === 'eventSummary') {
+      call('emailEventSummary', [emailTarget.id, to.split(/[\s,;]+/).filter(Boolean)], function (n) {
+        closeEmail();
+        toast('Event summary sent to ' + n + (n === 1 ? ' person' : ' people'));
+      }, $('e-send'));
+      return;
+    }
     if (emailMode === 'summary') {
       call('emailSummary', [emailTarget.id, to.split(/[\s,;]+/).filter(Boolean)], function (n) {
         closeEmail();

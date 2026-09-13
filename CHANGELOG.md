@@ -4,6 +4,26 @@ All notable changes to Question Desk. Versions follow [Semantic Versioning](http
 Each release is tagged `vX.Y.Z` and published as a GitHub release by `scripts/ship.sh`,
 which reads the notes for that version from this file.
 
+## [2.13.0] - 2026-09-13
+
+### Added
+- **Day-of checklist** (event **More** menu): a readiness check for the whole app — grouping
+  trigger, Gemini, email quota — and for each session: active or starting on its own, end
+  time, QA Facilitators, summary recipients, guest page and prepared questions. Each line is
+  ✓ ready, ! worth a look, or ✗ needs fixing, and every session's links are there to copy.
+- **Print QR sheets**: a printable page per shareable-link session in the event, with the
+  QR code, session name and heading, "Scan to ask" in the event's languages, and the link.
+- **Email summary for the whole event**: one email with every session's topics and
+  questions, and one CSV with a Session column.
+- **Event-level QA Facilitators**: assign people on the event's form and they can run every
+  session in it, and get those sessions' summaries when summaries go to QA Facilitators.
+- **Duplicate** a session (same settings, facilitators and prepared questions; not active,
+  not scheduled, new links) or a whole event (branding, languages, logo, QA Facilitators
+  and all its sessions) — for recurring meetings.
+
+### Changed
+- An event's less-used actions moved into a **More** menu; **Delete event** is there too.
+
 ## [2.12.1] - 2026-09-13
 
 ### Fixed
@@ -464,6 +484,7 @@ Fixes from a full code review.
 - "Merge into one question" for reading a topic aloud.
 - Participant page in English, Korean and Spanish.
 
+[2.13.0]: https://github.com/djsincla/question-desk/releases/tag/v2.13.0
 [2.12.1]: https://github.com/djsincla/question-desk/releases/tag/v2.12.1
 [2.12.0]: https://github.com/djsincla/question-desk/releases/tag/v2.12.0
 [2.11.1]: https://github.com/djsincla/question-desk/releases/tag/v2.11.1

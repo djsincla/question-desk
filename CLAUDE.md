@@ -65,6 +65,11 @@ does not carry the query string. That exact bug shipped once (v2): every QR scan
   is set. Updates start from `sessionInput_(existing)`, so missing columns change nothing.
   New sessions keep the file's order. Times use `Utilities.parseDate/formatDate` in the
   script time zone (the harness fakes both with real time-zone math).
+- A session's QA Facilitators are `facilitatorsFor_(session)`: its own plus its event's
+  `moderators`. Use it (not `session.moderators`) for access, summaries and emails.
+- Event tools: `eventChecklist(eid)`, `emailEventSummary(eid, to)` (reuses
+  `summaryContent_`), `duplicateSession(sid)` / `duplicateEvent(eid)` (via `sessionInput_`,
+  schedules cleared, new keys), and `view=qrsheet&e=<event>` → `Sheet.html` (admins only).
 - Ended sessions older than `CONFIG.archiveAfterDays` (or archived by an admin) move from
   Script Properties into the `Archive` sheet (session JSON and votes) by `archiveOld_()` on
   the schedule, so the 500KB property store doesn't fill up. `restoreSession()` puts one

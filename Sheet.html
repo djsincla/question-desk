@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<base target="_top">
+<?!= styles ?>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" integrity="sha512-CNgIRecGo7nphbeZ04Sc13ka07paqdeTu0WR1IM4kNcpmBAUSHSQX0FslNhTDadL4O5SAGapGt4FodqL8My0mA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<style>
+  /* Printable QR sheets for an event's shareable-link sessions: one page each. */
+  body { padding: 24px; }
+  .toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; max-width: 46rem; margin: 0 auto 20px; }
+  .toolbar p { margin: 0; flex: 1 1 18rem; color: var(--muted); }
+  .page {
+    background: var(--card); max-width: 46rem; margin: 0 auto 24px; padding: 48px 40px;
+    border-radius: var(--radius); box-shadow: var(--shadow); text-align: center;
+    border-top: 8px solid var(--action);
+  }
+  .page img.logo { max-height: 70px; max-width: 280px; margin-bottom: 12px; }
+  .page .org { color: var(--muted); margin: 0 0 4px; }
+  .page .event { color: var(--muted); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; font-size: 0.85rem; margin: 0 0 18px; }
+  .page h1 { font-size: 2.2rem; line-height: 1.15; margin: 0 0 6px; }
+  .page .heading { font-size: 1.2rem; color: var(--muted); margin: 0 0 26px; }
+  .qr { display: inline-block; padding: 18px; background: #fff; border-radius: 16px; box-shadow: 0 0 0 6px var(--action); }
+  .qr svg { display: block; width: 320px; height: 320px; }
+  .scan { margin: 26px 0 0; font-size: 1.35rem; font-weight: 600; }
+  .scan span { display: block; font-size: 1.05rem; font-weight: 500; color: var(--muted); margin-top: 4px; }
+  .anon { margin: 18px 0 0; color: var(--muted); }
+  .link { margin: 22px auto 0; font-size: 0.78rem; color: var(--faint); word-break: break-all; max-width: 34rem; }
+  .skipped { max-width: 46rem; margin: 0 auto; color: var(--muted); }
+  @media print {
+    body { background: #fff; padding: 0; }
+    .toolbar, .skipped { display: none !important; }
+    .page { box-shadow: none; border-radius: 0; margin: 0; max-width: none; min-height: 100vh; page-break-after: always; break-after: page; }
+    .page:last-of-type { page-break-after: auto; break-after: auto; }
+  }
+</style>
+</head>
+<body>
+<div class="toolbar">
+  <p id="intro"></p>
+  <button type="button" class="primary" id="print">Print</button>
+</div>
+<div id="pages"></div>
+<p class="skipped" id="skipped" hidden></p>
+
+<script>
+  var BOOT = <?!= boot ?>;
+  var brand = BOOT.brand || {};
+  var SCAN = {
+    en: ['Scan to ask a question', 'Questions are anonymous. Ask in any language.'],
+    ko: ['질문하려면 스캔하세요', '질문은 익명입니다. 어떤 언어로도 질문할 수 있습니다.'],
+    es: ['Escanea para preguntar', 'Las preguntas son anónimas. Pregunta en cualquier idioma.'],
+    zh: ['扫码提问', '提问是匿名的，可以用任何语言提问。'],
+    vi: ['Quét để đặt câu hỏi', 'Câu hỏi được ẩn danh. Hỏi bằng bất kỳ ngôn ngữ nào.'],
+    tl: ['I-scan para magtanong', 'Hindi nagpapakilala ang mga tanong. Magtanong sa anumang wika.'],
+    hy: ['Սկանավորեք՝ հարց տալու համար', 'Հարցերն անանուն են։ Հարցրեք ցանկացած լեզվով։']
+  };
+  var langs = (BOOT.languages || ['en']).filter(function (c) { return SCAN[c]; });
+  if (brand.accent) document.documentElement.style.setProperty('--action', brand.accent);
+
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined) n.textContent = text;
+    return n;
+  }
+
+  /** The QR pattern as one SVG (the library's canvas/img output prints unevenly). */
+  function qrSvg(url) {
+    var scratch = document.createElement('div');
+    var q = new QRCode(scratch, { text: url, width: 64, height: 64, correctLevel: QRCode.CorrectLevel.M });
+    var model = q._oQRCode;
+    var n = model.getModuleCount();
+    var NS = 'http://www.w3.org/2000/svg';
+    var svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('viewBox', '0 0 ' + n + ' ' + n);
+    svg.setAttribute('shape-rendering', 'crispEdges');
+    svg.setAttribute('role', 'img');
+    var d = '';
+    for (var r = 0; r < n; r++) for (var c = 0; c < n; c++) if (model.isDark(r, c)) d += 'M' + c + ' ' + r + 'h1v1h-1z';
+    var path = document.createElementNS(NS, 'path');
+    path.setAttribute('d', d);
+    svg.appendChild(path);
+    return svg;
+  }
+
+  var printable = BOOT.sessions.filter(function (s) { return s.url; });
+  var roomOnly = BOOT.sessions.filter(function (s) { return !s.url; });
+  document.title = BOOT.eventName + ' — QR sheets';
+  document.getElementById('intro').textContent = printable.length
+    ? printable.length + (printable.length === 1 ? ' page' : ' pages') + ' for ' + BOOT.eventName + ', one per shareable-link session. Print on letter or A4.'
+    : 'No sessions in ' + BOOT.eventName + ' use a shareable link, so there is nothing to print.';
+  document.getElementById('print').hidden = !printable.length;
+
+  printable.forEach(function (s) {
+    var page = el('section', 'page');
+    if (brand.logo) { var img = el('img', 'logo'); img.src = brand.logo; img.alt = brand.orgName || ''; page.appendChild(img); }
+    else if (brand.orgName) page.appendChild(el('p', 'org', brand.orgName));
+    page.appendChild(el('p', 'event', BOOT.eventName));
+    page.appendChild(el('h1', null, s.name));
+    if (s.heading) page.appendChild(el('p', 'heading', s.heading));
+    var qr = el('div', 'qr');
+    qr.appendChild(qrSvg(s.url));
+    qr.firstChild.setAttribute('aria-label', 'QR code for ' + s.name);
+    page.appendChild(qr);
+    var scan = el('p', 'scan', SCAN.en[0]);
+    langs.forEach(function (code) {
+      if (code === 'en') return;
+      var line = el('span', null, SCAN[code][0]);
+      line.lang = code;
+      scan.appendChild(line);
+    });
+    page.appendChild(scan);
+    page.appendChild(el('p', 'anon', SCAN.en[1]));
+    page.appendChild(el('p', 'link', s.url));
+    document.getElementById('pages').appendChild(page);
+  });
+
+  if (roomOnly.length) {
+    var skipped = document.getElementById('skipped');
+    skipped.textContent = 'Not printed (in-room sessions join by the changing code on the room screen): ' +
+      roomOnly.map(function (s) { return s.name; }).join(', ') + '.';
+    skipped.hidden = false;
+  }
+
+  document.getElementById('print').onclick = function () { window.print(); };
+</script>
+</body>
+</html>

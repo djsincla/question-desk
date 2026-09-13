@@ -73,6 +73,7 @@ Regenerate with `node scripts/screenshots.js` (needs Google Chrome).
 ## Features
 
 - Events that group sessions, with event branding between the site's and each session's
+- Day-of checklist, printable QR sheets, whole-event summary, and duplicate events and sessions
 - CSV export and import of sessions, with a preview before anything is saved
 - Activity log of every administrator, QA Facilitator and scheduled action
 - Panelist view for the panel table, and keyboard shortcuts in the QA Facilitator queue
