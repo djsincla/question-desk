@@ -250,9 +250,11 @@ though the page needs no sign-in. The same link works in a private window.
 - **Always use links from the Admin page** (Sessions → Links). Old links from an archived
   deployment show the same error.
 
-Nothing in Apps Script can prevent this for browsers signed into several accounts. The
-long-term fix is serving the guest pages from outside Google's address; see the issues
-on GitHub.
+Nothing in Apps Script itself can prevent this. The **guest page** avoids it for Safari and
+Firefox: host `docs/join` on your website (or use this project's GitHub Pages copy), set
+**Branding → Guest page address**, and set sessions to **Open guest pages through → Guest
+page**. See [`docs/join/README.md`](docs/join/README.md). Chrome browsers signed into several
+Google accounts can still hit the error.
 
 ## Before you go live
 

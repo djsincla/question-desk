@@ -4,6 +4,19 @@ All notable changes to Question Desk. Versions follow [Semantic Versioning](http
 Each release is tagged `vX.Y.Z` and published as a GitHub release by `scripts/ship.sh`,
 which reads the notes for that version from this file.
 
+## [2.4.0] - 2026-09-13
+
+### Added
+- **Guest page** (`docs/join`): a two-file page hosted on any website (this project's
+  GitHub Pages copy, or your own such as autismla.org) that shows the questions page and
+  room screen inside it. Safari and Firefox then send Google no sign-in, which avoids
+  Google's "Sorry, unable to open the file at this time" for browsers signed into several
+  Google accounts. Set the address on **Branding → Guest page address**; choose per session
+  under **Open guest pages through** (with an optional per-session address). QR codes,
+  questions links, room screen links and emailed links follow the choice.
+- The PowerPoint add-in accepts guest page room links.
+- The live check after each release also loads a room screen through the guest page.
+
 ## [2.3.3] - 2026-09-12
 
 ### Added
@@ -189,6 +202,7 @@ which reads the notes for that version from this file.
 - "Merge into one question" for reading a topic aloud.
 - Participant page in English, Korean and Spanish.
 
+[2.4.0]: https://github.com/djsincla/question-desk/releases/tag/v2.4.0
 [2.3.3]: https://github.com/djsincla/question-desk/releases/tag/v2.3.3
 [2.3.2]: https://github.com/djsincla/question-desk/releases/tag/v2.3.2
 [2.3.1]: https://github.com/djsincla/question-desk/releases/tag/v2.3.1

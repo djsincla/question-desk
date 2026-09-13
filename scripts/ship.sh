@@ -67,7 +67,7 @@ echo "==> Deploy"
 clasp update-deployment "$DEPLOYMENT_ID" -V "$VERSION" -d "Question Desk" $USER_ARGS
 
 echo "==> Live check"
-if ! QD_DEPLOYMENT_ID="$DEPLOYMENT_ID" QD_DOMAIN="${QD_DOMAIN:-}" node scripts/smoke-live.js; then
+if ! QD_DEPLOYMENT_ID="$DEPLOYMENT_ID" QD_DOMAIN="${QD_DOMAIN:-}" QD_GUEST_PAGE="${QD_GUEST_PAGE:-}" node scripts/smoke-live.js; then
   echo "The live app did not answer correctly after deploying version $VERSION." >&2
   [ -n "$PREVIOUS" ] && echo "Roll back with: clasp update-deployment $DEPLOYMENT_ID -V $PREVIOUS -d \"Question Desk\" $USER_ARGS" >&2
   exit 1

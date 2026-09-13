@@ -20,6 +20,11 @@ Workspace account. See SETUP.md for install and deployment.
 - `scripts/loadtest.js` — simulates a full room against a running load test
 - `scripts/check-secrets.js` — blocks keys, IDs and real email addresses (hook and CI)
 - `CHANGELOG.md` — release notes; `ship.sh` publishes the section for `APP.version`
+- `docs/join/` — the guest page: frames guest pages from another site so Safari/Firefox send
+  Google no cookies (Google's multi-account "unable to open the file"). `guestLink_()` builds
+  `<guest page>?d=<deployment>&<query>`; `join-url.js` only frames script.google.com guest
+  pages. Tested in-browser that data calls from other sites (ContentService doPost) are slow
+  and fail ~half the time on Google's side — don't build guest pages on fetch(); frame instead.
 - `docs/addin/install/` — add-in installers (Mac `.sh`/`.command`, Windows `.ps1`/`.cmd`) and
   the download zips built by `scripts/build-addin-installers.sh` (tests fail if the zips are
   stale). Windows registers `HKCU\Software\Microsoft\Office\16.0\Wef\Developer\<add-in id>`;

@@ -16,9 +16,18 @@
 })(this, function () {
   var PATTERN = /^https:\/\/script\.google\.com\/(?:a\/macros\/[^\/?#]+\/s\/|a\/[^\/?#]+\/macros\/s\/|macros\/s\/)([A-Za-z0-9_-]+)\/exec(?:\?([^#]*))?(?:#.*)?$/;
 
+  // A guest page link (docs/join): https://<any site>/…?d=<deployment>&view=present&s=<session>
+  var GUEST = /^https:\/\/[^\s?#]+\?([^#]*)$/;
+
   function parse(input) {
-    var match = String(input || '').trim().match(PATTERN);
-    if (!match) return null;
+    var text = String(input || '').trim();
+    var match = text.match(PATTERN);
+    if (!match) {
+      var guest = text.match(GUEST);
+      var d = guest && /(?:^|&)d=(AKfycb[A-Za-z0-9_-]{20,120})(?:&|$)/.exec(guest[1]);
+      var sid = guest && /(?:^|&)s=([a-f0-9]{8})(?:&|$)/.exec(guest[1]);
+      return d && sid ? { deployment: d[1], session: sid[1] } : null;
+    }
     var params = {};
     (match[2] || '').split('&').forEach(function (pair) {
       if (!pair) return;

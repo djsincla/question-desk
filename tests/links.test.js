@@ -125,3 +125,79 @@ test('guests are told what to do if Google refuses to open a page', () => {
   assert.match(h.env.outbox[0].htmlBody, /Sorry, unable to open the file&quot;, open it in a private browsing window/);
   assert.match(h.env.outbox[0].htmlBody, /Use a private browsing window on the projector computer/);
 });
+
+// ------------------------------------------------------------ guest page (docs/join)
+
+const JoinUrl = require('../docs/join/join-url');
+const RoomUrl = require('../docs/addin/room-url');
+const GUEST = 'https://autismla.example/questions/';
+
+function guestSetup() {
+  const h = createApp().install({ moderators: [MOD] });
+  h.env.deployUrl = 'https://script.google.com/a/example.org/macros/s/AKfycbTESTDEPLOYMENT_id-123456789/exec';
+  h.app.saveBrand({ guestPageUrl: 'https://autismla.example/questions' });
+  return h;
+}
+
+test('sessions that use the guest page hand out guest page links the wrapper understands', () => {
+  const h = guestSetup();
+  const DIRECT = 'https://script.google.com/macros/s/AKfycbTESTDEPLOYMENT_id-123456789/exec';
+  h.app.saveSession({ name: 'Wrapped room', access: 'room', moderators: [MOD], guestPage: { mode: 'wrapper' } });
+  h.app.saveSession({ name: 'Wrapped link', access: 'link', moderators: [MOD], guestPage: { mode: 'wrapper' } });
+  h.app.saveSession({ name: 'Direct', access: 'link', moderators: [MOD], guestPage: { mode: 'direct' } });
+  const byName = Object.fromEntries(h.app.adminState().sessions.map((s) => [s.name, s]));
+  Object.values(byName).forEach((s) => h.app.setSessionActive(s.id, true));
+  assert.equal(h.app.adminState().guestPageUrl, GUEST, 'folder address gets a trailing slash');
+
+  const check = (url, expectedDirect, label) => {
+    assert.ok(url.startsWith(GUEST + '?d=AKfycbTESTDEPLOYMENT_id-123456789&'), label + ': ' + url);
+    const u = new URL(url);
+    assert.equal(JoinUrl.target(u.search), expectedDirect, label + ' opens the right Question Desk page');
+  };
+
+  const room = byName['Wrapped room'];
+  check(room.links.present, DIRECT + '?view=present&s=' + room.id, 'room screen');
+  const roomQr = h.app.getRoomScreen(room.id).url;
+  check(roomQr, DIRECT + '?s=' + room.id + '&t=' + new URL(roomQr).searchParams.get('t'), 'in-room QR code');
+
+  const link = byName['Wrapped link'];
+  const key = h.app.getSession_(link.id).linkKey;
+  check(link.links.participant, DIRECT + '?s=' + link.id + '&k=' + key, 'questions link');
+  check(h.app.getRoomScreen(link.id).url, DIRECT + '?s=' + link.id + '&k=' + key, 'link-session QR code');
+
+  // Unchanged: the add-in slide link (the add-in already embeds from outside Google) and staff links.
+  assert.equal(link.links.slide, DIRECT + '?view=present&s=' + link.id + '&layout=qr');
+  assert.match(link.links.moderate, /^https:\/\/script\.google\.com\/a\/example\.org\/macros\/s\/.*\?view=moderate&s=/);
+  assert.equal(RoomUrl.forSlide(room.links.present), DIRECT + '?view=present&s=' + room.id + '&layout=qr', 'add-in accepts a guest page room link');
+
+  // Emails use the guest page too.
+  h.app.emailLinks(link.id, { to: 'guest@example.org', participant: true, present: true });
+  const hrefs = Array.from(h.env.outbox[0].htmlBody.matchAll(/href="([^"]+)"/g), (m) => m[1].replace(/&amp;/g, '&'));
+  hrefs.forEach((href) => assert.ok(href.startsWith(GUEST + '?d='), 'emailed ' + href));
+
+  // A direct session is untouched.
+  assert.equal(byName.Direct.links.participant.split('?')[0], DIRECT);
+});
+
+test('a session can use its own guest page address, and the choice is validated', () => {
+  const h = guestSetup();
+  h.app.saveSession({ name: 'Partner', access: 'link', guestPage: { mode: 'wrapper', url: 'https://partner.example/ask/index.html' } });
+  const s = h.app.adminState().sessions[0];
+  assert.ok(s.links.participant.startsWith('https://partner.example/ask/index.html?d='));
+
+  h.app.saveSession({ id: s.id, name: 'Partner renamed', access: 'link' });
+  assert.ok(h.app.adminState().sessions[0].links.participant.startsWith('https://partner.example/ask/index.html?d='), 'kept when not sent');
+
+  ['http://partner.example/', 'https://partner.example/?x=1', 'https://partner.example/#x', 'javascript:alert(1)', 'ftp://x.example/']
+    .forEach((url) => assert.throws(() => h.app.saveSession({ name: 'Bad', guestPage: { mode: 'wrapper', url } }), /guest page address must be an https/, url));
+  assert.throws(() => h.app.saveBrand({ guestPageUrl: 'http://autismla.example/q' }), /guest page address must be an https/);
+
+  const bare = createApp().install();
+  assert.throws(() => bare.app.saveSession({ name: 'No default', guestPage: { mode: 'wrapper' } }), /Set a guest page address/);
+});
+
+test('clearing the organization guest page address turns it off', () => {
+  const h = guestSetup();
+  h.app.saveBrand({ guestPageUrl: '' });
+  assert.equal(h.app.adminState().guestPageUrl, '');
+});

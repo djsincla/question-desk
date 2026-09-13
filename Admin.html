@@ -198,6 +198,19 @@
     </div>
 
     <fieldset>
+      <legend>Open guest pages through</legend>
+      <label class="choice"><input type="radio" name="guestMode" value="direct" checked>
+        <span>Question Desk directly<small>Google's address. Browsers signed into several Google accounts can show "Sorry, unable to open the file".</small></span></label>
+      <label class="choice"><input type="radio" name="guestMode" value="wrapper">
+        <span>Guest page<small id="f-guest-default">The questions page and room screen open inside your guest page, so Safari and Firefox send Google no sign-in.</small></span></label>
+      <label class="field" id="f-guest-url-box" hidden style="margin:6px 0 0 24px">
+        <span>Guest page address for this session (optional)</span>
+        <input type="url" id="f-guest-url" placeholder="Uses the address on the Branding tab">
+        <div class="hint">Leave blank to use the organization's guest page. Fill in to use another site, such as a partner's.</div>
+      </label>
+    </fieldset>
+
+    <fieldset>
       <legend>Summary email recipients</legend>
       <label class="choice"><input type="radio" name="summaryMode" value="default" checked>
         <span>Organization default<small id="f-summary-default"></small></span></label>
@@ -336,6 +349,10 @@
       <label class="field"><span>Tab icon</span>
         <input type="url" id="b-favicon" placeholder="https://your-site.org/icon.png">
         <div class="hint">A link to a square PNG on your website. Google only accepts a public image link here, not an upload.</div>
+      </label>
+      <label class="field"><span>Guest page address</span>
+        <input type="url" id="b-guest" placeholder="https://djsincla.github.io/question-desk/join/">
+        <div class="hint">Where the guest page files are hosted — this project's GitHub Pages copy above, or your own site such as https://autismla.org/questions/ (copy <a href="https://github.com/djsincla/question-desk/tree/main/docs/join" target="_blank" rel="noopener">docs/join</a> there). Sessions set to open guest pages through it avoid Google's "Sorry, unable to open the file" in Safari and Firefox.</div>
       </label>
       <label class="field"><span>App address</span>
         <input type="url" id="b-url" placeholder="">
@@ -642,6 +659,7 @@
     if (s.status !== 'ended' && s.scheduledStart && !s.scheduleStarted) meta.push('starts ' + fmtDate(s.scheduledStart));
     if (s.status !== 'ended' && s.scheduledEnd) meta.push('ends ' + fmtDate(s.scheduledEnd));
     if (s.brand && s.brand.orgName) meta.push('branded for ' + s.brand.orgName);
+    if (s.guestPage && s.guestPage.mode === 'wrapper') meta.push('guest page: ' + (s.guestPage.url || state.guestPageUrl));
     if (s.summarySent) meta.push('summary emailed ' + fmtDate(s.summarySent));
     info.appendChild(el('div', 'meta', meta.join(' · ')));
     head.appendChild(info);
@@ -876,6 +894,11 @@
     $('maxHint').textContent = 'Between 50 and ' + state.limits.maxLengthCeiling + '. Shorter questions are easier to read aloud.';
     $('f-email').checked = s.id ? !!s.emailOnEnd : true;
     $('f-prepared').value = (s.prepared || []).join('\n');
+    var guest = s.guestPage && s.guestPage.mode === 'wrapper' ? s.guestPage : null;
+    radio('guestMode', guest ? 'wrapper' : 'direct');
+    $('f-guest-url').value = guest ? (guest.url || '') : '';
+    $('f-guest-url-box').hidden = !guest;
+    $('f-guest-url').placeholder = state.guestPageUrl ? 'Uses ' + state.guestPageUrl : 'Set a guest page address here or on the Branding tab';
     var summary = s.summary && s.summary.mode === 'custom' ? s.summary : null;
     radio('summaryMode', summary ? 'custom' : 'default');
     $('f-summary-custom').hidden = !summary;
@@ -947,6 +970,10 @@
   }
 
   $('f-accent').addEventListener('input', function () { $('f-accent-on').checked = true; });
+  var guestRadios = document.querySelectorAll('input[name=guestMode]');
+  for (var gr = 0; gr < guestRadios.length; gr++) {
+    guestRadios[gr].addEventListener('change', function () { $('f-guest-url-box').hidden = radio('guestMode') !== 'wrapper'; });
+  }
   var summaryRadios = document.querySelectorAll('input[name=summaryMode]');
   for (var sr = 0; sr < summaryRadios.length; sr++) {
     summaryRadios[sr].addEventListener('change', function () { $('f-summary-custom').hidden = radio('summaryMode') !== 'custom'; });
@@ -988,6 +1015,7 @@
       maxLength: $('f-max').value,
       cooldownSeconds: $('f-cooldown').value,
       prepared: $('f-prepared').value,
+      guestPage: { mode: radio('guestMode'), url: $('f-guest-url').value },
       summary: radio('summaryMode') === 'custom'
         ? { mode: 'custom', facilitators: $('f-summary-facilitators').checked, extra: $('f-summary-extra').value }
         : { mode: 'default' },
@@ -1118,6 +1146,7 @@
     $('b-bg-dark').value = state.brand.roomBgDark;
     $('b-bg-light').value = state.brand.roomBgLight;
     $('b-favicon').value = state.brand.faviconUrl;
+    $('b-guest').value = state.guestPageUrl;
     $('d-summary-facilitators').checked = state.summaryDefaults.facilitators !== false;
     $('d-summary-extra').value = (state.summaryDefaults.extra || []).join(', ');
     $('b-url').placeholder = state.detectedUrl;
@@ -1216,7 +1245,8 @@
     call('saveBrand', [{
       orgName: $('b-org').value, accent: $('b-accent').value, publicUrl: $('b-url').value,
       welcome: $('b-welcome').value, footer: $('b-footer').value,
-      roomBgDark: $('b-bg-dark').value, roomBgLight: $('b-bg-light').value, faviconUrl: $('b-favicon').value
+      roomBgDark: $('b-bg-dark').value, roomBgLight: $('b-bg-light').value, faviconUrl: $('b-favicon').value,
+      guestPageUrl: $('b-guest').value
     }], function (res) {
       render(res);
       toast('Branding saved');

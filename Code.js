@@ -17,7 +17,7 @@
 
 /** Bump with every release; scripts/ship.sh tags git and publishes release notes from CHANGELOG.md. */
 const APP = {
-  version: '2.3.3',
+  version: '2.4.0',
   repo: 'https://github.com/djsincla/question-desk'
 };
 
@@ -321,16 +321,49 @@ function baseUrlDetected_() {
 function sessionLinks_(session) {
   const base = baseUrl_();
   return {
-    // Public form: the room screen needs no sign-in and must open whatever Google
-    // accounts the browser is signed into (the domain form can say "unable to open the file").
-    present: participantBaseUrl_() + '?view=present&s=' + session.id,
+    // Guest pages: public form, or through the session's guest page (see guestLink_).
+    present: guestLink_(session, 'view=present&s=' + session.id),
     moderate: base + '?view=moderate&s=' + session.id,
-    // For the PowerPoint add-in: public address (slides can't sign in to Google), QR only.
+    // For the PowerPoint add-in, always direct: the add-in already embeds from outside Google.
     slide: participantBaseUrl_() + '?view=present&s=' + session.id + '&layout=qr',
     participant: session.access === 'link'
-      ? participantBaseUrl_() + '?s=' + session.id + '&k=' + session.linkKey
+      ? guestLink_(session, 's=' + session.id + '&k=' + session.linkKey)
       : null
   };
+}
+
+// ---------------------------------------------------------------- guest pages
+
+/**
+ * The guest page is a two-file wrapper (docs/join) hosted on any website. It embeds the
+ * Question Desk page, so browsers that block third-party cookies (Safari, Firefox) send
+ * Google no sign-in, which avoids Google's multi-account "Sorry, unable to open the file".
+ * Returns '' when the session opens guest pages directly.
+ */
+function guestPageFor_(session) {
+  const own = session && session.guestPage;
+  if (!own || own.mode !== 'wrapper') return '';
+  return own.url || props_().getProperty('GUEST_PAGE_URL') || '';
+}
+
+/** Address for a guest page (participant page or room screen) with the given query. */
+function guestLink_(session, query) {
+  const direct = participantBaseUrl_();
+  const wrapper = guestPageFor_(session);
+  const deployment = (direct.match(/\/macros\/s\/([A-Za-z0-9_-]+)\/exec$/) || [])[1];
+  if (!wrapper || !deployment) return direct + '?' + query;
+  return wrapper + (wrapper.indexOf('?') === -1 ? '?' : '&') + 'd=' + deployment + '&' + query;
+}
+
+/** Validates a guest page address: https, no query or fragment; folders get a trailing slash. */
+function cleanGuestPageUrl_(value) {
+  let url = String(value || '').trim();
+  if (!url) return '';
+  if (!/^https:\/\/[a-z0-9.-]+(:\d+)?(\/[A-Za-z0-9._~%\/-]*)?$/i.test(url) || url.length > 300) {
+    throw new Error('The guest page address must be an https:// link to the folder or page with the guest page files, without ? or #.');
+  }
+  if (!/\.html?$/i.test(url) && !/\/$/.test(url)) url += '/';
+  return url;
 }
 
 // ---------------------------------------------------------------- entry tokens
@@ -671,12 +704,11 @@ function getRoomScreen(sid) {
   };
   if (session.status !== 'active') return screen;
 
-  const base = participantBaseUrl_();
   if (session.access === 'link') {
-    screen.url = base + '?s=' + sid + '&k=' + session.linkKey;
+    screen.url = guestLink_(session, 's=' + sid + '&k=' + session.linkKey);
   } else {
     const tok = roomToken_(sid);
-    screen.url = base + '?s=' + sid + '&t=' + tok.token;
+    screen.url = guestLink_(session, 's=' + sid + '&t=' + tok.token);
     screen.refreshInSeconds = Math.min(5, tok.expiresIn + 1);
   }
   return screen;
@@ -873,6 +905,7 @@ function adminState() {
     brand: brand_(null),
     summaryDefaults: summaryDefaults_(),
     publicUrl: props_().getProperty('PUBLIC_URL') || '',
+    guestPageUrl: props_().getProperty('GUEST_PAGE_URL') || '',
     detectedUrl: baseUrlDetected_(),
     geminiKeySet: !!props_().getProperty('GEMINI_API_KEY'),
     sheetUrl: spreadsheet_().getUrl(),
@@ -945,11 +978,13 @@ function saveSession(input) {
     summary: summarySetting_(input.summary),
     scheduledStart: start,
     scheduledEnd: end,
-    brand: { orgName: cleanText_(input.brandOrgName, 80), accent: brandAccent.toLowerCase() }
+    brand: { orgName: cleanText_(input.brandOrgName, 80), accent: brandAccent.toLowerCase() },
+    guestPage: cleanGuestPageChoice_(input.guestPage)
   };
 
   let savedId = input.id;
   if (input.summary === undefined) delete fields.summary;   // leave recipients as they were
+  if (input.guestPage === undefined) delete fields.guestPage;
   if (input.id) {
     updateSession_(input.id, function (s) {
       if (s.scheduledStart !== fields.scheduledStart) s.scheduleStarted = false;
@@ -990,6 +1025,15 @@ function setPrepared_(sid, list) {
     });
     questionsChanged_();
   });
+}
+
+function cleanGuestPageChoice_(input) {
+  if (!input || input.mode !== 'wrapper') return { mode: 'direct', url: '' };
+  const url = cleanGuestPageUrl_(input.url);
+  if (!url && !props_().getProperty('GUEST_PAGE_URL')) {
+    throw new Error('Set a guest page address for this session, or an organization default on the Branding tab.');
+  }
+  return { mode: 'wrapper', url: url };
 }
 
 function optionalTime_(value, label) {
@@ -1282,6 +1326,12 @@ function saveBrand(input) {
     roomBgLight: color(input.roomBgLight, '#ffffff'),
     faviconUrl: favicon.slice(0, 500)
   }));
+
+  if (input.guestPageUrl !== undefined) {
+    const guest = cleanGuestPageUrl_(input.guestPageUrl);
+    if (guest) props_().setProperty('GUEST_PAGE_URL', guest);
+    else props_().deleteProperty('GUEST_PAGE_URL');
+  }
 
   const url = String(input.publicUrl || '').trim();
   if (!url) {

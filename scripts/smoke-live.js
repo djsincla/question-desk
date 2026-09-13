@@ -22,6 +22,7 @@ const checks = [
 ];
 const bases = [['public', 'https://script.google.com/macros/s/' + id + '/exec']];
 if (domain) bases.push(['domain', 'https://script.google.com/a/' + domain + '/macros/s/' + id + '/exec']);
+const guestPage = process.env.QD_GUEST_PAGE || '';
 
 async function pageText(page) {
   let text = '';
@@ -55,6 +56,21 @@ async function pageText(page) {
         console.log((ok ? '  ✓ ' : '  ✗ ') + engineName + ' · ' + form + ' address · ' + label + (ok ? '' : ' — ' + text.trim().slice(0, 120)));
         if (!ok) failed++;
       }
+    }
+    if (guestPage) {
+      const url = guestPage + '?d=' + id + '&view=present&s=ffffffff';
+      let ok = false;
+      let text = '';
+      for (let attempt = 1; attempt <= 3 && !ok; attempt++) {
+        try {
+          await page.goto(url, { waitUntil: 'networkidle', timeout: 45000 });
+          await page.waitForTimeout(2500);
+          text = await pageText(page);
+          ok = /room screen link is not valid/.test(text) && !/unable to open the file/i.test(text);
+        } catch (err) { text = err.message; }
+      }
+      console.log((ok ? '  ✓ ' : '  ✗ ') + engineName + ' · guest page · room screen' + (ok ? '' : ' — ' + text.trim().slice(0, 120)));
+      if (!ok) failed++;
     }
     await browser.close();
   }

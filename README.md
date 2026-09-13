@@ -78,6 +78,7 @@ Regenerate with `node scripts/screenshots.js` (needs Google Chrome).
 - Branding: logo, colors, welcome and footer text, per-session overrides for partner events
 - Landing page, health check with failure alerts, and a load-test tool
 - Prepared questions, per-session wait between questions, and drag-to-reorder sessions
+- [Guest page](docs/join/README.md) that avoids Google's multi-account error for Safari and Firefox
 - [PowerPoint add-in](docs/addin/README.md) that shows the live, rotating QR code on a slide (Windows, Mac, web)
 - Participant page in English, Korean and Spanish; translations never soften criticism
 
