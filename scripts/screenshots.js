@@ -43,7 +43,7 @@ function shots(ctx) {
     { name: 'room-screen-1024', url: () => '/?view=present&s=' + s + '&as=owner', size: [1024, 768], check: true },
     { name: 'participant-phone', url: () => phone('/?s=' + s + '&t=' + token() + '&lang=en'), size: [600, 844], crop: [390, 844], scale: 2, before: setNow('Respite care hours') },
     { name: 'participant-phone-korean', url: () => phone('/?s=' + s + '&t=' + token() + '&lang=ko'), size: [600, 844], crop: [390, 844], scale: 2 },
-    { name: 'facilitator-queue', url: () => '/?view=moderate&s=' + s + '&as=mod', size: [1280, 1000] },
+    { name: 'facilitator-queue', url: () => '/?view=moderate&s=' + s + '&as=mod', size: [1280, 1500] },
     { name: 'landing-page', url: () => '/', size: [1280, 800] },
     { name: 'admin-sessions', url: () => '/?view=admin&as=owner', size: [1280, 1000] },
     { name: 'admin-people', url: () => '/?view=admin&as=owner#click=people', size: [1280, 800] },

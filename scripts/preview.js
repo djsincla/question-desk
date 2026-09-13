@@ -77,6 +77,8 @@ function logoDataUrl() {
 function buildDemo() {
   const h = createApp({ owner: USERS.owner }).install({ moderators: ['maria@example.org', 'jin@example.org'], admins: ['alex@example.org'] });
   h.env.gemini = demoGemini;
+  // Start the demo just before now, so pages comparing against the real clock look normal.
+  h.env.clock.now = Date.now() - 6 * 60 * 1000;
   h.app.saveBrand({
     orgName: 'Community Family Network',
     accent: '#5b3f9a',
@@ -109,8 +111,10 @@ function buildDemo() {
     prepared: ['What new programs are planned for teens and young adults next year?',
                'How can families give feedback between meetings?'] });
   QUESTIONS.forEach((q) => { h.ask(live, h.join(live), q[0]); h.advance(20); });
+  h.ask(live, h.join(live), 'Follow my page for free giveaways!!!');
   h.app.clusterQuestions();
   h.as(USERS.mod);
+  h.app.setStatus(live.id, [h.questions().rows.find((r) => /giveaways/.test(r[3]))[0]], 'dismissed');
   h.app.setStatus(live.id, [h.questions().rows.find((r) => r[3] === QUESTIONS[9][0])[0]], 'answered');
   h.app.mergeTopic(live.id, 'Respite care hours');
   h.app.setNowAnswering(live.id, 'Respite care hours');

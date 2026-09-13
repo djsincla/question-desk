@@ -28,7 +28,8 @@ License: Apache 2.0
 
 All screenshots use made-up demo data from `scripts/preview.js`.
 
-**Room screen:** QR code, instructions in three languages, and the topic being answered.
+**Room screen:** QR code, instructions in three languages, the topic being answered, and a
+clock showing the code is live.
 
 ![Room screen with a topic being answered](docs/screenshots/room-screen-answering.png)
 
@@ -40,11 +41,16 @@ All screenshots use made-up demo data from `scripts/preview.js`.
 </table>
 
 **QA Facilitator queue:** questions grouped by topic across languages, a merged question to
-read aloud, Me too counts, show-on-phones approval, and prepared questions.
+read aloud, *Answer now*, Me too counts, show-on-phones approval, prepared questions,
+answered topics sinking to the bottom, and dismissed questions kept for restoring.
 
 ![QA Facilitator queue](docs/screenshots/facilitator-queue.png)
 
-**Admin:** sessions, branding, and health checks.
+**PowerPoint:** the [Question Desk QR add-in](docs/addin/README.md) shows the live code on a slide.
+
+<img src="docs/screenshots/slide-qr.png" alt="QR-only view shown on a PowerPoint slide" width="480">
+
+**Admin:** sessions, people and summary recipients, branding, and health checks.
 
 ![Admin sessions](docs/screenshots/admin-sessions.png)
 
