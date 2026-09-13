@@ -10,8 +10,8 @@ shown on the Admin page.
 
 ## What is in scope
 
-- Bypassing roles: reaching the Admin page, a moderator queue or room screen, or any
-  admin or moderator function without the right account.
+- Bypassing roles: reaching the Admin page or a QA Facilitator queue, or any admin or
+  QA Facilitator function (including approving topics), without the right account.
 - Reading or changing another session's questions, votes or settings.
 - Injecting script into any page, email or the submissions spreadsheet (including
   spreadsheet formulas).
@@ -25,6 +25,10 @@ so the app cannot identify individual people. The cooldown and "me too" limits a
 per browser and can be reset with a private window; the rotating room code and the
 per-session question cap are the real controls. See `CLAUDE.md` for the reasoning.
 These are not vulnerabilities unless they can be exploited from outside the room.
+
+The room screen is intentionally public so any projector or browser can show it. For
+in-room sessions, the rotating code is therefore only as private as the room screen
+link; share that link with the people running the room, not with the audience.
 
 ## For people running their own copy
 

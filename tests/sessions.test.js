@@ -55,12 +55,12 @@ test('activate, deactivate, end; an ended session cannot be reopened', () => {
   h.app.setSessionActive(s.id, false);
   assert.equal(h.app.getSession_(s.id).status, 'inactive');
   h.app.setSessionActive(s.id, true);
-  h.app.endSession(s.id);
+  h.app.endSession(s.id, h.app.getSession_(s.id).name);
   const ended = h.app.getSession_(s.id);
   assert.equal(ended.status, 'ended');
   assert.equal(ended.open, false);
   assert.throws(() => h.app.setSessionActive(s.id, true), /cannot be reopened/);
-  assert.throws(() => h.app.endSession(s.id), /already ended/);
+  assert.throws(() => h.app.endSession(s.id, h.app.getSession_(s.id).name), /already ended/);
 });
 
 test('several sessions can be active at once, each with its own room code', () => {
@@ -113,4 +113,38 @@ test('unknown or malformed session ids are not found', () => {
   assert.equal(h.app.getSession_('../../etc'), null);
   assert.equal(h.app.getSession_('deadbeef'), null);
   assert.throws(() => h.app.getBoard('deadbeef'), /Session not found/);
+});
+
+test('admins can reorder sessions, and every list follows that order', () => {
+  const h = createApp().install({ moderators: [MOD] });
+  const a = h.session({ name: 'A', moderators: [MOD], active: true });
+  const b = h.session({ name: 'B', moderators: [MOD], active: true });
+  const c = h.session({ name: 'C', moderators: [MOD], active: true });
+  const names = () => h.app.adminState().sessions.map((s) => s.name);
+  assert.deepEqual(names(), ['C', 'B', 'A'], 'newest first by default');
+
+  h.app.reorderSessions([a.id, c.id, b.id]);
+  assert.deepEqual(names(), ['A', 'C', 'B']);
+
+  h.as(MOD);
+  assert.deepEqual(h.app.mySessions().map((s) => s.name), ['A', 'C', 'B'], 'queue switcher');
+  assert.deepEqual(h.app.doGet({ parameter: {} }).data.sessions.map((s) => s.name), ['A', 'C', 'B'], 'landing page');
+
+  h.as(h.env.owner);
+  h.session({ name: 'D' });
+  assert.deepEqual(names(), ['D', 'A', 'C', 'B'], 'a new session goes on top');
+
+  h.app.reorderSessions([b.id, 'ffffffff', b.id]);
+  assert.deepEqual(names(), ['B', 'D', 'A', 'C'], 'unknown and duplicate ids ignored; the rest keep their order');
+});
+
+test('only admins reorder sessions', () => {
+  const h = createApp().install({ moderators: [MOD] });
+  const a = h.session({ name: 'A' });
+  h.as(MOD);
+  assert.throws(() => h.app.reorderSessions([a.id]), /Only administrators/);
+  h.anonymous();
+  assert.throws(() => h.app.reorderSessions([a.id]), /Only administrators/);
+  h.as(h.env.owner);
+  assert.throws(() => h.app.reorderSessions('nope'), /new order/);
 });

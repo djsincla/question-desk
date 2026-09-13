@@ -200,9 +200,9 @@ test('deleting a session removes its questions, topics, votes and logo only', ()
   h.app.clusterQuestions();
   h.app.saveLogo('data:image/png;base64,AAAA', gone.id);
 
-  assert.throws(() => h.app.deleteSession(gone.id), /Deactivate or end/);
+  assert.throws(() => h.app.deleteSession(gone.id, h.app.getSession_(gone.id).name), /Deactivate or end/);
   h.app.setSessionActive(gone.id, false);
-  h.app.deleteSession(gone.id);
+  h.app.deleteSession(gone.id, h.app.getSession_(gone.id).name);
 
   assert.equal(h.app.getSession_(gone.id), null);
   assert.deepEqual(h.questions().rows.slice(1).map((r) => r[8]), [kept.id]);
@@ -235,4 +235,29 @@ test('setUp cannot be run by anonymous visitors or moderators', () => {
   assert.throws(() => h.app.setUp(), /script owner/);
   h.as(MOD);
   assert.throws(() => h.app.setUp(), /script owner/);
+});
+
+// ------------------------------------------------------------ confirmation by name
+
+test('ending or deleting a session requires typing its name, checked on the server', () => {
+  const h = createApp().install();
+  const s = h.session({ name: 'Family Night  September', active: true });
+  assert.throws(() => h.app.endSession(s.id), /Type the session name exactly/);
+  assert.throws(() => h.app.endSession(s.id, 'Family Night'), /Type the session name exactly/);
+  assert.equal(h.app.getSession_(s.id).status, 'active', 'still running after refused attempts');
+  h.app.endSession(s.id, '  family night september ');
+  assert.equal(h.app.getSession_(s.id).status, 'ended', 'case and extra spaces are forgiven');
+
+  assert.throws(() => h.app.deleteSession(s.id, 'wrong'), /Type the session name exactly/);
+  assert.ok(h.app.getSession_(s.id));
+  h.app.deleteSession(s.id, 'Family Night September');
+  assert.equal(h.app.getSession_(s.id), null);
+});
+
+test('scheduled endings do not need a typed name', () => {
+  const h = createApp().install();
+  const s = h.session({ name: 'Auto', active: true, scheduledEnd: h.env.clock.now + 1000 });
+  h.advance(2).anonymous();
+  h.app.clusterQuestions();
+  assert.equal(h.app.getSession_(s.id).status, 'ended');
 });

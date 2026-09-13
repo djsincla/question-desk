@@ -22,15 +22,53 @@ License: Apache 2.0
    and everyone's phone.
 5. Participants can tap **Me too** on topic labels, never on other people's questions,
    so the room's priorities surface without repeat questions.
-6. When the session ends, moderators get a **summary email** with a CSV.
+6. When the session ends, QA Facilitators get a **summary email** with a CSV.
+
+## Screenshots
+
+All screenshots use made-up demo data from `scripts/preview.js`.
+
+**Room screen:** QR code, instructions in three languages, and the topic being answered.
+
+![Room screen with a topic being answered](docs/screenshots/room-screen-answering.png)
+
+<table>
+  <tr>
+    <td width="50%"><strong>Participant's phone</strong><br>Ask anonymously; tap <em>Me too</em> on approved topics.<br><br><img src="docs/screenshots/participant-phone.png" alt="Participant page on a phone" width="300"></td>
+    <td width="50%"><strong>The same page in Korean</strong><br>Picked from the phone's language, with a switcher.<br><br><img src="docs/screenshots/participant-phone-korean.png" alt="Participant page in Korean" width="300"></td>
+  </tr>
+</table>
+
+**QA Facilitator queue:** questions grouped by topic across languages, a merged question to
+read aloud, Me too counts, show-on-phones approval, and prepared questions.
+
+![QA Facilitator queue](docs/screenshots/facilitator-queue.png)
+
+**Admin:** sessions, branding, and health checks.
+
+![Admin sessions](docs/screenshots/admin-sessions.png)
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/admin-branding.png" alt="Admin branding tab"></td>
+    <td width="50%"><img src="docs/screenshots/admin-health.png" alt="Admin health check"></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/landing-page.png" alt="Landing page"></td>
+    <td><img src="docs/screenshots/room-screen.png" alt="Room screen"></td>
+  </tr>
+</table>
+
+Regenerate with `node scripts/screenshots.js` (needs Google Chrome).
 
 ## Features
 
 - Multiple sessions at once, each joined by in-room rotating QR or a shareable link
-- Administrators and per-session moderators, restricted to the organization's domain
+- Administrators and per-session QA Facilitators, restricted to the organization's domain
 - Scheduled start and end, and end-of-session summaries
 - Branding: logo, colors, welcome and footer text, per-session overrides for partner events
 - Landing page, health check with failure alerts, and a load-test tool
+- Prepared questions, per-session wait between questions, and drag-to-reorder sessions
 - Participant page in English, Korean and Spanish; translations never soften criticism
 
 ## Why it's built this way

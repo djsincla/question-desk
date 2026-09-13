@@ -109,6 +109,19 @@
   td.bad { color: var(--stop); }
   pre.cmd { background: var(--paper); border: 1px solid var(--rule); border-radius: 4px; padding: 10px; white-space: pre-wrap; word-break: break-all; font-size: 0.85rem; margin: 8px 0; }
   header { border-top: 4px solid var(--action); padding-top: 12px; }
+  button.danger-solid { background: var(--stop); border-color: var(--stop); color: #fff; }
+  #dialog .panel { max-width: 30rem; }
+  #dialogBody { margin: 0 0 14px; white-space: pre-line; }
+  .typed { font-weight: 600; background: var(--paper); border: 1px solid var(--rule); border-radius: 3px; padding: 0 4px; }
+  .session { display: flex; }
+  .session .grip { flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 6px 4px; border-right: 1px solid var(--rule); background: var(--paper); border-radius: 6px 0 0 6px; }
+  .session .grip .handle { cursor: grab; color: var(--muted); font-size: 1.1rem; line-height: 1; padding: 4px 6px; user-select: none; }
+  .session .grip button { border: 0; background: none; padding: 2px 6px; color: var(--muted); font-size: 0.8rem; }
+  .session .grip button:disabled { visibility: hidden; }
+  .session .body { flex: 1; min-width: 0; }
+  .session.dragging { opacity: 0.45; }
+  .session.drop-before { box-shadow: 0 -3px 0 var(--action); }
+  .session.drop-after { box-shadow: 0 3px 0 var(--action); }
 </style>
 </head>
 <body>
@@ -141,7 +154,7 @@
     <div class="row">
       <label class="field"><span>Name</span>
         <input type="text" id="f-name" maxlength="80" required>
-        <div class="hint">For admins and moderators, e.g. "Family night — Sept".</div>
+        <div class="hint">For administrators and QA Facilitators, e.g. "Family night — Sept".</div>
       </label>
       <label class="field"><span>Heading participants see</span>
         <input type="text" id="f-heading" maxlength="120" placeholder="Questions for the panel">
@@ -164,15 +177,39 @@
     </div>
 
     <div class="row">
+      <label class="field"><span>Time between questions (seconds, per phone)</span>
+        <input type="number" id="f-cooldown" min="0" step="30">
+        <div class="hint" id="cooldownHint"></div>
+      </label>
       <label class="field"><span>Longest question allowed (characters)</span>
         <input type="number" id="f-max" min="50" step="10">
         <div class="hint" id="maxHint"></div>
       </label>
       <label class="field"><span>&nbsp;</span>
         <span class="choice"><input type="checkbox" id="f-email">
-          <span>Email the summary to this session's moderators when it ends<small>Topics, merged questions, every question with its translation, and a CSV file.</small></span></span>
+          <span>Email the questions summary when the session ends<small>Topics, merged questions, every question in its original wording with the English translation, and a CSV file.</small></span></span>
       </label>
     </div>
+
+    <fieldset>
+      <legend>Summary email recipients</legend>
+      <label class="choice"><input type="radio" name="summaryMode" value="default" checked>
+        <span>Organization default<small id="f-summary-default"></small></span></label>
+      <label class="choice"><input type="radio" name="summaryMode" value="custom">
+        <span>Custom for this session</span></label>
+      <div id="f-summary-custom" hidden style="margin:6px 0 0 24px">
+        <label class="choice"><input type="checkbox" id="f-summary-facilitators" checked><span>This session's QA Facilitators</span></label>
+        <label class="field" style="margin-bottom:0"><span>Also send to</span>
+          <textarea id="f-summary-extra" rows="2" placeholder="board@example.org, partner@example.org"></textarea>
+          <div class="hint">Any email address, including people outside your organization. Separate with commas or new lines.</div>
+        </label>
+      </div>
+    </fieldset>
+
+    <label class="field"><span>Prepared questions (optional)</span>
+      <textarea id="f-prepared" rows="5" placeholder="One question per line"></textarea>
+      <div class="hint">Loaded ahead of time and kept out of sight. A QA Facilitator adds each one to the queue when it's useful. Saving replaces the ones not yet added.</div>
+    </label>
 
     <fieldset>
       <legend>Schedule (optional)</legend>
@@ -206,9 +243,9 @@
     </fieldset>
 
     <div class="field">
-      <span class="field-label">Moderators for this session</span>
+      <span class="field-label">QA Facilitators for this session</span>
       <div id="f-mods"></div>
-      <div class="hint">Administrators can run every session. Add people to the moderator list on the People tab.</div>
+      <div class="hint">Administrators can run every session. Add people to the QA Facilitator list on the People tab.</div>
     </div>
 
     <div class="actions">
@@ -234,11 +271,11 @@
       </form>
     </div>
     <div class="panel">
-      <h2>Moderators</h2>
+      <h2>QA Facilitators</h2>
       <p class="hint" style="margin-top:0">Can open the room screen and queue for sessions they are assigned to.</p>
       <ul class="people" id="modList"></ul>
       <form class="adder" data-role="moderator">
-        <input type="email" placeholder="name@domain.org" aria-label="Moderator email">
+        <input type="email" placeholder="name@domain.org" aria-label="QA Facilitator email">
         <button type="submit">Add</button>
       </form>
     </div>
@@ -304,6 +341,17 @@
 
     </div>
   </div>
+
+  <form class="panel" id="summaryForm">
+    <h2>Summary email — default recipients</h2>
+    <p class="hint" style="margin-top:0">Who gets a session's questions summary unless the session sets its own recipients.</p>
+    <label class="choice"><input type="checkbox" id="d-summary-facilitators"><span>The session's QA Facilitators</span></label>
+    <label class="field"><span>Also send to</span>
+      <textarea id="d-summary-extra" rows="2" placeholder="board@example.org"></textarea>
+      <div class="hint">Any email address, including people outside your organization.</div>
+    </label>
+    <button type="submit" class="primary">Save default recipients</button>
+  </form>
 </section>
 
 <!-- Health & testing -->
@@ -353,13 +401,28 @@
       <label class="choice"><input type="checkbox" id="e-participant">
         <span>Participant link<small id="e-participant-hint">Anyone with this link can ask a question.</small></span></label>
       <label class="choice"><input type="checkbox" id="e-present">
-        <span>Room screen link<small>Only works for assigned moderators and administrators.</small></span></label>
+        <span>Room screen link<small>Opens for anyone with the link, no sign-in. Send it only to the people running the room.</small></span></label>
       <label class="choice"><input type="checkbox" id="e-moderate">
-        <span>Facilitator queue link<small>Only works for assigned moderators and administrators.</small></span></label>
+        <span>QA Facilitator queue link<small>Only works for assigned QA Facilitators and administrators.</small></span></label>
     </div>
     <div class="actions">
       <button type="submit" class="primary" id="e-send">Send</button>
       <button type="button" class="quiet" id="e-cancel">Cancel</button>
+    </div>
+  </form>
+</div>
+
+<div class="modal" id="dialog" hidden>
+  <form class="panel" id="dialogForm" role="dialog" aria-modal="true" aria-labelledby="dialogTitle">
+    <h2 id="dialogTitle"></h2>
+    <p id="dialogBody"></p>
+    <label class="field" id="dialogTypeWrap" hidden>
+      <span id="dialogTypeLabel"></span>
+      <input type="text" id="dialogType" autocomplete="off" spellcheck="false">
+    </label>
+    <div class="actions">
+      <button type="submit" class="primary" id="dialogOk">OK</button>
+      <button type="button" class="quiet" id="dialogCancel">Cancel</button>
     </div>
   </form>
 </div>
@@ -391,6 +454,51 @@
     clearTimeout(toastTimer);
     toastTimer = setTimeout(function () { t.hidden = true; }, isError ? 7000 : 3500);
   }
+
+  /**
+   * In-page confirmation, replacing the browser's confirm() (which shows the
+   * sandbox's googleusercontent.com address). With typeToConfirm, OK stays
+   * disabled until that text is typed; the server checks it again.
+   */
+  var dialogDone = null;
+  var dialogExpect = '';
+
+  function normalize(v) { return String(v || '').replace(/\s+/g, ' ').trim().toLowerCase(); }
+
+  function ask(opts, onOk) {
+    $('dialogTitle').textContent = opts.title;
+    $('dialogBody').textContent = opts.body || '';
+    $('dialogOk').textContent = opts.ok || 'OK';
+    $('dialogOk').className = opts.danger ? 'danger-solid' : 'primary';
+    dialogExpect = opts.typeToConfirm || '';
+    $('dialogTypeWrap').hidden = !dialogExpect;
+    $('dialogType').value = '';
+    if (dialogExpect) {
+      var label = $('dialogTypeLabel');
+      label.textContent = 'To confirm, type ';
+      label.appendChild(el('span', 'typed', dialogExpect));
+    }
+    $('dialogOk').disabled = !!dialogExpect;
+    dialogDone = onOk;
+    $('dialog').hidden = false;
+    (dialogExpect ? $('dialogType') : $('dialogOk')).focus();
+  }
+
+  function closeDialog() { $('dialog').hidden = true; dialogDone = null; }
+
+  $('dialogType').addEventListener('input', function () {
+    $('dialogOk').disabled = normalize(this.value) !== normalize(dialogExpect);
+  });
+  $('dialogCancel').onclick = closeDialog;
+  $('dialog').addEventListener('click', function (e) { if (e.target === this) closeDialog(); });
+  $('dialogForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    if ($('dialogOk').disabled) return;
+    var done = dialogDone;
+    var typed = $('dialogType').value;
+    closeDialog();
+    if (done) done(typed);
+  });
 
   /** Calls a server function; disables `button` while it runs. */
   function call(fn, args, onOk, button) {
@@ -457,6 +565,12 @@
 
   if (BOOT.brand.accent) document.documentElement.style.setProperty('--action', BOOT.brand.accent);
 
+  function waitLabel(seconds) {
+    if (!seconds) return 'no wait between questions';
+    var m = Math.floor(seconds / 60), r = seconds % 60;
+    return (m ? m + ' min' : '') + (m && r ? ' ' : '') + (r ? r + ' s' : '') + ' between questions';
+  }
+
   function statusLabel(s) {
     return s.status === 'active' ? 'Active' : s.status === 'ended' ? 'Ended' : 'Not active';
   }
@@ -468,11 +582,38 @@
       list.appendChild(el('p', 'empty', 'No sessions yet. Create one to get a room screen and queue.'));
       return;
     }
-    state.sessions.forEach(function (s) { list.appendChild(sessionCard(s)); });
+    state.sessions.forEach(function (s, i) { list.appendChild(sessionCard(s, i, state.sessions.length)); });
+    if (state.sessions.length > 1) list.insertBefore(el('p', 'hint', 'Drag ⋮⋮ or use ▲ ▼ to change the order sessions appear in everywhere.'), list.firstChild);
   }
 
-  function sessionCard(s) {
+  function sessionCard(s, index, total) {
     var card = el('div', 'session');
+    card.setAttribute('data-id', s.id);
+    var grip = el('div', 'grip');
+    var handle = el('span', 'handle', '⋮⋮');
+    handle.title = 'Drag to reorder';
+    handle.setAttribute('aria-hidden', 'true');
+    // Only the handle starts a drag, so text in link fields stays selectable.
+    handle.addEventListener('mousedown', function () { card.draggable = true; });
+    card.addEventListener('mouseup', function () { card.draggable = false; });
+    var up = el('button', null, '▲');
+    up.type = 'button';
+    up.setAttribute('aria-label', 'Move ' + s.name + ' up');
+    up.disabled = index === 0;
+    up.onclick = function () { moveSession(s.id, -1); };
+    var down = el('button', null, '▼');
+    down.type = 'button';
+    down.setAttribute('aria-label', 'Move ' + s.name + ' down');
+    down.disabled = index === total - 1;
+    down.onclick = function () { moveSession(s.id, 1); };
+    grip.appendChild(up);
+    grip.appendChild(handle);
+    grip.appendChild(down);
+    card.appendChild(grip);
+    wireDrag(card);
+
+    var bodyWrap = el('div', 'body');
+    card.appendChild(bodyWrap);
     var head = el('div', 'head');
 
     var info = el('div');
@@ -483,9 +624,11 @@
     var meta = [
       s.access === 'link' ? 'Shareable link' : 'In-room QR',
       s.theme === 'light' ? 'Light screen' : 'Dark screen',
-      s.questionCount + (s.questionCount === 1 ? ' question' : ' questions'),
-      s.moderators.length + (s.moderators.length === 1 ? ' moderator' : ' moderators'),
-      'max ' + s.maxLength + ' chars'
+      s.questionCount + (s.questionCount === 1 ? ' question' : ' questions') +
+        (s.prepared && s.prepared.length ? ' (+' + s.prepared.length + ' prepared)' : ''),
+      s.moderators.length + (s.moderators.length === 1 ? ' QA Facilitator' : ' QA Facilitators'),
+      'max ' + s.maxLength + ' chars',
+      waitLabel(typeof s.cooldownSeconds === 'number' ? s.cooldownSeconds : state.limits.cooldownSeconds)
     ];
     if (s.ended) meta.push('ended ' + fmtDate(s.ended));
     else if (s.started) meta.push('started ' + fmtDate(s.started));
@@ -528,13 +671,13 @@
       mail.onclick = function () { openEmail(s, 'links'); };
       acts.appendChild(mail);
 
-      var mailMods = el('button', null, 'Email moderators');
+      var mailMods = el('button', null, 'Email QA Facilitators');
       mailMods.type = 'button';
       mailMods.disabled = !s.moderators.length;
-      mailMods.title = s.moderators.length ? s.moderators.join(', ') : 'No moderators assigned';
+      mailMods.title = s.moderators.length ? s.moderators.join(', ') : 'No QA Facilitators assigned';
       mailMods.onclick = function () {
         call('emailLinks', [s.id, { toModerators: true, present: true, moderate: true }], function (n) {
-          toast('Sent room screen and queue links to ' + n + (n === 1 ? ' moderator' : ' moderators'));
+          toast('Sent room screen and queue links to ' + n + (n === 1 ? ' QA Facilitator' : ' QA Facilitators'));
         }, mailMods);
       };
       acts.appendChild(mailMods);
@@ -542,14 +685,20 @@
       var end = el('button', 'danger', 'End session');
       end.type = 'button';
       end.onclick = function () {
-        var msg = 'End "' + s.name + '"? Participants can no longer submit and it cannot be reopened.' +
-          (s.emailOnEnd && s.moderators.length ? '\n\nThe summary will be emailed to ' + s.moderators.length + ' moderator(s).' : '');
-        if (!confirm(msg)) return;
-        end.textContent = 'Ending…';
-        call('endSession', [s.id], function (res) {
-          render(res.state);
-          toast('Session ended' + (res.emailed ? ' — summary emailed to ' + res.emailed : '') + (res.note ? '. ' + res.note : ''), !!res.note);
-        }, end);
+        ask({
+          title: 'End this session?',
+          body: 'Participants can no longer ask questions, and an ended session cannot be reopened.' +
+            (s.emailOnEnd && s.summaryTo.length ? '\n\nThe questions summary will be emailed to ' + s.summaryTo.join(', ') + '.' : ''),
+          ok: 'End session',
+          danger: true,
+          typeToConfirm: s.name
+        }, function (typed) {
+          end.textContent = 'Ending…';
+          call('endSession', [s.id, typed], function (res) {
+            render(res.state);
+            toast('Session ended' + (res.emailed ? ' — summary emailed to ' + res.emailed : '') + (res.note ? '. ' + res.note : ''), !!res.note);
+          }, end);
+        });
       };
       acts.appendChild(end);
     } else {
@@ -562,35 +711,113 @@
       var del = el('button', 'quiet', 'Delete');
       del.type = 'button';
       del.onclick = function () {
-        if (!confirm('Delete "' + s.name + '" and all ' + s.questionCount + ' of its questions? This cannot be undone.')) return;
-        call('deleteSession', [s.id], function (res) { render(res); toast('Session deleted'); }, del);
+        ask({
+          title: 'Delete this session?',
+          body: 'This permanently deletes the session and all ' + s.questionCount +
+            (s.questionCount === 1 ? ' question' : ' questions') + ', topics and votes. It cannot be undone.',
+          ok: 'Delete session',
+          danger: true,
+          typeToConfirm: s.name
+        }, function (typed) {
+          call('deleteSession', [s.id, typed], function (res) { render(res); toast('Session deleted'); }, del);
+        });
       };
       acts.appendChild(del);
     }
     head.appendChild(acts);
-    card.appendChild(head);
+    bodyWrap.appendChild(head);
 
     if (openLinks[s.id]) {
       var links = el('div', 'links');
       linkRow(links, 'Room screen', s.links.present);
-      linkRow(links, 'Facilitator queue', s.links.moderate);
+      linkRow(links, 'QA Facilitator queue', s.links.moderate);
       if (s.links.participant) {
         linkRow(links, 'Participant link', s.links.participant);
         if (!ended) {
           var regen = el('button', 'quiet', 'Replace participant link');
           regen.type = 'button';
           regen.onclick = function () {
-            if (!confirm('Replace the participant link? The old link stops working for anyone who has not joined yet.')) return;
-            call('regenerateLink', [s.id], function (res) { render(res); toast('New participant link created'); }, regen);
+            ask({
+              title: 'Replace the participant link?',
+              body: 'The old link stops working for anyone who has not joined yet. People already in the session can keep asking.',
+              ok: 'Replace link'
+            }, function () {
+              call('regenerateLink', [s.id], function (res) { render(res); toast('New participant link created'); }, regen);
+            });
           };
           links.appendChild(regen);
         }
       } else {
         links.appendChild(el('div', 'hint', 'In-room sessions have no participant link — people join by scanning the room screen.'));
       }
-      card.appendChild(links);
+      bodyWrap.appendChild(links);
     }
     return card;
+  }
+
+  // ------------------------------------------------------------ reorder
+
+  var dragId = null;
+
+  function saveOrder(ids) {
+    var byId = {};
+    state.sessions.forEach(function (s) { byId[s.id] = s; });
+    state.sessions = ids.map(function (id) { return byId[id]; });
+    renderSessions();
+    call('reorderSessions', [ids], function (res) { render(res); toast('Order saved'); });
+  }
+
+  function moveSession(id, delta) {
+    var ids = state.sessions.map(function (s) { return s.id; });
+    var from = ids.indexOf(id);
+    var to = from + delta;
+    if (to < 0 || to >= ids.length) return;
+    ids.splice(to, 0, ids.splice(from, 1)[0]);
+    saveOrder(ids);
+    setTimeout(function () {
+      var card = document.querySelector('.session[data-id="' + id + '"] .grip button:' + (delta < 0 ? 'first-child' : 'last-child'));
+      if (card && !card.disabled) card.focus();
+    }, 0);
+  }
+
+  function clearDropMarks() {
+    var marked = document.querySelectorAll('.drop-before, .drop-after');
+    for (var i = 0; i < marked.length; i++) marked[i].classList.remove('drop-before', 'drop-after');
+  }
+
+  function wireDrag(card) {
+    card.addEventListener('dragstart', function (e) {
+      dragId = card.getAttribute('data-id');
+      card.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      try { e.dataTransfer.setData('text/plain', dragId); } catch (err) {}
+    });
+    card.addEventListener('dragend', function () {
+      card.classList.remove('dragging');
+      card.draggable = false;
+      clearDropMarks();
+      dragId = null;
+    });
+    card.addEventListener('dragover', function (e) {
+      if (!dragId || dragId === card.getAttribute('data-id')) return;
+      e.preventDefault();
+      var rect = card.getBoundingClientRect();
+      var after = e.clientY > rect.top + rect.height / 2;
+      clearDropMarks();
+      card.classList.add(after ? 'drop-after' : 'drop-before');
+    });
+    card.addEventListener('drop', function (e) {
+      if (!dragId) return;
+      e.preventDefault();
+      var targetId = card.getAttribute('data-id');
+      var after = card.classList.contains('drop-after');
+      clearDropMarks();
+      if (targetId === dragId) return;
+      var ids = state.sessions.map(function (s) { return s.id; }).filter(function (id) { return id !== dragId; });
+      var at = ids.indexOf(targetId) + (after ? 1 : 0);
+      ids.splice(at, 0, dragId);
+      saveOrder(ids);
+    });
   }
 
   function linkRow(parent, label, url) {
@@ -633,9 +860,22 @@
     radio('access', s.access || 'room');
     radio('theme', s.theme || 'dark');
     $('f-max').value = s.maxLength || state.limits.defaultMaxLength;
+    $('f-cooldown').value = typeof s.cooldownSeconds === 'number' ? s.cooldownSeconds : state.limits.cooldownSeconds;
+    $('f-cooldown').max = state.limits.cooldownCeiling;
+    $('cooldownHint').textContent = '0 for no wait, up to ' + state.limits.cooldownCeiling +
+      ' (one hour). Changes apply immediately, even to phones already waiting.';
     $('f-max').max = state.limits.maxLengthCeiling;
     $('maxHint').textContent = 'Between 50 and ' + state.limits.maxLengthCeiling + '. Shorter questions are easier to read aloud.';
     $('f-email').checked = s.id ? !!s.emailOnEnd : true;
+    $('f-prepared').value = (s.prepared || []).join('\n');
+    var summary = s.summary && s.summary.mode === 'custom' ? s.summary : null;
+    radio('summaryMode', summary ? 'custom' : 'default');
+    $('f-summary-custom').hidden = !summary;
+    $('f-summary-facilitators').checked = summary ? summary.facilitators !== false : true;
+    $('f-summary-extra').value = summary ? (summary.extra || []).join(', ') : '';
+    var d = state.summaryDefaults;
+    $('f-summary-default').textContent = [d.facilitators !== false ? "this session's QA Facilitators" : '']
+      .concat(d.extra || []).filter(Boolean).join(', ') || 'nobody';
     $('f-start').value = toLocalInput(s.scheduledStart);
     $('f-end').value = toLocalInput(s.scheduledEnd);
     var own = s.brand || {};
@@ -652,7 +892,7 @@
     var box = $('f-mods');
     box.innerHTML = '';
     if (!state.moderators.length) {
-      box.appendChild(el('div', 'hint', 'No moderators yet.'));
+      box.appendChild(el('div', 'hint', 'No QA Facilitators yet.'));
     }
     state.moderators.forEach(function (email) {
       var label = el('label', 'choice');
@@ -699,6 +939,10 @@
   }
 
   $('f-accent').addEventListener('input', function () { $('f-accent-on').checked = true; });
+  var summaryRadios = document.querySelectorAll('input[name=summaryMode]');
+  for (var sr = 0; sr < summaryRadios.length; sr++) {
+    summaryRadios[sr].addEventListener('change', function () { $('f-summary-custom').hidden = radio('summaryMode') !== 'custom'; });
+  }
 
   $('f-logo').addEventListener('change', function () {
     var file = this.files && this.files[0];
@@ -734,6 +978,11 @@
       access: radio('access'),
       theme: radio('theme'),
       maxLength: $('f-max').value,
+      cooldownSeconds: $('f-cooldown').value,
+      prepared: $('f-prepared').value,
+      summary: radio('summaryMode') === 'custom'
+        ? { mode: 'custom', facilitators: $('f-summary-facilitators').checked, extra: $('f-summary-extra').value }
+        : { mode: 'default' },
       emailOnEnd: $('f-email').checked,
       moderators: mods,
       scheduledStart: fromLocalInput($('f-start').value),
@@ -758,7 +1007,7 @@
     emailMode = mode;
     $('emailTitle').textContent = (mode === 'summary' ? 'Email summary — ' : 'Email links — ') + s.name;
     $('e-kinds').hidden = mode === 'summary';
-    $('e-to').value = mode === 'summary' ? s.moderators.join(', ') : '';
+    $('e-to').value = mode === 'summary' ? (s.summaryTo || []).join(', ') : '';
     var hasLink = !!s.links.participant;
     $('e-participant').disabled = !hasLink;
     $('e-participant').checked = hasLink;
@@ -774,7 +1023,7 @@
   function closeEmail() { $('emailModal').hidden = true; }
   $('e-cancel').onclick = closeEmail;
   $('emailModal').addEventListener('click', function (e) { if (e.target === this) closeEmail(); });
-  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeEmail(); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { closeEmail(); closeDialog(); } });
 
   $('emailForm').addEventListener('submit', function (e) {
     e.preventDefault();
@@ -801,7 +1050,7 @@
   // ------------------------------------------------------------ people
 
   function renderPeople() {
-    $('domainHint').textContent = 'Only @' + state.domain + ' accounts can be administrators or moderators. ' +
+    $('domainHint').textContent = 'Only @' + state.domain + ' accounts can be administrators or QA Facilitators. ' +
       'Google does not tell the app who is signed in from any other domain.';
     personList($('adminList'), 'admin', [state.owner].concat(state.admins.filter(function (e) { return e !== state.owner; })));
     personList($('modList'), 'moderator', state.moderators);
@@ -820,9 +1069,14 @@
         var rm = el('button', 'quiet', 'Remove');
         rm.type = 'button';
         rm.onclick = function () {
-          var extra = role === 'moderator' ? ' They will also be removed from every session.' : '';
-          if (!confirm('Remove ' + email + ' as ' + role + '?' + extra)) return;
-          call('removePerson', [role, email], function (res) { render(res); toast('Removed ' + email); }, rm);
+          ask({
+            title: 'Remove ' + (role === 'admin' ? 'administrator' : 'QA Facilitator') + '?',
+            body: email + (role === 'moderator' ? ' will also be removed from every session.' : ' will no longer be able to open the Admin page.'),
+            ok: 'Remove',
+            danger: true
+          }, function () {
+            call('removePerson', [role, email], function (res) { render(res); toast('Removed ' + email); }, rm);
+          });
         };
         li.appendChild(rm);
       }
@@ -856,6 +1110,8 @@
     $('b-bg-dark').value = state.brand.roomBgDark;
     $('b-bg-light').value = state.brand.roomBgLight;
     $('b-favicon').value = state.brand.faviconUrl;
+    $('d-summary-facilitators').checked = state.summaryDefaults.facilitators !== false;
+    $('d-summary-extra').value = (state.summaryDefaults.extra || []).join(', ');
     $('b-url').placeholder = state.detectedUrl;
     $('urlHint').textContent = 'Used in QR codes and emailed links. Leave blank to use the detected address. ' +
       'If links open the wrong version, paste the /exec address from Deploy → Manage deployments.';
@@ -914,8 +1170,14 @@
     call('startLoadTest', [], function (res) { render(res); toast('Load test ready — run the command'); }, this);
   };
   $('stopLoad').onclick = function () {
-    if (!confirm('Finish the load test? Its session and every test question will be deleted.')) return;
-    call('stopLoadTest', [], function (res) { render(res); toast('Load test finished and cleaned up'); }, this);
+    var btn = this;
+    ask({
+      title: 'Finish the load test?',
+      body: 'The test endpoint is switched off, and its session and every test question are deleted.',
+      ok: 'Finish and delete'
+    }, function () {
+      call('stopLoadTest', [], function (res) { render(res); toast('Load test finished and cleaned up'); }, btn);
+    });
   };
   $('copyLoad').onclick = function () {
     var range = document.createRange();
@@ -927,6 +1189,14 @@
     try { done = document.execCommand('copy'); } catch (e) {}
     toast(done ? 'Copied' : 'Selected — press Ctrl/Cmd+C to copy');
   };
+
+  $('summaryForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    call('saveSummaryDefaults', [{ facilitators: $('d-summary-facilitators').checked, extra: $('d-summary-extra').value }], function (res) {
+      render(res);
+      toast('Default recipients saved');
+    }, this.querySelector('button[type=submit]'));
+  });
 
   $('b-accent-pick').addEventListener('input', function () { $('b-accent').value = this.value; });
   $('b-accent').addEventListener('input', function () {
@@ -957,8 +1227,10 @@
   });
 
   $('removeLogo').onclick = function () {
-    if (!confirm('Remove the logo?')) return;
-    call('removeLogo', [], function (res) { render(res); toast('Logo removed'); }, this);
+    var btn = this;
+    ask({ title: 'Remove the logo?', body: 'Pages will show your organization name instead.', ok: 'Remove logo', danger: true }, function () {
+      call('removeLogo', [], function (res) { render(res); toast('Logo removed'); }, btn);
+    });
   };
 
   /** Downscale in the browser so the stored logo stays small; tries PNG, then WebP, then smaller sizes. */

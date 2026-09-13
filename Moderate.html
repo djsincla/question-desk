@@ -64,6 +64,18 @@
   .votes { font-weight: 600; color: var(--action); }
   .topic.live .votes { color: inherit; }
   header { border-top: 4px solid var(--action); padding-top: 12px; }
+  .onphones { font-size: 0.75rem; border-radius: 10px; padding: 2px 8px; margin-left: 6px; background: #e5f2ef; color: var(--action); border: 1px solid #b9dcd5; font-weight: 400; vertical-align: 2px; }
+  .topic.live .onphones { background: rgba(255,255,255,0.2); color: inherit; border-color: transparent; }
+  .modal { position: fixed; inset: 0; background: rgba(22,32,43,0.45); display: flex; align-items: flex-start; justify-content: center; padding: 10vh 16px; z-index: 10; }
+  .modal form { background: #fff; border-radius: 6px; padding: 18px; width: 100%; max-width: 28rem; box-shadow: 0 8px 32px rgba(0,0,0,0.25); }
+  .modal h2 { font-size: 1.05rem; margin: 0 0 8px; }
+  .modal p { margin: 0 0 16px; color: var(--muted); }
+  .modal .row { display: flex; gap: 8px; }
+  .prepared { border: 1px dashed var(--rule); border-radius: 6px; margin-bottom: 18px; }
+  .prepared summary { padding: 11px 14px; cursor: pointer; font-weight: 600; background: var(--paper); border-radius: 6px; }
+  .prepared summary span { color: var(--muted); font-weight: 400; }
+  .prepared li .text { color: var(--ink); }
+  button.danger-solid { background: var(--stop); border-color: var(--stop); color: #fff; }
   .topic > .head {
     display: flex; align-items: center; justify-content: space-between; gap: 12px;
     padding: 12px 14px; background: var(--paper); border-bottom: 1px solid var(--rule);
@@ -131,7 +143,23 @@
   <button class="quiet" id="refresh">Refresh</button>
 </div>
 
+<details class="prepared" id="prepared" hidden>
+  <summary>Prepared questions <span id="preparedCount"></span></summary>
+  <ul id="preparedList"></ul>
+</details>
+
 <div id="board"><p class="empty">Waiting for the first question.</p></div>
+
+<div class="modal" id="dialog" hidden>
+  <form id="dialogForm" role="dialog" aria-modal="true" aria-labelledby="dialogTitle">
+    <h2 id="dialogTitle"></h2>
+    <p id="dialogBody"></p>
+    <div class="row">
+      <button type="submit" class="danger-solid" id="dialogOk">OK</button>
+      <button type="button" class="quiet" id="dialogCancel">Cancel</button>
+    </div>
+  </form>
+</div>
 
 <script>
   var BOOT = <?!= boot ?>;
@@ -181,6 +209,27 @@
 
   var ended = false;
 
+  // In-page confirmation instead of confirm(), which shows the sandbox's googleusercontent.com address.
+  var dialogDone = null;
+  function ask(title, body, okLabel, onOk) {
+    document.getElementById('dialogTitle').textContent = title;
+    document.getElementById('dialogBody').textContent = body;
+    document.getElementById('dialogOk').textContent = okLabel;
+    dialogDone = onOk;
+    document.getElementById('dialog').hidden = false;
+    document.getElementById('dialogOk').focus();
+  }
+  function closeDialog() { document.getElementById('dialog').hidden = true; dialogDone = null; }
+  document.getElementById('dialogCancel').onclick = closeDialog;
+  document.getElementById('dialog').addEventListener('click', function (e) { if (e.target === this) closeDialog(); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeDialog(); });
+  document.getElementById('dialogForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var done = dialogDone;
+    closeDialog();
+    if (done) done();
+  });
+
   function draw(data) {
     state = data;
     ended = data.session.status === 'ended';
@@ -197,6 +246,7 @@
     document.querySelector('.bar').hidden = ended;
 
     toggle.textContent = data.open ? 'Pause submissions' : 'Reopen submissions';
+    drawPrepared(data.prepared || []);
 
     var total = data.unsorted.length;
     data.topics.forEach(function (t) { total += t.count; });
@@ -215,6 +265,34 @@
     }
   }
 
+  function drawPrepared(list) {
+    var box = document.getElementById('prepared');
+    box.hidden = ended || !list.length;
+    document.getElementById('preparedCount').textContent = '· ' + list.length + ' ready to add';
+    var ul = document.getElementById('preparedList');
+    ul.innerHTML = '';
+    list.forEach(function (q) {
+      var li = el('li');
+      var text = el('div', 'text');
+      text.textContent = q.text;
+      li.appendChild(text);
+      var acts = el('div', 'acts');
+      var add = el('button', 'primary');
+      add.textContent = 'Add to queue';
+      add.onclick = function () {
+        add.disabled = true;
+        add.textContent = 'Adding…';
+        google.script.run.withSuccessHandler(draw).withFailureHandler(function () {
+          add.disabled = false;
+          add.textContent = 'Add to queue';
+        }).usePrepared(sid, [q.id]);
+      };
+      acts.appendChild(add);
+      li.appendChild(acts);
+      ul.appendChild(li);
+    });
+  }
+
   function topicBlock(t, mergedText, isLoose, isLive) {
     var wrap = el('div', isLive ? 'topic live' : 'topic');
 
@@ -225,6 +303,11 @@
     c.textContent = t.count + (t.count === 1 ? ' question' : ' questions');
     h.appendChild(document.createTextNode(' '));
     h.appendChild(c);
+    if (t.shown) {
+      var pill = el('span', 'onphones');
+      pill.textContent = 'On phones';
+      h.appendChild(pill);
+    }
     if (t.votes) {
       var v = el('span', 'votes');
       v.textContent = ' · +' + t.votes + ' me too';
@@ -235,7 +318,7 @@
     if (!isLoose && !ended) {
       var acts = el('div', 'acts');
       var live = el('button', isLive ? '' : 'primary');
-      live.textContent = isLive ? 'Stop showing' : 'Now answering';
+      live.textContent = isLive ? 'Stop answering' : 'Now answering';
       live.title = 'Show this topic on the room screen and participants\' phones';
       live.onclick = function () {
         live.disabled = true;
@@ -244,6 +327,18 @@
         }).setNowAnswering(sid, isLive ? null : t.topic);
       };
       acts.appendChild(live);
+      var phones = el('button');
+      phones.textContent = t.shown ? 'Hide from phones' : 'Show on phones';
+      phones.title = t.shown
+        ? 'Remove this topic from participants\' phones'
+        : 'Let participants see this topic label and tap Me too';
+      phones.onclick = function () {
+        phones.disabled = true;
+        google.script.run.withSuccessHandler(draw).withFailureHandler(function () {
+          phones.disabled = false;
+        }).setTopicShown(sid, t.topic, !t.shown);
+      };
+      acts.appendChild(phones);
       var merge = el('button');
       merge.textContent = mergedText ? 'Rewrite as one' : 'Merge into one question';
       merge.onclick = function () {
@@ -259,8 +354,10 @@
       var dismissAll = el('button', 'quiet');
       dismissAll.textContent = 'Dismiss all';
       dismissAll.onclick = function () {
-        if (!confirm('Dismiss all ' + t.count + ' questions under "' + t.topic + '"?')) return;
-        act(t.questions.map(function (q) { return q.id; }), 'dismissed');
+        ask('Dismiss this topic?', 'All ' + t.count + (t.count === 1 ? ' question' : ' questions') + ' under "' + t.topic +
+          '" will be removed from the queue and from participants\' phones.', 'Dismiss all', function () {
+          act(t.questions.map(function (q) { return q.id; }), 'dismissed');
+        });
       };
       acts.appendChild(merge);
       acts.appendChild(dismissAll);

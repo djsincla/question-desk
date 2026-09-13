@@ -11,10 +11,19 @@ function setup() {
   return { h, s };
 }
 
+/** Moderator approves topics for participants' phones. */
+function approve(h, s, topics) {
+  const was = h.env.activeUser;
+  h.as(MOD);
+  topics.forEach((t) => h.app.setTopicShown(s.id, t, true));
+  h.env.activeUser = was;
+}
+
 test('participants see translated topic labels, never question text', () => {
   const { h, s } = setup();
   h.ask(s, h.join(s), 'Parking is impossible, the lot is a disaster');
   h.app.clusterQuestions();
+  approve(h, s, ['About parking']);
 
   const me = h.join(s);
   h.anonymous();
@@ -34,6 +43,7 @@ test('ungrouped, dismissed-only and other-session topics are not shown', () => {
   h.ask(other, h.join(other), 'Funding question');
   h.app.clusterQuestions();
   h.ask(s, h.join(s), 'Not grouped yet');
+  approve(h, s, ['About parking', 'About spam']);
   h.app.setStatus(s.id, [h.questions().rows[2][0]], 'dismissed');
 
   const me = h.join(s);
@@ -57,6 +67,7 @@ test('me too toggles once per device and counts toward the topic', () => {
   const { h, s } = setup();
   h.ask(s, h.join(s), 'Parking is hard');
   h.app.clusterQuestions();
+  approve(h, s, ['About parking']);
   const a = h.join(s);
   const b = h.join(s);
   h.anonymous();
@@ -80,6 +91,7 @@ test('me too is refused for unknown topics, closed, inactive and ended sessions'
   const { h, s } = setup();
   h.ask(s, h.join(s), 'Parking is hard');
   h.app.clusterQuestions();
+  approve(h, s, ['About parking']);
   const d = h.join(s);
   h.anonymous();
   assert.equal(h.app.meToo(s.id, d.deviceId, 'Invented topic').reason, 'unknownTopic');
@@ -90,7 +102,7 @@ test('me too is refused for unknown topics, closed, inactive and ended sessions'
   h.as(MOD).app.setBoardOpen(s.id, true);
   h.as(h.env.owner).app.setSessionActive(s.id, false);
   assert.equal(h.anonymous().app.meToo(s.id, d.deviceId, 'About parking').reason, 'inactive');
-  h.as(h.env.owner).app.endSession(s.id);
+  h.as(h.env.owner).app.endSession(s.id, h.app.getSession_(s.id).name);
   assert.equal(h.anonymous().app.meToo(s.id, d.deviceId, 'About parking').reason, 'ended');
 });
 
@@ -174,8 +186,8 @@ test('merge prompt keeps the do-not-soften rule for its translations too', () =>
 test('only assigned moderators can set now answering, and not on ended sessions', () => {
   const { h, s } = setup();
   h.as('other@example.org');
-  assert.throws(() => h.app.setNowAnswering(s.id, 'x'), /not a moderator/);
-  h.as(h.env.owner).app.endSession(s.id);
+  assert.throws(() => h.app.setNowAnswering(s.id, 'x'), /not a QA Facilitator/);
+  h.as(h.env.owner).app.endSession(s.id, h.app.getSession_(s.id).name);
   h.as(MOD);
   assert.throws(() => h.app.setNowAnswering(s.id, 'x'), /has ended/);
   assert.equal(h.app.getSession_(s.id).nowAnswering, null, 'ending clears it');
@@ -186,10 +198,58 @@ test('summary email and CSV include me too counts', () => {
   h.app.saveSession({ id: s.id, name: 'Topics', access: 'link', moderators: [MOD], emailOnEnd: true });
   h.ask(s, h.join(s), 'Parking is hard');
   h.app.clusterQuestions();
+  approve(h, s, ['About parking']);
   const d = h.join(s);
   h.anonymous().app.meToo(s.id, d.deviceId, 'About parking');
-  h.as(h.env.owner).app.endSession(s.id);
+  h.as(h.env.owner).app.endSession(s.id, h.app.getSession_(s.id).name);
   const mail = h.env.outbox[0];
   assert.match(mail.htmlBody, /\(1 · 1 me too\)/);
   assert.match(mail.attachments[0].getDataAsString(), /"Me too \(topic\)"/);
+});
+
+test('nothing reaches phones until a moderator approves the topic', () => {
+  const { h, s } = setup();
+  h.ask(s, h.join(s), 'Parking is hard');
+  h.ask(s, h.join(s), 'Funding is short');
+  h.app.clusterQuestions();
+  const d = h.join(s);
+
+  h.anonymous();
+  assert.deepEqual(h.app.getTopics(s.id, d.deviceId).topics, []);
+  assert.equal(h.app.meToo(s.id, d.deviceId, 'About parking').reason, 'unknownTopic', 'cannot support an unapproved topic');
+
+  h.as(MOD);
+  const board = h.app.setTopicShown(s.id, 'About parking', true);
+  assert.deepEqual(board.topics.map((t) => [t.topic, t.shown]).sort(), [['About funding', false], ['About parking', true]]);
+  assert.deepEqual(h.anonymous().app.getTopics(s.id, d.deviceId).topics.map((t) => t.topic), ['About parking'], 'visible immediately');
+
+  h.as(MOD).app.setTopicShown(s.id, 'About parking', false);
+  assert.deepEqual(h.anonymous().app.getTopics(s.id, d.deviceId).topics, [], 'withdrawn immediately');
+});
+
+test('approval keeps label translations and survives later grouping runs', () => {
+  const { h, s } = setup();
+  h.ask(s, h.join(s), 'Parking is hard');
+  h.app.clusterQuestions();
+  approve(h, s, ['About parking']);
+  h.ask(s, h.join(s), 'Parking again');
+  h.app.clusterQuestions();
+  const rec = h.app.topicRecords_(s.id)['About parking'];
+  assert.equal(rec.shown, true);
+  assert.equal(rec.labels.ko, '[ko] About parking');
+});
+
+test('only assigned moderators approve topics, and only real topics in open sessions', () => {
+  const { h, s } = setup();
+  h.ask(s, h.join(s), 'Parking is hard');
+  h.app.clusterQuestions();
+  h.as('other@example.org');
+  assert.throws(() => h.app.setTopicShown(s.id, 'About parking', true), /not a QA Facilitator/);
+  h.anonymous();
+  assert.throws(() => h.app.setTopicShown(s.id, 'About parking', true), /not a QA Facilitator/);
+  h.as(MOD);
+  assert.throws(() => h.app.setTopicShown(s.id, 'Made up', true), /no questions/);
+  h.as(h.env.owner).app.endSession(s.id, 'Topics');
+  h.as(MOD);
+  assert.throws(() => h.app.setTopicShown(s.id, 'About parking', true), /has ended/);
 });

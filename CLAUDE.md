@@ -37,8 +37,35 @@ does not carry the query string. That exact bug shipped once (v2): every QR scan
 - Access is chosen per session: `room` (rotating 150s QR token, as below) or `link`
   (fixed `linkKey`, emailable, replaceable by an admin). Clustering and cooldown apply
   to both.
+- On screen, in dialogs and in emails, moderators are called **QA Facilitators**. Code,
+  property names (`MODERATORS`), function names and the `moderator` role value keep the
+  old word so stored data doesn't change; keep new user-facing text on the new term.
+- Prepared questions are rows with status and device `prepared`. `sessionRows_()` hides
+  them unless `includePrepared`; clustering, phones, counts and summaries skip them. Only
+  `usePrepared()` turns them into `new` (re-timestamped). Saving a session with a
+  `prepared` list replaces only the unused ones.
+- Summary recipients: `SUMMARY_DEFAULTS` property `{facilitators, extra}`, overridden by a
+  session's `summary: {mode:'custom', ...}`; always resolve with `summaryRecipients_()`.
+  Extra addresses may be outside the domain. The summary must always show original
+  wording plus the English translation (`sameLanguage_` decides when one line suffices).
+- The wait between questions is per session (`cooldownSeconds`, 0–3600). The cache stores
+  when a phone last asked, not when its wait ends, so a changed setting applies to phones
+  already waiting; phones re-sync every 15 seconds while counting down.
 - The script owner is always an admin. `ADMINS` and `MODERATORS` are comma lists in
   Script Properties; moderators see only sessions they are assigned to.
+- **The room screen is public by the owner's decision**: `?view=present&s=<id>` and
+  `getRoomScreen()` need no sign-in, so any browser or Google account can show it. Only
+  Admin and the queue are gated. For in-room sessions this means the rotating code is as
+  private as the room screen link; do not reintroduce a sign-in or key without asking.
+- Staff links (room screen, queue, admin) use the address exactly as Google reports it —
+  do not rewrite them. Participant links and QR codes use `participantBaseUrl_()`, which
+  converts either domain-scoped form to `/macros/s/…` so other Google accounts aren't
+  asked to sign in.
+- Ending or deleting a session requires the session name typed back
+  (`requireTypedName_`, case and spacing forgiven). Session order is `order` on each
+  session, set by `reorderSessions()`; new sessions go on top.
+- Pages never use `confirm()`/`alert()`: in the sandbox they show a googleusercontent.com
+  address. Use the in-page dialog helpers in `Admin.html` and `Moderate.html`.
 - **Admins and moderators must be in the owner's Workspace domain.** With execute-as-
   owner and anonymous access, `getActiveUser()` is empty for everyone outside the
   domain, so an outside moderator can never be recognized. `addPerson()` enforces it.
@@ -50,8 +77,9 @@ does not carry the query string. That exact bug shipped once (v2): every QR scan
 
 ## Me too, Now answering, schedule, health, load test
 
-- Participants never see anyone's question text. `getTopics()` returns Gemini topic
-  labels translated into `CONFIG.displayLanguages`; translations come back in the same
+- Participants never see anyone's question text, and see a topic label only after a
+  moderator approves it (`setTopicShown`, `Topics` column G = `yes`). `getTopics()`
+  returns approved Gemini topic labels translated into `CONFIG.displayLanguages`; translations come back in the same
   grouping call (`labels` in the schema) and are stored in `Topics` column E. The
   moderator-language label stays the grouping key — do not group on translations.
 - A full room polls `getTopics()` every 30s, so the topic list is cached per session for
@@ -145,6 +173,10 @@ instruction in any prompt edits.
   controllable clock. The fakes enforce the 9KB property limit and record any string
   the sheet would evaluate as a formula. Use `createApp().install()`, `h.session()`,
   `h.join()`, `h.ask()`, `h.as(email)` and `h.advance(seconds)`.
+- `node scripts/preview.js` serves every page with demo data on localhost (pick the user
+  with `?as=owner|mod|anon`); `node scripts/screenshots.js` regenerates
+  `docs/screenshots/`. The screenshot script must call Chrome asynchronously — the preview
+  server runs in the same process.
 - `tests/pages.test.js` statically checks the HTML: scripts parse, ES5 only, every
   `google.script.run` call names a public function that exists, manifest scopes match
   the services `Code.js` uses, and every page is on the `.claspignore` allowlist.

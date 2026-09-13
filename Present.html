@@ -35,9 +35,12 @@
   .brand img { max-height: 9vh; max-width: 24vw; }
   .brand span { font-size: clamp(0.9rem, 1.5vw, 1.4rem); color: var(--muted); }
   body.dark .brand img { background: #fff; padding: 0.8vh 1vw; border-radius: 6px; }
-  .words { max-width: 26ch; }
-  h1 { font-size: clamp(2.5rem, 6vw, 5rem); line-height: 1.05; margin: 0 0 0.4em; font-weight: 600; }
-  p { font-size: clamp(1rem, 1.7vw, 1.5rem); line-height: 1.35; margin: 0 0 0.55em; color: var(--muted); }
+  /* The text takes whatever the QR code doesn't need, so headings stay on one or two lines. */
+  .words { flex: 1 1 auto; min-width: 0; max-width: 62vw; }
+  .code, .waiting { flex: 0 0 auto; }
+  h1 { font-size: clamp(2.2rem, 4.6vw, 4.6rem); line-height: 1.08; margin: 0 0 0.45em; font-weight: 600; text-wrap: balance; }
+  p { font-size: clamp(1rem, 1.6vw, 1.55rem); line-height: 1.35; margin: 0 0 0.5em; color: var(--muted); }
+  body.idle, body.idle * { cursor: none !important; }
   p:last-of-type { margin-bottom: 0; }
   .code {
     background: #fff;
@@ -131,7 +134,8 @@
 
   function applyTheme() {
     var t = themeOverride || theme;
-    document.body.className = t + (document.getElementById('now').hidden ? '' : ' answering');
+    var idle = document.body.classList.contains('idle');
+    document.body.className = t + (document.getElementById('now').hidden ? '' : ' answering') + (idle ? ' idle' : '');
     var s = document.body.style;
     s.setProperty('--bg', t === 'light' ? brand.roomBgLight : brand.roomBgDark);
     s.setProperty('--accent', brand.accent);
@@ -144,7 +148,8 @@
   }
 
   function applyBrand() {
-    document.getElementById('org').textContent = brand.orgName || '';
+    // Most logos already contain the name; show the text only when there is no logo.
+    document.getElementById('org').textContent = brand.logo ? '' : (brand.orgName || '');
     document.getElementById('brand').hidden = !(brand.logo || brand.orgName);
     var footer = document.getElementById('footer');
     footer.textContent = brand.footer || '';
@@ -159,6 +164,14 @@
   }
   applyBrand();
   applyTheme();
+
+  // A projector never needs a pointer; hide it after a few still seconds.
+  var idleTimer = null;
+  document.addEventListener('mousemove', function () {
+    document.body.classList.remove('idle');
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(function () { document.body.classList.add('idle'); }, 3000);
+  });
 
   document.addEventListener('keydown', function (e) {
     if (e.key === 't' || e.key === 'T') {

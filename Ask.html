@@ -161,8 +161,8 @@
       linkExpiredBtn: 'Link expired',
       linkExpired: 'This link is no longer valid. Ask the organizer for a new one.',
       notFound: 'This link is not valid. Scan the code on the screen in the room.',
-      inactiveBtn: 'Not open yet',
-      inactive: 'This session is not taking questions yet. Try again when it starts.',
+      inactiveBtn: 'Not taking questions right now',
+      inactive: 'This session is not taking questions right now. Try again in a little while.',
       endedBtn: 'Session ended',
       ended: 'This session has ended. Thank you for your questions.',
       closedBtn: 'Questions are closed',
@@ -193,8 +193,8 @@
       linkExpiredBtn: '링크 만료',
       linkExpired: '이 링크는 더 이상 유효하지 않습니다. 주최자에게 새 링크를 요청해 주세요.',
       notFound: '유효하지 않은 링크입니다. 화면의 코드를 스캔해 주세요.',
-      inactiveBtn: '아직 열리지 않았습니다',
-      inactive: '이 세션은 아직 질문을 받지 않습니다. 세션이 시작되면 다시 시도해 주세요.',
+      inactiveBtn: '지금은 질문을 받지 않습니다',
+      inactive: '이 세션은 지금 질문을 받지 않습니다. 잠시 후 다시 시도해 주세요.',
       endedBtn: '세션이 종료되었습니다',
       ended: '이 세션은 종료되었습니다. 질문해 주셔서 감사합니다.',
       closedBtn: '질문이 마감되었습니다',
@@ -225,8 +225,8 @@
       linkExpiredBtn: 'Enlace caducado',
       linkExpired: 'Este enlace ya no es válido. Pide uno nuevo a quien organiza.',
       notFound: 'Este enlace no es válido. Escanea el código de la pantalla.',
-      inactiveBtn: 'Aún no está abierta',
-      inactive: 'Esta sesión todavía no recibe preguntas. Vuelve a intentarlo cuando empiece.',
+      inactiveBtn: 'No recibe preguntas ahora',
+      inactive: 'Esta sesión no está recibiendo preguntas en este momento. Inténtalo de nuevo en un rato.',
       endedBtn: 'Sesión terminada',
       ended: 'Esta sesión terminó. Gracias por tus preguntas.',
       closedBtn: 'Preguntas cerradas',
@@ -311,16 +311,21 @@
     else { lock(T('expiredBtn')); say(T('expired'), 'stop'); }
   }
 
+  var remaining = 0;
+  var syncTimer = null;
+
   function countdown(seconds) {
     clearInterval(ticker);
+    remaining = seconds;
     q.value = '';
     q.disabled = true;
     send.disabled = true;
     updateMeter();
 
     function tick() {
-      if (seconds <= 0) {
+      if (remaining <= 0) {
         clearInterval(ticker);
+        clearInterval(syncTimer);
         ticker = null;
         q.disabled = false;
         send.textContent = T('send');
@@ -328,12 +333,29 @@
         say(T('again'), 'good');
         return;
       }
-      var m = Math.floor(seconds / 60), s = seconds % 60;
+      var m = Math.floor(remaining / 60), s = remaining % 60;
       send.textContent = T('nextIn') + m + ':' + (s < 10 ? '0' : '') + s;
-      seconds--;
+      remaining--;
     }
     tick();
     ticker = setInterval(tick, 1000);
+
+    // The facilitator can change the wait mid-session; follow the server's number.
+    clearInterval(syncTimer);
+    syncTimer = setInterval(function () {
+      google.script.run.withSuccessHandler(function (state) {
+        if (state && state.found) syncCooldown(state.cooldownRemaining);
+      }).getSessionState(sid, deviceId);
+    }, 15000);
+  }
+
+  function syncCooldown(serverSeconds) {
+    if (typeof serverSeconds !== 'number') return;
+    if (ticker) {
+      if (Math.abs(serverSeconds - remaining) > 2) remaining = serverSeconds;
+    } else if (serverSeconds > 0 && !q.disabled) {
+      countdown(serverSeconds);
+    }
   }
 
   function updateMeter() {
@@ -417,7 +439,8 @@
     }
     if (!brand.logo && !brand.orgName) return;
     document.getElementById('brand').hidden = false;
-    document.getElementById('org').textContent = brand.orgName;
+    // Most logos already contain the name; show the text only when there is no logo.
+    document.getElementById('org').textContent = brand.logo ? '' : brand.orgName;
     if (brand.logo) {
       var logo = document.getElementById('logo');
       logo.src = brand.logo;
@@ -486,6 +509,7 @@
     if (!deviceId) return;
     google.script.run.withSuccessHandler(function (res) {
       if (!res.ok) return;
+      syncCooldown(res.cooldownRemaining);
       renderTopics(res);
       if (res.status === 'ended') clearInterval(topicTimer);
     }).getTopics(sid, deviceId);

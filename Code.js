@@ -17,7 +17,7 @@
 
 /** Bump with every release; scripts/ship.sh tags git and publishes release notes from CHANGELOG.md. */
 const APP = {
-  version: '2.0.0',
+  version: '2.1.0',
   repo: 'https://github.com/djsincla/question-desk'
 };
 
@@ -31,11 +31,13 @@ const CONFIG = {
   displayLanguages: { en: 'English', ko: 'Korean', es: 'Spanish' },
   defaultMaxLength: 300,          // per session, admin can change
   maxLengthCeiling: 1024,         // no session may allow more than this
-  cooldownSeconds: 300,           // per device, per session
+  cooldownSeconds: 300,           // default wait between questions per phone; each session can change it
+  cooldownCeiling: 3600,          // longest wait a session may set
   roomLimitPerMinute: 15,         // per session intake cap
   entryTokenSeconds: 150,         // how often an in-room QR rotates
   deviceTokenSeconds: 21600,      // 6h — CacheService maximum
   clusterBatchSize: 25,
+  maxPrepared: 100,               // prepared questions per session
   topicCacheSeconds: 15,          // participant topic lists; a full room polls this
   logoMaxChars: 60000,            // base64 data URL; pages load on weak venue wifi
   maxRecipients: 50,
@@ -53,7 +55,7 @@ const HEADERS = ['ID', 'Submitted', 'Device', 'Question', 'Status', 'Topic',
                  'Language', 'Translation', 'Session'];
 
 const TOPIC_HEADERS = ['Session', 'Topic', 'Merged question', 'Updated',
-                       'Label translations', 'Merged translations'];
+                       'Label translations', 'Merged translations', 'Shown to participants'];
 
 const DEFAULT_ACCENT = '#1b5e5a';
 const ID_RE = /^[a-f0-9]{8}$/;
@@ -73,15 +75,21 @@ function doGet(e) {
     return page_('Admin.html', 'Question Desk admin', {}, null);
   }
 
-  if (view === 'moderate' || view === 'present') {
+  // The room screen is public: anyone with its link can show it, signed in or not,
+  // whatever Google account the browser uses. Only admin and queue need a login.
+  if (view === 'present') {
+    const screen = getSession_(sid);
+    if (screen) return page_('Present.html', screen.name, { sid: screen.id, theme: screen.theme }, screen);
+    if (!currentEmail_()) return notice_('noSession');
+    return notice_('pick', view);
+  }
+
+  if (view === 'moderate') {
     const email = currentEmail_();
     if (!email || !(isAdmin_(email) || onRoster_('MODERATORS', email))) return notice_('denied');
     const session = getSession_(sid);
     if (!session) return notice_('pick', view);
     if (!canModerate_(session, email)) return notice_('denied');
-    if (view === 'present') {
-      return page_('Present.html', session.name, { sid: session.id, theme: session.theme }, session);
-    }
     return page_('Moderate.html', session.name + ' — queue', { sid: session.id }, session);
   }
 
@@ -154,9 +162,16 @@ function notice_(mode, view) {
       links: links
     }, null);
   }
+  if (mode === 'noSession') {
+    return page_('Denied.html', 'Session not found', {
+      heading: 'This room screen link is not valid',
+      body: 'Check the link with whoever is running the session, or scan the code on the screen in the room to ask a question.',
+      links: []
+    }, null);
+  }
   return page_('Denied.html', 'Not available', {
-    heading: 'This view is for facilitators',
-    body: 'Sign in with an account listed as a moderator, or scan the code on the screen in the room to ask a question.',
+    heading: 'This view is for QA Facilitators',
+    body: 'Sign in with an account listed as a QA Facilitator, or scan the code on the screen in the room to ask a question.',
     links: []
   }, null);
 }
@@ -200,7 +215,7 @@ function requireAdmin_() {
 function requireSession_(sid) {
   const session = getSession_(sid);
   if (!session) throw new Error('Session not found.');
-  if (!canModerate_(session, currentEmail_())) throw new Error('You are not a moderator of this session.');
+  if (!canModerate_(session, currentEmail_())) throw new Error('You are not a QA Facilitator for this session.');
   return session;
 }
 
@@ -226,12 +241,17 @@ function saveSession_(session) {
   props_().setProperty('SESSION_' + session.id, JSON.stringify(session));
 }
 
+/** Sessions in the admin's chosen order; sessions never reordered sort newest first. */
 function allSessions_() {
   const all = props_().getProperties();
   return Object.keys(all)
     .filter(function (k) { return /^SESSION_[a-f0-9]{8}$/.test(k); })
     .map(function (k) { return JSON.parse(all[k]); })
-    .sort(function (a, b) { return b.created - a.created; });
+    .sort(function (a, b) {
+      const oa = typeof a.order === 'number' ? a.order : -a.created;
+      const ob = typeof b.order === 'number' ? b.order : -b.created;
+      return oa - ob || b.created - a.created;
+    });
 }
 
 function sessionsFor_(email) {
@@ -264,14 +284,31 @@ function newId_(length) {
   return id.slice(0, length);
 }
 
+/** Address for staff-facing links (room screen, queue, admin), as Google reports it. */
 function baseUrl_() {
   const configured = props_().getProperty('PUBLIC_URL');
   if (configured) return configured;
   return baseUrlDetected_();
 }
 
+/** Address for participant-facing links (the QR code, shareable links): always the public form. */
+function participantBaseUrl_() {
+  return publicAddress_(baseUrl_());
+}
+
+/**
+ * Google may report the web app under a domain-scoped address — either
+ * /a/macros/<domain>/s/… or /a/<domain>/macros/s/…. Those make anyone signed
+ * into a different Google account sign in or request access, so everything a
+ * participant opens uses the public /macros/s/… form. Staff links are left as reported.
+ */
+function publicAddress_(url) {
+  return String(url || '')
+    .replace(/\/a\/macros\/[^/]+\/s\//, '/macros/s/')
+    .replace(/\/a\/[^/]+\/macros\/s\//, '/macros/s/');
+}
+
 function baseUrlDetected_() {
-  // The domain-scoped form (/a/macros/<domain>/) can prompt outsiders to sign in.
   return String(ScriptApp.getService().getUrl() || '')
     .replace(/\/a\/macros\/[^/]+\/s\//, '/macros/s/');
 }
@@ -282,7 +319,7 @@ function sessionLinks_(session) {
     present: base + '?view=present&s=' + session.id,
     moderate: base + '?view=moderate&s=' + session.id,
     participant: session.access === 'link'
-      ? base + '?s=' + session.id + '&k=' + session.linkKey
+      ? participantBaseUrl_() + '?s=' + session.id + '&k=' + session.linkKey
       : null
   };
 }
@@ -360,7 +397,8 @@ function getSessionState(sid, deviceId) {
   if (!session) return state;
   const validDevice = DEVICE_RE.test(String(deviceId || ''));
   state.deviceValid = deviceValid_(sid, deviceId);
-  state.cooldownRemaining = validDevice ? cooldownRemaining_(sid, deviceId) : 0;
+  state.cooldownRemaining = validDevice ? cooldownRemaining_(session, deviceId) : 0;
+  state.cooldownSeconds = cooldownFor_(session);
   return state;
 }
 
@@ -407,7 +445,7 @@ function submitQuestion_(sid, deviceId, text, credential, skipRoomCap) {
     if (!validCredential_(session, credential)) return { ok: false, reason: 'expired' };
   }
 
-  const waiting = cooldownRemaining_(sid, deviceId);
+  const waiting = cooldownRemaining_(session, deviceId);
   if (waiting > 0) return { ok: false, reason: 'cooldown', waitSeconds: waiting };
 
   const lock = LockService.getScriptLock();
@@ -425,19 +463,29 @@ function submitQuestion_(sid, deviceId, text, credential, skipRoomCap) {
       id, new Date(), deviceId || 'unknown', sheetSafe_(clean), 'new', '', '', '', sid
     ]);
     if (deviceId) {
-      cache.put('cool:' + sid + ':' + deviceId,
-                String(Date.now() + CONFIG.cooldownSeconds * 1000), CONFIG.cooldownSeconds);
+      // Store when the phone asked, not when its wait ends, so a session's wait can
+      // be changed mid-event and apply to phones already waiting.
+      cache.put('cool:' + sid + ':' + deviceId, String(Date.now()), CONFIG.cooldownCeiling + 60);
     }
-    return { ok: true, id: id, cooldownSeconds: CONFIG.cooldownSeconds };
+    return { ok: true, id: id, cooldownSeconds: cooldownFor_(session) };
   } finally {
     lock.releaseLock();
   }
 }
 
-function cooldownRemaining_(sid, deviceId) {
-  if (!deviceId) return 0;
-  const until = Number(CacheService.getScriptCache().get('cool:' + sid + ':' + deviceId) || 0);
-  return Math.max(0, Math.ceil((until - Date.now()) / 1000));
+function cooldownFor_(session) {
+  const value = session && session.cooldownSeconds;
+  return typeof value === 'number' ? value : CONFIG.cooldownSeconds;
+}
+
+/** Seconds this phone must still wait, from the session's current setting. */
+function cooldownRemaining_(session, deviceId) {
+  if (!deviceId || !session) return 0;
+  let askedAt = Number(CacheService.getScriptCache().get('cool:' + session.id + ':' + deviceId) || 0);
+  if (!askedAt) return 0;
+  // Before 2.1 the cache held when the wait ended; read those as an ask CONFIG.cooldownSeconds earlier.
+  if (askedAt > Date.now()) askedAt -= CONFIG.cooldownSeconds * 1000;
+  return Math.max(0, Math.ceil((askedAt + cooldownFor_(session) * 1000 - Date.now()) / 1000));
 }
 
 /** Per-session intake cap, so no single device can flood the queue. */
@@ -454,8 +502,8 @@ function roomBudgetAvailable_(sid) {
 
 /**
  * Topics a participant can support, labelled in every display language. Only
- * Gemini-written topic labels are shown, never anyone's question text, so there
- * is nothing unmoderated for the room to read. Cached briefly: a full room polls.
+ * topic labels a moderator has approved are shown — never anyone's question
+ * text — so nothing reaches the room unreviewed. Cached briefly: a full room polls.
  */
 function getTopics(sid, deviceId) {
   const session = getSession_(sid);
@@ -469,6 +517,7 @@ function getTopics(sid, deviceId) {
     ok: true,
     status: session.status,
     open: session.open !== false,
+    cooldownRemaining: cooldownRemaining_(session, deviceId),
     nowAnswering: base.nowAnswering,
     topics: base.topics.map(function (t) {
       return {
@@ -545,6 +594,7 @@ function publicTopics_(session) {
   const groups = {};
   sessionRows_(session.id).forEach(function (q) {
     if (!q.topic || q.status === 'dismissed') return;
+    if (!records[q.topic] || !records[q.topic].shown) return;
     const g = groups[q.topic] = groups[q.topic] || { questions: 0, answered: 0 };
     g.questions++;
     if (q.status === 'answered') g.answered++;
@@ -593,8 +643,10 @@ function nowAnsweringView_(session, records) {
 
 // ---------------------------------------------------------------- room screen
 
+/** Public, like the room screen itself: it only ever returns what the screen displays. */
 function getRoomScreen(sid) {
-  const session = requireSession_(sid);
+  const session = getSession_(sid);
+  if (!session) throw new Error('Session not found.');
   const brand = brand_(session);
   delete brand.logo;   // the logo arrives with the page; this poll stays small
   const screen = {
@@ -609,7 +661,7 @@ function getRoomScreen(sid) {
   };
   if (session.status !== 'active') return screen;
 
-  const base = baseUrl_();
+  const base = participantBaseUrl_();
   if (session.access === 'link') {
     screen.url = base + '?s=' + sid + '&k=' + session.linkKey;
   } else {
@@ -644,11 +696,14 @@ function getBoard(sid) {
     topics[q.topic].push(q);
   });
 
+  const records = topicRecords_(sid);
   const grouped = Object.keys(topics).map(function (name) {
-    return { topic: name, questions: topics[name], count: topics[name].length, votes: votes[name] || 0 };
+    return {
+      topic: name, questions: topics[name], count: topics[name].length, votes: votes[name] || 0,
+      shown: !!(records[name] && records[name].shown)
+    };
   }).sort(function (a, b) { return (b.count + b.votes) - (a.count + a.votes); });
 
-  const records = topicRecords_(sid);
   const merged = {};
   Object.keys(records).forEach(function (t) { if (records[t].merged) merged[t] = records[t].merged; });
 
@@ -666,7 +721,10 @@ function getBoard(sid) {
     unsorted: loose,
     open: session.open !== false,
     nowAnswering: session.nowAnswering ? session.nowAnswering.topic : null,
-    merged: merged
+    merged: merged,
+    prepared: sessionRows_(sid, true)
+      .filter(function (q) { return q.status === 'prepared'; })
+      .map(function (q) { return { id: q.id, text: q.text }; })
   };
 }
 
@@ -681,7 +739,8 @@ function setStatus(sid, ids, status) {
     const sheet = questionSheet_();
     const values = sheet.getDataRange().getValues();
     for (let i = 1; i < values.length; i++) {
-      if (String(values[i][COLS.session - 1]) === sid && wanted[String(values[i][COLS.id - 1])]) {
+      if (String(values[i][COLS.session - 1]) === sid && wanted[String(values[i][COLS.id - 1])] &&
+          values[i][COLS.status - 1] !== 'prepared') {
         sheet.getRange(i + 1, COLS.status).setValue(status);
       }
     }
@@ -693,6 +752,51 @@ function setStatus(sid, ids, status) {
 function setBoardOpen(sid, open) {
   requireSession_(sid);
   updateSession_(sid, function (s) { s.open = !!open; });
+  return getBoard(sid);
+}
+
+/**
+ * Approves (or withdraws) a topic label for participants' phones, where people
+ * can tap Me too. Nothing is shown to the audience until a moderator does this.
+ */
+function setTopicShown(sid, topic, shown) {
+  const session = requireSession_(sid);
+  if (session.status === 'ended') throw new Error('This session has ended.');
+  topic = String(topic || '');
+  const exists = sessionRows_(sid).some(function (q) { return q.topic === topic && q.status !== 'dismissed'; });
+  if (!exists) throw new Error('That topic has no questions.');
+  const update = {};
+  update[topic] = { shown: !!shown };
+  upsertTopics_(sid, update, true);
+  invalidateTopics_(sid);
+  return getBoard(sid);
+}
+
+/**
+ * Adds prepared questions to the live queue. They then go through translation and
+ * grouping like any other question, timestamped when they were added.
+ */
+function usePrepared(sid, ids) {
+  const session = requireSession_(sid);
+  if (session.status === 'ended') throw new Error('This session has ended.');
+  if (!Array.isArray(ids) || !ids.length) throw new Error('Choose a prepared question to add.');
+  const wanted = {};
+  ids.forEach(function (id) { wanted[String(id)] = true; });
+  let added = 0;
+  withLock_(function () {
+    const sheet = questionSheet_();
+    const values = sheet.getDataRange().getValues();
+    for (let i = 1; i < values.length; i++) {
+      if (String(values[i][COLS.session - 1]) === sid && wanted[String(values[i][COLS.id - 1])] &&
+          values[i][COLS.status - 1] === 'prepared') {
+        sheet.getRange(i + 1, COLS.submitted).setValue(new Date());
+        sheet.getRange(i + 1, COLS.status).setValue('new');
+        added++;
+      }
+    }
+  });
+  if (!added) throw new Error('Those prepared questions were already added or removed.');
+  invalidateTopics_(sid);
   return getBoard(sid);
 }
 
@@ -717,10 +821,15 @@ function groupNow(sid) {
 function adminState() {
   const me = requireAdmin_();
   const counts = {};
+  const prepared = {};
   const values = questionSheet_().getDataRange().getValues();
   for (let i = 1; i < values.length; i++) {
     const sid = String(values[i][COLS.session - 1]);
-    counts[sid] = (counts[sid] || 0) + 1;
+    if (values[i][COLS.status - 1] === 'prepared') {
+      (prepared[sid] = prepared[sid] || []).push(String(values[i][COLS.text - 1]));
+    } else {
+      counts[sid] = (counts[sid] || 0) + 1;
+    }
   }
 
   return {
@@ -733,9 +842,12 @@ function adminState() {
       const out = JSON.parse(JSON.stringify(s));
       out.links = sessionLinks_(s);
       out.questionCount = counts[s.id] || 0;
+      out.prepared = prepared[s.id] || [];
+      out.summaryTo = summaryRecipients_(s);
       return out;
     }),
     brand: brand_(null),
+    summaryDefaults: summaryDefaults_(),
     publicUrl: props_().getProperty('PUBLIC_URL') || '',
     detectedUrl: baseUrlDetected_(),
     geminiKeySet: !!props_().getProperty('GEMINI_API_KEY'),
@@ -743,7 +855,10 @@ function adminState() {
     mailQuota: MailApp.getRemainingDailyQuota(),
     health: health_(),
     loadTest: loadTestView_(),
-    limits: { maxLengthCeiling: CONFIG.maxLengthCeiling, defaultMaxLength: CONFIG.defaultMaxLength },
+    limits: {
+      maxLengthCeiling: CONFIG.maxLengthCeiling, defaultMaxLength: CONFIG.defaultMaxLength,
+      cooldownSeconds: CONFIG.cooldownSeconds, cooldownCeiling: CONFIG.cooldownCeiling
+    },
     app: { version: APP.version, releaseNotes: APP.repo + '/releases/tag/v' + APP.version, repo: APP.repo }
   };
 }
@@ -769,8 +884,30 @@ function saveSession(input) {
   const end = optionalTime_(input.scheduledEnd, 'end');
   if (start && end && end <= start) throw new Error('The scheduled end must be after the start.');
 
+  const cooldown = input.cooldownSeconds === undefined || input.cooldownSeconds === ''
+    ? CONFIG.cooldownSeconds : Math.round(Number(input.cooldownSeconds));
+  if (!isFinite(cooldown) || cooldown < 0 || cooldown > CONFIG.cooldownCeiling) {
+    throw new Error('Time between questions must be between 0 and ' + CONFIG.cooldownCeiling + ' seconds.');
+  }
+
   const brandAccent = String(input.brandAccent || '');
   if (brandAccent && !HEX_RE.test(brandAccent)) throw new Error('Session accent color must look like #1b5e5a.');
+
+  let preparedList = null;
+  if (input.prepared !== undefined) {
+    const lines = Array.isArray(input.prepared) ? input.prepared : String(input.prepared || '').split(/\r?\n/);
+    if (lines.join('').length > CONFIG.maxPrepared * CONFIG.maxLengthCeiling) throw new Error('That list of prepared questions is too long.');
+    preparedList = lines
+      .map(function (line) { return String(line || '').replace(/\s+/g, ' ').trim(); })
+      .filter(Boolean);
+    if (preparedList.length > CONFIG.maxPrepared) {
+      throw new Error('Load at most ' + CONFIG.maxPrepared + ' prepared questions per session.');
+    }
+    preparedList.forEach(function (q) {
+      if (q.length < 5) throw new Error('Prepared question is too short: ' + q);
+      if (q.length > maxLength) throw new Error('A prepared question is longer than ' + maxLength + ' characters: ' + q.slice(0, 60) + '…');
+    });
+  }
 
   const fields = {
     name: name,
@@ -778,13 +915,17 @@ function saveSession(input) {
     access: access,
     theme: theme,
     maxLength: maxLength,
+    cooldownSeconds: cooldown,
     moderators: moderators,
     emailOnEnd: !!input.emailOnEnd,
+    summary: summarySetting_(input.summary),
     scheduledStart: start,
     scheduledEnd: end,
     brand: { orgName: cleanText_(input.brandOrgName, 80), accent: brandAccent.toLowerCase() }
   };
 
+  let savedId = input.id;
+  if (input.summary === undefined) delete fields.summary;   // leave recipients as they were
   if (input.id) {
     updateSession_(input.id, function (s) {
       if (s.scheduledStart !== fields.scheduledStart) s.scheduleStarted = false;
@@ -801,10 +942,29 @@ function saveSession(input) {
       session.open = true;
       session.created = Date.now();
       session.createdBy = me;
+      // New sessions appear at the top of the list.
+      const orders = allSessions_().map(function (s) { return typeof s.order === 'number' ? s.order : 0; });
+      session.order = orders.length ? Math.min.apply(null, orders) - 1 : 0;
       saveSession_(session);
+      savedId = session.id;
     });
   }
+  if (preparedList) setPrepared_(savedId, preparedList);
   return adminState();
+}
+
+/** Replaces a session's unused prepared questions; ones already added to the queue stay. */
+function setPrepared_(sid, list) {
+  withLock_(function () {
+    const sheet = questionSheet_();
+    const values = sheet.getDataRange().getValues();
+    for (let i = values.length - 1; i >= 1; i--) {
+      if (String(values[i][COLS.session - 1]) === sid && values[i][COLS.status - 1] === 'prepared') sheet.deleteRow(i + 1);
+    }
+    list.forEach(function (text) {
+      sheet.appendRow([newId_(8), new Date(), 'prepared', sheetSafe_(text), 'prepared', '', '', '', sid]);
+    });
+  });
 }
 
 function optionalTime_(value, label) {
@@ -812,6 +972,32 @@ function optionalTime_(value, label) {
   const ms = Number(value);
   if (!isFinite(ms) || ms <= 0) throw new Error('The scheduled ' + label + ' is not a valid date and time.');
   return Math.round(ms);
+}
+
+/**
+ * Saves the order sessions appear in everywhere (admin list, queue switcher,
+ * landing page). ids is the full list as dragged; unknown ids are ignored and
+ * sessions left out keep their place after the ones given.
+ */
+function reorderSessions(ids) {
+  requireAdmin_();
+  if (!Array.isArray(ids)) throw new Error('Send the sessions in their new order.');
+  withLock_(function () {
+    const sessions = allSessions_();
+    const byId = {};
+    sessions.forEach(function (s) { byId[s.id] = s; });
+    const seen = {};
+    const ordered = [];
+    ids.forEach(function (id) {
+      id = String(id);
+      if (byId[id] && !seen[id]) { seen[id] = true; ordered.push(byId[id]); }
+    });
+    sessions.forEach(function (s) { if (!seen[s.id]) ordered.push(s); });
+    ordered.forEach(function (s, i) {
+      if (s.order !== i) { s.order = i; saveSession_(s); }
+    });
+  });
+  return adminState();
 }
 
 function setSessionActive(sid, active) {
@@ -831,8 +1017,22 @@ function regenerateLink(sid) {
   return adminState();
 }
 
-function endSession(sid) {
+/**
+ * Destructive admin actions require the session's name typed back, checked here
+ * and not only in the page, so a stray click or a scripted call can't do it.
+ */
+function requireTypedName_(session, typed) {
+  const norm = function (v) { return String(v || '').replace(/\s+/g, ' ').trim().toLowerCase(); };
+  if (!norm(typed) || norm(typed) !== norm(session.name)) {
+    throw new Error('Type the session name exactly to confirm: ' + session.name);
+  }
+}
+
+function endSession(sid, typedName) {
   requireAdmin_();
+  const session = getSession_(sid);
+  if (!session) throw new Error('Session not found.');
+  requireTypedName_(session, typedName);
   const result = endSession_(sid);
   result.state = adminState();
   return result;
@@ -863,18 +1063,20 @@ function endSession_(sid) {
   }
 
   let emailed = 0;
-  if (session.emailOnEnd && session.moderators.length && !session.loadTest) {
-    emailed = sendSummary_(session, session.moderators);
+  const recipients = summaryRecipients_(session);
+  if (session.emailOnEnd && recipients.length && !session.loadTest) {
+    emailed = sendSummary_(session, recipients);
   }
   return { emailed: emailed, note: groupingNote };
 }
 
 /** Deletes a session that is not running, with its questions, topics, votes and logo. */
-function deleteSession(sid) {
+function deleteSession(sid, typedName) {
   requireAdmin_();
   const session = getSession_(sid);
   if (!session) throw new Error('Session not found.');
   if (session.status === 'active') throw new Error('Deactivate or end the session before deleting it.');
+  requireTypedName_(session, typedName);
   deleteSession_(sid);
   return adminState();
 }
@@ -899,7 +1101,7 @@ function emailSummary(sid, recipients) {
   requireAdmin_();
   const session = getSession_(sid);
   if (!session) throw new Error('Session not found.');
-  const to = parseEmails_(recipients && recipients.length ? recipients : session.moderators);
+  const to = parseEmails_(recipients && recipients.length ? recipients : summaryRecipients_(session));
   if (!to.length) throw new Error('Add at least one recipient.');
   return sendSummary_(session, to);
 }
@@ -913,7 +1115,7 @@ function emailLinks(sid, options) {
 
   const to = options.toModerators ? session.moderators.slice() : parseEmails_(options.to);
   if (!to.length) {
-    throw new Error(options.toModerators ? 'This session has no moderators assigned.' : 'Add at least one recipient.');
+    throw new Error(options.toModerators ? 'This session has no QA Facilitators assigned.' : 'Add at least one recipient.');
   }
   checkQuota_(to.length);
 
@@ -926,10 +1128,10 @@ function emailLinks(sid, options) {
   }
   if (options.present) {
     items.push(['Room screen', links.present,
-      'Open on the projector. Requires signing in with an assigned ' + domainOf_(ownerEmail_()) + ' account.']);
+      'Open on the projector — no sign-in needed. Anyone with this link can see the join code, so share it only with the people running the room.']);
   }
   if (options.moderate) {
-    items.push(['Facilitator queue', links.moderate,
+    items.push(['QA Facilitator queue', links.moderate,
       'Questions grouped by topic. Requires signing in with an assigned ' + domainOf_(ownerEmail_()) + ' account.']);
   }
   if (!items.length) throw new Error('Choose at least one link to send.');
@@ -989,6 +1191,48 @@ function removePerson(role, email) {
 }
 
 // ---------------------------------------------------------------- branding
+
+// ---------------------------------------------------------------- summary recipients
+
+/** Organization default: the session's QA Facilitators and/or extra addresses. */
+function summaryDefaults_() {
+  const saved = JSON.parse(props_().getProperty('SUMMARY_DEFAULTS') || 'null');
+  return saved || { facilitators: true, extra: [] };
+}
+
+/** Validates { facilitators, extra } from a form. Extra addresses may be outside the domain. */
+function cleanSummaryRecipients_(input) {
+  input = input || {};
+  const extra = parseEmails_(Array.isArray(input.extra) ? input.extra : String(input.extra || ''));
+  return { facilitators: input.facilitators !== false, extra: extra };
+}
+
+/** A session either uses the default or its own { facilitators, extra }. */
+function summarySetting_(input) {
+  if (!input || input.mode !== 'custom') return { mode: 'default' };
+  const custom = cleanSummaryRecipients_(input);
+  return { mode: 'custom', facilitators: custom.facilitators, extra: custom.extra };
+}
+
+/** Who gets this session's summary, de-duplicated, at most CONFIG.maxRecipients. */
+function summaryRecipients_(session) {
+  const setting = session.summary && session.summary.mode === 'custom' ? session.summary : summaryDefaults_();
+  const list = [];
+  const add = function (e) { e = String(e).toLowerCase(); if (list.indexOf(e) === -1) list.push(e); };
+  if (setting.facilitators !== false) (session.moderators || []).forEach(add);
+  (setting.extra || []).forEach(add);
+  return list.slice(0, CONFIG.maxRecipients);
+}
+
+function saveSummaryDefaults(input) {
+  requireAdmin_();
+  const clean = cleanSummaryRecipients_(input);
+  if (!clean.facilitators && !clean.extra.length) {
+    throw new Error('Choose QA Facilitators, add at least one address, or both.');
+  }
+  props_().setProperty('SUMMARY_DEFAULTS', JSON.stringify(clean));
+  return adminState();
+}
 
 function saveBrand(input) {
   requireAdmin_();
@@ -1151,25 +1395,36 @@ function sendSummary_(session, recipients) {
   order.forEach(function (topic) {
     body += '<h2 style="font-size:16px;margin:24px 0 8px;border-left:4px solid ' + brand.accent + ';padding-left:8px">' + esc_(topic) +
       ' <span style="color:#5c6874;font-weight:400">(' + groups[topic].length +
-      (votes[topic] ? ' · ' + votes[topic] + ' me too' : '') + ')</span></h2>';
+      (votes[topic] ? ' · ' + votes[topic] + ' me too' : '') + ')' +
+      (records[topic] && records[topic].shown ? ' · shown on phones' : '') + '</span></h2>';
     if (merged(topic)) {
       body += '<p style="background:#fffdf5;border-left:3px solid #d9c27a;padding:8px 12px;margin:0 0 8px">' +
         esc_(merged(topic)) + '</p>';
     }
     body += '<ul style="margin:0;padding-left:20px">' + groups[topic].map(function (q) {
-      const translated = q.translation && q.translation !== q.text;
-      return '<li style="margin-bottom:8px">' +
-        (q.status === 'answered' ? '<span style="color:' + brand.accent + '">✓ </span>' : '') +
-        esc_(translated ? q.translation : q.text) +
-        (translated ? '<br><span style="color:#5c6874;font-size:13px">' + esc_(q.lang) + ': ' + esc_(q.text) + '</span>' : '') +
-        '</li>';
+      // Always keep what was actually asked. Non-English questions show the English
+      // translation and the original wording; untranslated ones say so.
+      const small = '<br><span style="color:#5c6874;font-size:13px">';
+      const tick = q.status === 'answered' ? '<span style="color:' + brand.accent + '">✓ </span>' : '';
+      let item;
+      if (!q.translation) {
+        item = esc_(q.text) + small + 'Original wording — not translated' + (q.lang ? ' (' + esc_(q.lang) + ')' : '') + '</span>';
+      } else if (sameLanguage_(q)) {
+        item = esc_(q.text);
+      } else {
+        item = esc_(q.translation) + small + 'Original (' + esc_(q.lang || 'unknown language') + '): ' + esc_(q.text) + '</span>';
+      }
+      return '<li style="margin-bottom:8px">' + tick + item + '</li>';
     }).join('') + '</ul>';
   });
 
-  const header = ['ID', 'Submitted', 'Status', 'Topic', 'Language', 'Question (original)', 'Translation',
-                  'Merged question for topic', 'Me too (topic)'];
+  const header = ['ID', 'Submitted', 'Status', 'Topic', 'Original language', 'Original question',
+                  CONFIG.moderatorLanguage + ' translation', 'Merged question for topic', 'Me too (topic)',
+                  'Topic shown on phones'];
   const csv = [header].concat(rows.map(function (q) {
-    return [q.id, fmt(q.submitted), q.status, q.topic, q.lang, q.text, q.translation, merged(q.topic), votes[q.topic] || 0];
+    const translation = q.translation || (sameLanguage_(q) ? q.text : '(not translated)');
+    return [q.id, fmt(q.submitted), q.status, q.topic, q.lang, q.text, translation, merged(q.topic),
+            votes[q.topic] || 0, records[q.topic] && records[q.topic].shown ? 'yes' : 'no'];
   })).map(function (r) { return r.map(csvCell_).join(','); }).join('\r\n');
 
   const filename = session.name.replace(/[^\w -]+/g, '').trim().replace(/\s+/g, '-') || 'session';
@@ -1184,6 +1439,12 @@ function sendSummary_(session, recipients) {
   });
   updateSession_(session.id, function (s) { s.summarySent = Date.now(); });
   return to.length;
+}
+
+/** True when the question was asked in the moderator language (no separate translation needed). */
+function sameLanguage_(q) {
+  return String(q.lang || '').toLowerCase() === CONFIG.moderatorLanguage.toLowerCase() ||
+    (!!q.translation && q.translation === q.text);
 }
 
 function emailShell_(brand, title, inner) {
@@ -1222,7 +1483,7 @@ function noteGroupingResult_(error) {
     if (h.failures >= CONFIG.alertAfterFailures && due) {
       if (alertAdmins_('Question grouping is failing',
         '<p>Questions are arriving but have not been grouped or translated for ' + h.failures +
-        ' runs in a row. Facilitators still see every question, ungrouped.</p>' +
+        ' runs in a row. QA Facilitators still see every question, ungrouped.</p>' +
         '<p><strong>Last error:</strong> ' + esc_(h.lastError) + '</p>' +
         '<p>Open the Admin page → Health and run a health check. A 404 usually means the Gemini model ' +
         'name (' + esc_(CONFIG.model) + ') was retired; a 400 or 403 usually means the API key.</p>')) {
@@ -1340,7 +1601,7 @@ function loadTest_() {
 function loadTestView_() {
   const lt = JSON.parse(props_().getProperty('LOADTEST') || 'null');
   if (!lt) return null;
-  const url = baseUrl_();
+  const url = participantBaseUrl_();
   return {
     sid: lt.sid,
     key: lt.key,
@@ -1445,7 +1706,7 @@ function clusterSession_(sid) {
     if (String(values[i][COLS.session - 1]) !== sid) continue;
     const topic = values[i][COLS.topic - 1];
     if (topic) { existing[topic] = true; continue; }
-    if (values[i][COLS.status - 1] === 'dismissed') continue;
+    if (values[i][COLS.status - 1] === 'dismissed' || values[i][COLS.status - 1] === 'prepared') continue;
     if (pending.length < CONFIG.clusterBatchSize) {
       pending.push({ id: String(values[i][COLS.id - 1]), text: String(values[i][COLS.text - 1]) });
     }
@@ -1674,9 +1935,16 @@ function assetSheet_() {
   return props_().getProperty('SHEET_ID') ? spreadsheet_().getSheetByName(CONFIG.assetSheetName) : null;
 }
 
-function sessionRows_(sid) {
+/**
+ * Questions for one session. Prepared questions (loaded by an admin, not yet added
+ * to the queue by a QA Facilitator) are left out unless includePrepared is true:
+ * until used they are not questions anyone asked.
+ */
+function sessionRows_(sid, includePrepared) {
   return questionSheet_().getDataRange().getValues().slice(1)
-    .filter(function (r) { return String(r[COLS.session - 1]) === sid; })
+    .filter(function (r) {
+      return String(r[COLS.session - 1]) === sid && (includePrepared || r[COLS.status - 1] !== 'prepared');
+    })
     .map(function (r) {
       return {
         id: String(r[COLS.id - 1]),
@@ -1700,7 +1968,8 @@ function topicRecords_(sid) {
     out[String(r[1])] = {
       merged: r[2] ? String(r[2]) : '',
       labels: parseJson_(r[4]),
-      mergedLabels: parseJson_(r[5])
+      mergedLabels: parseJson_(r[5]),
+      shown: String(r[6]) === 'yes'
     };
   });
   return out;
@@ -1725,9 +1994,10 @@ function upsertTopics_(sid, updates, onlyMissingLabels) {
       const row = rowOf[topic];
       if (!row) {
         sheet.appendRow([sid, sheetSafe_(topic), u.merged ? sheetSafe_(u.merged) : '', new Date(),
-          JSON.stringify(u.labels || {}), JSON.stringify(u.mergedLabels || {})]);
+          JSON.stringify(u.labels || {}), JSON.stringify(u.mergedLabels || {}), u.shown ? 'yes' : '']);
         return;
       }
+      if (u.shown !== undefined) sheet.getRange(row, 7).setValue(u.shown ? 'yes' : '');
       if (u.labels) {
         const current = parseJson_(values[row - 1][4]);
         if (!onlyMissingLabels || !Object.keys(current).length) {
@@ -1836,6 +2106,7 @@ function setUp() {
   sheet.getRange('A:A').setNumberFormat('@');
   sheet.getRange('C:I').setNumberFormat('@');
   topicSheet.getRange('A:C').setNumberFormat('@');
+  topicSheet.getRange('G:G').setNumberFormat('@');
 
   ScriptApp.getProjectTriggers().forEach(function (t) {
     if (t.getHandlerFunction() === 'clusterQuestions') ScriptApp.deleteTrigger(t);
@@ -1862,7 +2133,7 @@ function setUp() {
     }
     const oldMerged = JSON.parse(props.getProperty('MERGED') || '{}');
     Object.keys(oldMerged).forEach(function (topic) {
-      topicSheet.appendRow([first.id, sheetSafe_(topic), sheetSafe_(oldMerged[topic]), new Date(), '{}', '{}']);
+      topicSheet.appendRow([first.id, sheetSafe_(topic), sheetSafe_(oldMerged[topic]), new Date(), '{}', '{}', '']);
     });
     console.log('Migrated existing questions into "First session" (' + first.id + ').');
   }

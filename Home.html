@@ -73,7 +73,7 @@
       <p class="quiet"><a id="adminLink" hidden>Open the admin page</a></p>
     </div>
     <p class="quiet" id="staffSignedOut" hidden>
-      Facilitators and administrators: <a id="signIn">sign in</a> with your <span id="domain"></span> account.
+      QA Facilitators and administrators: <a id="signIn">sign in</a> with your <span id="domain"></span> account.
     </p>
   </section>
 </main>
@@ -91,7 +91,8 @@
     $('logo').alt = brand.orgName;
     $('logo').hidden = false;
   }
-  if (brand.orgName) {
+  // Most logos already contain the name; show the text only when there is no logo.
+  if (brand.orgName && !brand.logo) {
     $('org').textContent = brand.orgName;
     $('org').hidden = false;
   }

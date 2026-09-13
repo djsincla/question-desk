@@ -29,22 +29,26 @@ grouped into topics by Gemini instead of as one long undifferentiated list.
 
 ## Admin page
 
-- **People** — add administrators and moderators. Both must be accounts in your
+- **People** — add administrators and QA Facilitators. Both must be accounts in your
   Workspace domain: Google does not tell the app who is signed in from any other
-  domain, so an outside moderator would always be turned away.
-- **Sessions** — create a session, choose how people join, pick its moderators, and
+  domain, so an outside QA Facilitator would always be turned away.
+- **Sessions** — create a session, choose how people join, pick its QA Facilitators, and
   decide whether its summary is emailed when it ends. Activate it when doors open;
   deactivate to pause it between days; **End session** when it is over for good.
   Optionally schedule it to start and end on its own (checked every minute), and give
   it its own organization name, accent color and logo for a partner event. Sessions
-  that are not running can be deleted with all their questions.
+  that are not running can be deleted with all their questions. Ending or deleting asks
+  you to type the session's name. Drag sessions (or use ▲ ▼) to set the order they
+  appear in everywhere. **Prepared questions** (one per line) are loaded ahead of time
+  and appear in the QA Facilitator's queue under *Prepared questions*, where each can be
+  added to the live queue when it's useful.
   - **In-room QR** — the room screen code changes every 150 seconds. Only people who
     can see the screen can ask.
   - **Shareable link** — a fixed link and QR you can email or print. Anyone with the
     link can ask. **Replace participant link** cuts off copies that have spread.
 - **Email links** sends the participant link (link sessions) or room screen / queue
-  links to anyone; each recipient gets their own email. **Email moderators** sends the
-  room screen and queue links to the session's moderators.
+  links to anyone; each recipient gets their own email. **Email QA Facilitators** sends the
+  room screen and queue links to the session's QA Facilitators.
 - **Branding** — organization name, logo (resized in the browser before upload),
   accent color, welcome text, footer, room screen background colors, tab icon (a link
   to an image on your website), and the app address used in QR codes and emails.
@@ -64,8 +68,8 @@ Open the session's **Links** on the Admin page:
 
 | View | URL | Who opens it |
 |---|---|---|
-| Room screen | `…/exec?view=present&s=<session>` | Projector, signed in as a moderator or admin |
-| Facilitator queue | `…/exec?view=moderate&s=<session>` | Moderator, signed in |
+| Room screen | `…/exec?view=present&s=<session>` | Projector — no sign-in needed, any browser |
+| Facilitator queue | `…/exec?view=moderate&s=<session>` | QA Facilitator, signed in |
 | Participant page | the QR on the room screen, or the shareable link | Audience |
 
 Put the room screen up before doors open. It follows the session live: it shows the
@@ -77,8 +81,10 @@ Several sessions can run at once (breakout rooms); each has its own code, queue,
 cooldown and question cap.
 
 When a session ends, a final grouping pass translates anything still waiting, and —
-if the session asks for it — its moderators get an email with topics, merged
-questions, every question with its original wording, and a CSV. Ended sessions can
+if the session asks for it — the summary is emailed with topics, merged questions, and
+every question in its original wording next to the English translation, plus a CSV.
+By default it goes to the session's QA Facilitators; set different default recipients on
+the Branding tab, or custom recipients on a session's form. Ended sessions can
 be re-sent from the Admin page with **Email summary**.
 
 Questions land in the sheet within a second. The trigger clusters them every minute,
@@ -90,9 +96,10 @@ facilitator the most time.
 phone, in English, Korean and Spanish, with the merged question if there is one.
 Press it again (**Stop showing**) to clear it.
 
-Participants who have joined also see the list of topics — the short topic labels,
-never anyone's actual question — in their own language, and can tap **Me too** on
-any of them. The queue shows "+N me too" per topic and sorts by questions plus
+Participants who have joined also see the topics a QA Facilitator has approved with
+**Show on phones** — the short topic labels, never anyone's actual question — in their
+own language, and can tap **Me too** on any of them. Nothing appears on phones until a
+QA Facilitator approves it, and **Hide from phones** removes it again. The queue shows "+N me too" per topic and sorts by questions plus
 support, so the facilitator sees what the room most wants answered.
 
 ## Working on this locally instead
@@ -176,7 +183,7 @@ together, so it costs you nothing extra over clustering alone. The queue shows t
 translation with a small language tag; **Show original wording** reveals what was
 actually typed, which matters when someone disputes how a question was rendered.
 
-Topic labels are always written in the moderator's language regardless of the
+Topic labels are always written in the QA Facilitator's language regardless of the
 question's language. This is deliberate: it's what lets a Korean question and a
 Spanish question about the same thing land in the same group instead of forming two
 parallel topics that never meet. Set `CONFIG.moderatorLanguage` if English isn't
@@ -195,19 +202,20 @@ but that's an instruction, not a guarantee.
 
 ## What the controls actually do
 
-- **Per-device cooldown, 5 minutes.** Stops double-taps and casual repeat posting.
-  It is beatable by re-scanning in incognito — but only by someone sitting in the
-  room looking at the screen, since the entry token is short-lived.
+- **Time between questions, per phone.** 5 minutes by default; each session can set 0 to
+  60 minutes on its form, and a change applies at once, even to phones already waiting.
+  Stops double-taps and casual repeat posting. It is beatable by re-scanning in a
+  private window — for in-room sessions, only by someone who can see the room screen.
 - **Per-session cap, 15 questions a minute.** Identity-free flood protection. Excess
   submissions get a "try again in a moment" message rather than being dropped.
 - **Question length.** 300 characters by default, adjustable per session up to 1024.
   Oversized submissions are rejected before the server does any work on them.
-- **Pause submissions.** Manual kill switch for the facilitator.
+- **Pause submissions.** Manual kill switch for the QA Facilitator.
 - **Clustering.** The real spam defense. Twenty questions from one person collapse
-  into one topic card the facilitator dismisses once.
+  into one topic card the QA Facilitator dismisses once.
 
 Nothing here is a per-person limit, because an anonymous QR entrance cannot
-establish who a person is. Treat the cooldown as friction, not enforcement.
+establish who a person is. Treat the wait between questions as friction, not enforcement.
 
 ## Config
 

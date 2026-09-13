@@ -31,7 +31,7 @@ test('moderators see only their open sessions; admins also get the admin link', 
   const mine = h.session({ name: 'Mine', moderators: [MOD], active: true });
   h.session({ name: 'Not mine', active: true });
   const done = h.session({ name: 'Done', moderators: [MOD], active: true });
-  h.app.endSession(done.id);
+  h.app.endSession(done.id, h.app.getSession_(done.id).name);
   h.app.startLoadTest();
 
   h.as(MOD);

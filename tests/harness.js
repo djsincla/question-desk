@@ -225,7 +225,7 @@ function createApp(options) {
       }
     },
     ScriptApp: {
-      getService: () => ({ getUrl: () => DEPLOY_URL }),
+      getService: () => ({ getUrl: () => env.deployUrl || DEPLOY_URL }),
       getProjectTriggers: () => env.triggers.slice(),
       deleteTrigger: (t) => { env.triggers = env.triggers.filter((x) => x !== t); },
       newTrigger: (handler) => {

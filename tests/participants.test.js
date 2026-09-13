@@ -102,7 +102,7 @@ test('submissions respect session status', () => {
   assert.equal(h.ask(s, device, 'Is this paused?').reason, 'closed');
 
   h.app.setBoardOpen(s.id, true);
-  h.app.endSession(s.id);
+  h.app.endSession(s.id, h.app.getSession_(s.id).name);
   assert.equal(h.ask(s, device, 'Is this over?').reason, 'ended');
   h.anonymous();
   assert.equal(h.app.claimDevice(s.id, device.credential).reason, 'ended');
@@ -206,4 +206,63 @@ test('a lapsed device token re-joins when the URL still carries a credential', (
   const state = h.app.getSessionState(s.id, device.deviceId);
   assert.equal(state.deviceValid, false);
   assert.equal(h.ask(s, device, 'Still here after six hours').ok, true, 'link key still accepted');
+});
+
+test('each session sets its own wait between questions, validated', () => {
+  const h = createApp().install();
+  const quick = h.session({ name: 'Quick', access: 'link', active: true, cooldownSeconds: 60 });
+  const none = h.session({ name: 'None', access: 'link', active: true, cooldownSeconds: 0 });
+  const std = h.session({ name: 'Default', access: 'link', active: true });
+  assert.equal(h.app.getSession_(std.id).cooldownSeconds, 300);
+
+  const d = h.join(quick);
+  assert.equal(h.ask(quick, d, 'First in quick session').cooldownSeconds, 60);
+  h.advance(30);
+  assert.equal(h.ask(quick, d, 'Too soon here').waitSeconds, 30);
+  h.advance(31);
+  assert.equal(h.ask(quick, d, 'Allowed after a minute').ok, true);
+
+  const n = h.join(none);
+  assert.equal(h.ask(none, n, 'No wait one').ok, true);
+  assert.equal(h.ask(none, n, 'No wait two').ok, true);
+
+  assert.throws(() => h.app.saveSession({ name: 'x', cooldownSeconds: -1 }), /between 0 and 3600/);
+  assert.throws(() => h.app.saveSession({ name: 'x', cooldownSeconds: 3601 }), /between 0 and 3600/);
+  assert.throws(() => h.app.saveSession({ name: 'x', cooldownSeconds: 'soon' }), /between 0 and 3600/);
+});
+
+test('changing the wait during a session applies immediately to phones already waiting', () => {
+  const h = createApp().install();
+  const s = h.session({ name: 'Live change', access: 'link', active: true, cooldownSeconds: 300 });
+  const d = h.join(s);
+  assert.equal(h.ask(s, d, 'Asked before the change').ok, true);
+  h.advance(60);
+  assert.equal(h.anonymous().app.getSessionState(s.id, d.deviceId).cooldownRemaining, 240);
+
+  h.as(h.env.owner).app.saveSession({ id: s.id, name: 'Live change', access: 'link', cooldownSeconds: 90 });
+  assert.equal(h.anonymous().app.getSessionState(s.id, d.deviceId).cooldownRemaining, 30, 'shortened at once');
+  assert.equal(h.ask(s, d, 'Still waiting a bit').waitSeconds, 30);
+
+  h.as(h.env.owner).app.saveSession({ id: s.id, name: 'Live change', access: 'link', cooldownSeconds: 600 });
+  assert.equal(h.anonymous().app.getSessionState(s.id, d.deviceId).cooldownRemaining, 540, 'lengthened at once');
+
+  h.as(h.env.owner).app.saveSession({ id: s.id, name: 'Live change', access: 'link', cooldownSeconds: 0 });
+  assert.equal(h.ask(s, d, 'Wait removed entirely').ok, true);
+});
+
+test('phones polling topics learn their remaining wait', () => {
+  const h = createApp().install();
+  const s = h.session({ name: 'Poll', access: 'link', active: true, cooldownSeconds: 120 });
+  const d = h.join(s);
+  h.ask(s, d, 'A question to start the wait');
+  h.advance(20);
+  assert.equal(h.anonymous().app.getTopics(s.id, d.deviceId).cooldownRemaining, 100);
+});
+
+test('waits stored by 2.0 (as an end time) are still honored after upgrading', () => {
+  const h = createApp().install();
+  const s = h.session({ name: 'Upgrade', access: 'link', active: true });
+  const d = h.join(s);
+  h.cache.put('cool:' + s.id + ':' + d.deviceId, String(h.env.clock.now + 200 * 1000), 300);
+  assert.equal(h.anonymous().app.getSessionState(s.id, d.deviceId).cooldownRemaining, 200);
 });

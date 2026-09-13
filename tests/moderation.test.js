@@ -113,7 +113,7 @@ test('ended sessions are read-only for moderators', () => {
   const { h, a } = setup();
   h.ask(a, h.join(a), 'Before the end');
   const id = h.questions().rows[1][0];
-  h.app.endSession(a.id);
+  h.app.endSession(a.id, h.app.getSession_(a.id).name);
   h.as(MOD);
   assert.equal(h.app.getBoard(a.id).session.status, 'ended');
   assert.throws(() => h.app.setStatus(a.id, [id], 'answered'), /has ended/);

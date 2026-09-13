@@ -4,6 +4,50 @@ All notable changes to Question Desk. Versions follow [Semantic Versioning](http
 Each release is tagged `vX.Y.Z` and published as a GitHub release by `scripts/ship.sh`,
 which reads the notes for that version from this file.
 
+## [2.1.0] - 2026-09-12
+
+### Added
+- **QA Facilitator approval for Me too.** Topic labels appear on participants' phones only
+  after a QA Facilitator presses **Show on phones** in the queue, and can be hidden again.
+- **Type the session name to end or delete it.** Checked on the server as well as in
+  the page. Scheduled endings are unaffected.
+- **Reorder sessions** on the Admin page by dragging, or with the ▲ ▼ buttons. The order
+  is used everywhere sessions are listed.
+- Screenshots in the README, `scripts/preview.js` (every page with demo data, no Google
+  account) and `scripts/screenshots.js`.
+
+- **Prepared questions.** Load up to 100 questions into a session ahead of time. They
+  stay out of the queue, off phones and out of the summary until a QA Facilitator presses
+  **Add to queue**; then they are translated and grouped like any other question.
+- **Summary email recipients.** Set organization-wide defaults on the Branding tab (the
+  session's QA Facilitators and/or any other addresses, including outside the
+  organization) and override them per session. The end dialog and **Email summary** show
+  who will receive it.
+- **Time between questions per session.** Set from 0 (no wait) to one hour on the
+  session form; the default stays 5 minutes. Changing it during a session applies at
+  once, including to phones already waiting, whose countdown updates within 15 seconds.
+
+### Changed
+- **Moderators are now called QA Facilitators** everywhere on screen, in dialogs and in
+  emails. Nothing about their access changed.
+- The **room screen is public**: anyone with its link can show it, signed in or not,
+  whatever Google account the browser uses. Only the Admin page and facilitator queue
+  require an authorized account. The room screen link itself is unchanged.
+- Confirmation prompts are in-page dialogs instead of browser pop-ups that showed a
+  `googleusercontent.com` address.
+- The room screen gives its heading and instructions more width, hides the mouse
+  pointer when idle, and shows the organization name only when there is no logo.
+- A deactivated session tells participants it is "not taking questions right now".
+
+### Fixed
+- The questions summary always keeps each question's original wording alongside its
+  English translation, labels questions that were never translated, and the CSV names its
+  columns "Original language", "Original question" and "English translation", with a
+  "Topic shown on phones" column.
+- Participant links and QR codes always use the public `/macros/s/` address. Google can
+  report a domain-scoped `/a/<domain>/macros/s/` address, which asked people signed into
+  another Google account to sign in or request access.
+
 ## [2.0.0] - 2026-09-12
 
 ### Added
@@ -55,5 +99,6 @@ which reads the notes for that version from this file.
 - "Merge into one question" for reading a topic aloud.
 - Participant page in English, Korean and Spanish.
 
+[2.1.0]: https://github.com/djsincla/question-desk/releases/tag/v2.1.0
 [2.0.0]: https://github.com/djsincla/question-desk/releases/tag/v2.0.0
 [1.0.0]: https://github.com/djsincla/question-desk/releases/tag/v1.0.0
