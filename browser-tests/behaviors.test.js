@@ -160,7 +160,9 @@ test('chromium: events collapse and expand, one at a time or all, and stay that 
     const sessionsVisible = () => first.locator('.event-sessions').isVisible();
     assert.equal(await sessionsVisible(), true);
     await first.locator('button.collapse').click();
+    await page.waitForTimeout(350);   // the fold animates
     assert.equal(await sessionsVisible(), false, 'collapsed');
+    assert.equal(await page.textContent('#foldAll'), 'Collapse all events', 'one folded is not all folded');
     assert.equal(await first.locator('button.collapse').getAttribute('aria-expanded'), 'false');
     assert.match(await first.locator('.event-head .meta').textContent(), /session/, 'the count stays visible while collapsed');
 
@@ -169,12 +171,22 @@ test('chromium: events collapse and expand, one at a time or all, and stay that 
     assert.equal(await page.locator('.event[data-event]').first().locator('.event-sessions').isVisible(), false, 'remembered');
 
     await page.locator('.event[data-event]').first().locator('h2').click();
+    await page.waitForTimeout(350);
     assert.equal(await page.locator('.event[data-event]').first().locator('.event-sessions').isVisible(), true, 'clicking the name expands it');
 
     await page.click('button:has-text("Collapse all events")');
     assert.equal(await page.locator('.event[data-event]:not(.collapsed)').count(), 0);
+    assert.equal(await page.textContent('#foldAll'), 'Expand all events');
     await page.click('button:has-text("Expand all events")');
     assert.equal(await page.locator('.event[data-event].collapsed').count(), 0);
+
+    // It slides rather than jumps: halfway through, the sessions area is partly open.
+    const fold = page.locator('.event[data-event]').first().locator('.event-fold');
+    const full = (await fold.boundingBox()).height;
+    await page.locator('.event[data-event]').first().locator('button.collapse').click();
+    await page.waitForTimeout(90);
+    const mid = (await fold.boundingBox()).height;
+    assert.ok(mid > 2 && mid < full - 2, 'mid-animation height ' + mid + ' of ' + full);
   });
 });
 
