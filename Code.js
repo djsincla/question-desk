@@ -17,7 +17,7 @@
 
 /** Bump with every release; scripts/ship.sh tags git and publishes release notes from CHANGELOG.md. */
 const APP = {
-  version: '2.14.0',
+  version: '2.14.1',
   repo: 'https://github.com/djsincla/question-desk'
 };
 
@@ -1591,33 +1591,48 @@ function submitQuestion_(sid, deviceId, text, credential, skipRoomCap) {
   const waiting = cooldownRemaining_(session, deviceId);
   if (waiting > 0) return { ok: false, reason: 'cooldown', waitSeconds: waiting };
 
+  // A full room submits at once, so the script lock is held only for the quick checks
+  // (session still open, room cap) — milliseconds. Opening the spreadsheet (often half a
+  // second) happens before it, and the append after it: appendRow is atomic, so parallel
+  // appends can't collide, and they only ever add rows at the end, which never moves the
+  // rows other locked operations address by position.
+  const timing = { start: Date.now() };
+  const sheet = questionSheet_();
+  timing.opened = Date.now();
+
   const lock = LockService.getScriptLock();
   try {
     lock.waitLock(10000);
   } catch (err) {
     return { ok: false, reason: 'busy' };
   }
-
+  timing.locked = Date.now();
   try {
     const now = getSession_(sid);
     if (!now || now.status !== 'active') return { ok: false, reason: now && now.status === 'ended' ? 'ended' : 'inactive' };
     if (now.open === false) return { ok: false, reason: 'closed' };
     if (!skipRoomCap && !roomBudgetAvailable_(sid)) return { ok: false, reason: 'busy' };
-
-    const id = newId_(8);
-    questionSheet_().appendRow([
-      id, new Date(), deviceId || 'unknown', sheetSafe_(clean), 'new', '', '', '', sid
-    ]);
-    questionsChanged_();
-    if (deviceId) {
-      // Store when the phone asked, not when its wait ends, so a session's wait can
-      // be changed mid-event and apply to phones already waiting.
-      cache.put('cool:' + sid + ':' + deviceId, String(Date.now()), CONFIG.cooldownCeiling + 60);
-    }
-    return { ok: true, id: id, cooldownSeconds: cooldownFor_(session) };
   } finally {
     lock.releaseLock();
   }
+  timing.released = Date.now();
+
+  const id = newId_(8);
+  sheet.appendRow([id, new Date(), deviceId || 'unknown', sheetSafe_(clean), 'new', '', '', '', sid]);
+  questionsChanged_();
+  timing.appended = Date.now();
+  if (deviceId) {
+    // Store when the phone asked, not when its wait ends, so a session's wait can
+    // be changed mid-event and apply to phones already waiting.
+    cache.put('cool:' + sid + ':' + deviceId, String(Date.now()), CONFIG.cooldownCeiling + 60);
+  }
+  const res = { ok: true, id: id, cooldownSeconds: cooldownFor_(session) };
+  if (skipRoomCap) {
+    // Load test only: where the time went.
+    res.timing = { openMs: timing.opened - timing.start, lockWaitMs: timing.locked - timing.opened,
+                   lockHeldMs: timing.released - timing.locked, appendMs: timing.appended - timing.released };
+  }
+  return res;
 }
 
 function cooldownFor_(session) {
@@ -3025,6 +3040,10 @@ function doPost(e) {
   }
   const session = getSession_(lt.sid);
   if (!session) return json_({ ok: false, reason: 'disabled' });
+
+  // After a round, the script asks how many questions really arrived: a reply can be lost
+  // on Google's redirect even when the question was saved.
+  if (body.action === 'count') return json_({ ok: true, saved: sessionRows_(lt.sid).length });
 
   const started = Date.now();
   const res = submitQuestion_(lt.sid, Utilities.getUuid(), String(body.text || 'Load test question'),

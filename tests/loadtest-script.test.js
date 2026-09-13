@@ -50,3 +50,44 @@ test('loadtest.js argument parsing and percentiles', () => {
   assert.equal(loadtest.percentile([10, 20, 30, 40], 50), 30);
   assert.equal(loadtest.percentile([], 95), 0);
 });
+
+test('loadtest.js tells a reply lost on Google\'s redirect from a question that wasn\'t saved', async () => {
+  const h = createApp().install();
+  const key = h.app.startLoadTest().loadTest.key;
+  let n = 0;
+  // Every third reply is replaced by one of Google's HTML pages, after the question was saved.
+  const server = await new Promise((resolve) => {
+    const s = http.createServer((req, res) => {
+      let body = '';
+      req.on('data', (c) => { body += c; });
+      req.on('end', () => {
+        const out = h.post(body);
+        const isCount = JSON.parse(body).action === 'count';
+        if (!isCount && ++n % 3 === 0) {
+          res.writeHead(200, { 'Content-Type': 'text/html' });
+          res.end('<!doctype html><html><head><script>window.ppConfig = {}</script></head></html>');
+          return;
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(out));
+      });
+    });
+    s.listen(0, '127.0.0.1', () => resolve(s));
+  });
+  const opts = { url: 'http://127.0.0.1:' + server.address().port + '/', key, count: 9 };
+  const log = console.log;
+  const lines = [];
+  console.log = (line) => lines.push(String(line));
+  try {
+    const before = await loadtest.savedCount(opts);
+    const results = await loadtest.round(opts, 1);
+    const after = await loadtest.savedCount(opts);
+    assert.equal(results.filter((r) => r.replyLost).length, 3);
+    assert.equal(after - before, 9, 'all nine were saved');
+    assert.ok(lines.some((l) => /reply lost \(Google page\)\s+3/.test(l)), lines.join('\n'));
+    assert.ok(lines.some((l) => /lock wait\s+p50 \d+/.test(l)), 'shows where the time went');
+  } finally {
+    console.log = log;
+    server.close();
+  }
+});

@@ -4,6 +4,25 @@ All notable changes to Question Desk. Versions follow [Semantic Versioning](http
 Each release is tagged `vX.Y.Z` and published as a GitHub release by `scripts/ship.sh`,
 which reads the notes for that version from this file.
 
+## [2.14.1] - 2026-09-13
+
+### Fixed
+- **Submissions no longer queue single file.** Each question held the app-wide lock while
+  opening the spreadsheet and appending its row, so a room submitting at once waited in
+  line (1.3 s typical inside the script with only 5 at once, heading for "busy" at 40+).
+  The spreadsheet is now opened before the lock and the row appended after it
+  (`appendRow` is atomic); the lock covers only the quick checks.
+- **The load test tells lost replies from lost questions.** Apps Script answers a POST
+  with a redirect, and Google sometimes serves its own HTML page there even though the
+  question was saved. The script now reports those as "reply lost (Google page)", checks
+  how many questions were actually saved, and shows where the time went (opening the
+  sheet, waiting for the lock, holding it, appending). Phones don't use that path.
+
+### Added
+- Visual comparison tests in CI (development only): key pages are screenshotted and
+  compared with saved baselines on every push.
+- SETUP.md: how to confirm grouping runs, and a dress rehearsal checklist.
+
 ## [2.14.0] - 2026-09-13
 
 ### Added
@@ -507,6 +526,7 @@ Fixes from a full code review.
 - "Merge into one question" for reading a topic aloud.
 - Participant page in English, Korean and Spanish.
 
+[2.14.1]: https://github.com/djsincla/question-desk/releases/tag/v2.14.1
 [2.14.0]: https://github.com/djsincla/question-desk/releases/tag/v2.14.0
 [2.13.0]: https://github.com/djsincla/question-desk/releases/tag/v2.13.0
 [2.12.1]: https://github.com/djsincla/question-desk/releases/tag/v2.12.1

@@ -54,12 +54,29 @@ async function submit(url, key, i) {
     try {
       body = JSON.parse(text);
     } catch (err) {
-      return { ms: Date.now() - started, outcome: 'http ' + res.status + ' (not JSON)', ok: false, sample: text.slice(0, 160) };
+      // Apps Script answers a POST with a redirect to the result; Google sometimes serves one
+      // of its own HTML pages there instead. The question may still have been saved.
+      const googlePage = /<html|<!doctype/i.test(text);
+      return { ms: Date.now() - started, outcome: googlePage ? 'reply lost (Google page)' : 'http ' + res.status + ' (not JSON)', ok: false, replyLost: googlePage, sample: text.slice(0, 160) };
     }
-    return { ms: Date.now() - started, serverMs: body.serverMs, outcome: body.ok ? 'ok' : body.reason, ok: !!body.ok };
+    return { ms: Date.now() - started, serverMs: body.serverMs, timing: body.timing, outcome: body.ok ? 'ok' : body.reason, ok: !!body.ok };
   } catch (err) {
     return { ms: Date.now() - started, outcome: 'network: ' + (err.cause && err.cause.code || err.message), ok: false };
   }
+}
+
+/** How many questions the load-test session holds (a few tries: the reply can be lost too). */
+async function savedCount(opts) {
+  for (let attempt = 0; attempt < 4; attempt++) {
+    try {
+      const res = await fetch(opts.url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ key: opts.key, action: 'count' }), redirect: 'follow' });
+      const body = JSON.parse(await res.text());
+      if (body.ok && typeof body.saved === 'number') return body.saved;
+    } catch (err) { /* try again */ }
+    await new Promise((r) => setTimeout(r, 1500));
+  }
+  return null;
 }
 
 async function round(opts, n) {
@@ -78,6 +95,14 @@ async function round(opts, n) {
   if (server.length) {
     console.log('  inside script  p50 ' + percentile(server, 50) + ' ms · p95 ' + percentile(server, 95) + ' ms · max ' + server[server.length - 1] + ' ms');
   }
+  const timed = results.filter((r) => r.timing);
+  if (timed.length) {
+    const part = (key) => { const v = timed.map((r) => r.timing[key]).sort((a, b) => a - b); return 'p50 ' + percentile(v, 50) + ' · p95 ' + percentile(v, 95); };
+    console.log('    open sheet   ' + part('openMs') + ' ms');
+    console.log('    lock wait    ' + part('lockWaitMs') + ' ms   (queueing behind other submissions)');
+    console.log('    lock held    ' + part('lockHeldMs') + ' ms');
+    console.log('    append row   ' + part('appendMs') + ' ms');
+  }
   Object.keys(outcomes).sort().forEach((k) => console.log('  ' + (k === 'ok' ? '✓ ' : '✗ ') + k.padEnd(28) + outcomes[k]));
   const sample = results.find((r) => r.sample);
   if (sample) console.log('  sample non-JSON response: ' + sample.sample.replace(/\s+/g, ' '));
@@ -95,6 +120,7 @@ async function main() {
     process.exit(2);
   }
 
+  const startCount = await savedCount(opts);
   let all = [];
   for (let n = 1; n <= opts.rounds; n++) {
     all = all.concat(await round(opts, n));
@@ -102,14 +128,22 @@ async function main() {
   }
 
   const failed = all.filter((r) => !r.ok);
-  console.log('\n' + (all.length - failed.length) + ' of ' + all.length + ' submissions succeeded.');
+  console.log('\n' + (all.length - failed.length) + ' of ' + all.length + ' submissions got a confirmed reply.');
+  const endCount = await savedCount(opts);
+  if (startCount !== null && endCount !== null) {
+    const saved = endCount - startCount;
+    console.log(saved + ' of ' + all.length + ' questions were actually saved' + (saved === all.length ? ' — none lost.' : '.'));
+    if (all.some((r) => r.replyLost) && saved === all.length) {
+      console.log('The missing replies were lost on Google\'s redirect after saving. Phones don\'t use that path (they use google.script.run), so this isn\'t a problem for the room.');
+    }
+  }
   if (all.some((r) => r.outcome === 'disabled')) {
     console.log('"disabled" means the load test is not running or the key has expired — start it again on the Admin page.');
   }
   if (all.some((r) => r.outcome === 'busy')) {
     console.log('"busy" means requests waited more than 10 s for the script lock: the room is bigger than one deployment handles comfortably.');
   }
-  if (all.some((r) => /^http|network/.test(r.outcome))) {
+  if (all.some((r) => /^http|^network/.test(r.outcome))) {
     console.log('HTTP or network failures usually mean Apps Script refused concurrent executions. Real phones would see "That did not send".');
   }
   console.log('Remember: Admin page → Health & testing → Finish and delete test data.');
@@ -117,4 +151,4 @@ async function main() {
 }
 
 if (require.main === module) main();
-module.exports = { args, percentile, submit, round };
+module.exports = { args, percentile, submit, round, savedCount };
