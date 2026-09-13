@@ -75,7 +75,8 @@ async function pageText(page) {
     {
       let detail = '';
       let ok = false;
-      for (let attempt = 1; attempt <= 3 && !ok; attempt++) {
+      // Google can serve the previous version for a little while after a redeploy: wait it out.
+      for (let attempt = 1; attempt <= 8 && !ok; attempt++) {
         try {
           await page.goto(bases[0][1], { waitUntil: 'networkidle', timeout: 45000 });
           const frame = await appFrame(page);
@@ -88,7 +89,7 @@ async function pageText(page) {
           ok = version === expectedVersion && state && state.found === false;
           detail = 'version ' + version + ' (expected ' + expectedVersion + '), server call ' + JSON.stringify(state).slice(0, 80);
         } catch (err) { detail = err.message; }
-        if (!ok && attempt < 3) await page.waitForTimeout(5000);
+        if (!ok && attempt < 8) await page.waitForTimeout(10000);
       }
       console.log((ok ? '  ✓ ' : '  ✗ ') + engineName + ' · version ' + expectedVersion + ' serving, server calls answer' + (ok ? '' : ' — ' + detail));
       if (!ok) failed++;
