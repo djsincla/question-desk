@@ -4,6 +4,13 @@ All notable changes to Question Desk. Versions follow [Semantic Versioning](http
 Each release is tagged `vX.Y.Z` and published as a GitHub release by `scripts/ship.sh`,
 which reads the notes for that version from this file.
 
+## [2.12.1] - 2026-09-13
+
+### Fixed
+- The Admin page and QA Facilitator queue jumped a few pixels sideways when collapsing or
+  expanding events, switching tabs, or whenever the page got shorter or taller than the
+  window: the scrollbar appeared and disappeared. Its space is now always kept.
+
 ## [2.12.0] - 2026-09-13
 
 ### Added
@@ -457,6 +464,7 @@ Fixes from a full code review.
 - "Merge into one question" for reading a topic aloud.
 - Participant page in English, Korean and Spanish.
 
+[2.12.1]: https://github.com/djsincla/question-desk/releases/tag/v2.12.1
 [2.12.0]: https://github.com/djsincla/question-desk/releases/tag/v2.12.0
 [2.11.1]: https://github.com/djsincla/question-desk/releases/tag/v2.11.1
 [2.11.0]: https://github.com/djsincla/question-desk/releases/tag/v2.11.0

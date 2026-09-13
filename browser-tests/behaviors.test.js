@@ -281,3 +281,32 @@ test('webkit: participant page offers the event\'s languages, larger text, and m
     assert.match(await page.textContent('#noteText'), /marked a question you asked as answered/);
   });
 });
+
+test('chromium: collapsing events never shifts the page sideways (the scrollbar keeps its space)', async () => {
+  // Headless Chromium hides scrollbars unless told not to; real browsers on Windows and
+  // Macs with a mouse show them, and that's where the page jumped.
+  const browser = await chromium.launch({ ignoreDefaultArgs: ['--hide-scrollbars'] });
+  const ctx = await serve(0);
+  const context = await browser.newContext({ viewport: { width: 1280, height: 1000 } });
+  const page = await context.newPage();
+  try {
+    await page.goto('http://127.0.0.1:' + ctx.server.address().port + '/?view=admin&as=owner');
+    await page.waitForSelector('.event[data-event]');
+    const left = () => page.$eval('header', (el) => Math.round(el.getBoundingClientRect().left * 10) / 10);
+    const fits = () => page.evaluate(() => document.documentElement.scrollHeight <= innerHeight);
+    assert.equal(await fits(), false, 'the page starts taller than the window');
+    const before = await left();
+    await page.click('button:has-text("Collapse all events")');
+    await page.waitForTimeout(400);
+    assert.equal(await fits(), true, 'collapsed, the page fits: this is when a scrollbar would vanish');
+    const after = await left();
+    assert.equal(after, before, 'content moved sideways by ' + (after - before) + 'px');
+    await page.click('button:has-text("Expand all events")');
+    await page.waitForTimeout(400);
+    assert.equal(await left(), before);
+  } finally {
+    await context.close();
+    await browser.close();
+    ctx.server.close();
+  }
+});

@@ -4,6 +4,9 @@
 <base target="_top">
 <?!= styles ?>
 <style>
+  /* Keep the scrollbar's space even when the page is short, so collapsing, filtering or a
+     refresh that changes the page's height never shifts everything sideways. */
+  html { overflow-y: scroll; scrollbar-gutter: stable; }
   body { padding: 20px; font-size: 16px; }
   header {
     display: flex;
