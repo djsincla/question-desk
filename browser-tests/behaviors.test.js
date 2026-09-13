@@ -112,3 +112,27 @@ test('chromium: an admin creates an event and adds a session to it', async () =>
     assert.match(await block.locator('.meta').first().textContent(), /1 session/);
   });
 });
+
+test('chromium: export sessions to CSV, then check and import an edited file', async () => {
+  await withDemo('chromium', '/?view=admin&as=owner', { viewport: { width: 1280, height: 900 } }, async ({ page }) => {
+    await page.waitForSelector('.event');
+    await page.click('#exportCsv');
+    await page.waitForSelector('#exportPanel:not([hidden])');
+    const csv = await page.inputValue('#exportText');
+    assert.match(csv.split('\n')[0], /^"Event","Session",/);
+    assert.match(csv, /Family Resource Night — September/);
+
+    await page.click('#importCsv');
+    const edited = csv.trim() + '\r\n"Fall Family Conference 2026","Evening wrap-up","Last questions","room","dark","60","300","yes","","","","default","","","no","no","","","","","inactive"';
+    await page.fill('#importText', edited);
+    await page.click('#importCheck');
+    await page.waitForSelector('.import-table');
+    const summary = await page.textContent('#importPreview p');
+    assert.match(summary, /1 to create/);
+    assert.match(summary, /0 with problems/);
+    await page.click('#importGo');
+    await page.waitForFunction(() => /Imported: 1 created/.test(document.querySelector('#importPreview p').textContent), null, { timeout: 10000 });
+    const conference = page.locator('.event', { has: page.locator('h2', { hasText: 'Fall Family Conference 2026' }) });
+    await conference.locator('.session h3', { hasText: 'Evening wrap-up' }).waitFor({ timeout: 10000 });
+  });
+});

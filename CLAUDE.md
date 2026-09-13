@@ -47,6 +47,13 @@ does not carry the query string. That exact bug shipped once (v2): every QR scan
   session; event logos are `event:<id>` in the Assets sheet. Deleting an event keeps its
   sessions (their `eventId` is removed). `saveSession` leaves `eventId` alone when the input
   omits it; `''` removes it.
+- Sessions CSV: columns are `SESSION_CSV` (header text → input key). `importSessionsCsv(text,
+  {duplicates}, dryRun)` validates each row with `saveSessionAs_(input, me, true)` (the same
+  code as the form), so check and import agree. The duplicate key is `sessionKey_`: name
+  (case/space-insensitive) plus start and end to the minute, or name alone when neither time
+  is set. Updates start from `sessionInput_(existing)`, so missing columns change nothing.
+  New sessions keep the file's order. Times use `Utilities.parseDate/formatDate` in the
+  script time zone (the harness fakes both with real time-zone math).
 - Ended sessions older than `CONFIG.archiveAfterDays` (or archived by an admin) move from
   Script Properties into the `Archive` sheet (session JSON and votes) by `archiveOld_()` on
   the schedule, so the 500KB property store doesn't fill up. `restoreSession()` puts one

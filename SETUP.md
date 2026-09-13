@@ -40,6 +40,13 @@ grouped into topics by Gemini instead of as one long undifferentiated list.
   logo — which overrides the site's for its sessions; a session can still override the
   name, accent and logo. Blank fields inherit. Deleting an event keeps its sessions (they
   move to *Not in an event*). Use ▲ ▼ on an event to reorder events.
+- **Export CSV / Import CSV** — export every session's settings to a CSV, edit it in
+  Google Sheets or Excel, and import it (or a new file) back. **Check file** shows what each
+  row will do before anything is saved. A row matches an existing session by name plus
+  scheduled start and end, or by name alone when it has no times; choose whether matches are
+  updated or left alone. Only the *Session* column is required: columns left out keep their
+  settings. Times use the app's time zone (`2026-10-03 18:30` or `10/3/2026 6:30 PM`). QA
+  Facilitators must already be on the People tab. Ended sessions are never changed.
 - **Archive** — ended sessions move to *Archived sessions* 30 days after ending (or right
   away with **Archive**), which keeps the app's settings storage small. Their questions
   stay in the spreadsheet; **Restore** brings one back, for example to email its summary.

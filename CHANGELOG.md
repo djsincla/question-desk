@@ -4,6 +4,24 @@ All notable changes to Question Desk. Versions follow [Semantic Versioning](http
 Each release is tagged `vX.Y.Z` and published as a GitHub release by `scripts/ship.sh`,
 which reads the notes for that version from this file.
 
+## [2.8.0] - 2026-09-13
+
+### Added
+- **Export CSV** on the Sessions tab downloads every session's settings: event, name,
+  heading, how people join, theme, wait, length limit, summary email and recipients,
+  schedule, QA Facilitators, guest page, session branding, prepared questions and status.
+- **Import CSV** takes that file back (or one you make): **Check file** previews every row
+  as Create, Update, Skip or Problem before anything is saved, and **Import** applies it.
+  - A row matches an existing session by **name + scheduled start + scheduled end**, or by
+    **name alone** when it has no times. Choose whether matches are updated or skipped.
+  - Only the *Session* column is required; columns left out keep their current settings.
+  - Events named in the file are created if they don't exist.
+  - Times are in the app's time zone and accept `2026-10-03 18:30` or `10/3/2026 6:30 PM`
+    (how Sheets and Excel save them).
+  - Rows with problems (bad times, unknown values, an end already passed, the same
+    session twice) are listed by row number and not imported; the other rows still are.
+  - Ended sessions are never changed.
+
 ## [2.7.0] - 2026-09-13
 
 ### Added
@@ -351,6 +369,7 @@ Fixes from a full code review.
 - "Merge into one question" for reading a topic aloud.
 - Participant page in English, Korean and Spanish.
 
+[2.8.0]: https://github.com/djsincla/question-desk/releases/tag/v2.8.0
 [2.7.0]: https://github.com/djsincla/question-desk/releases/tag/v2.7.0
 [2.6.0]: https://github.com/djsincla/question-desk/releases/tag/v2.6.0
 [2.5.0]: https://github.com/djsincla/question-desk/releases/tag/v2.5.0

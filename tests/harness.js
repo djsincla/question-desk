@@ -195,7 +195,24 @@ function createApp(options) {
     },
     Utilities: {
       getUuid: () => crypto.randomUUID(),
-      formatDate: (date) => new RealDate(date.getTime()).toISOString(),
+      // Real time-zone math for the patterns the app uses in CSVs; other patterns stay ISO.
+      formatDate: (date, tz, pattern) => {
+        if (pattern !== 'yyyy-MM-dd HH:mm' && pattern !== 'yyyy-MM-dd') return new RealDate(date.getTime()).toISOString();
+        const parts = zoneParts(date.getTime(), tz);
+        return parts.y + '-' + parts.mo + '-' + parts.d + (pattern === 'yyyy-MM-dd' ? '' : ' ' + parts.h + ':' + parts.mi);
+      },
+      parseDate: (text, tz, pattern) => {
+        const m = String(text).match(/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})$/);
+        if (pattern !== 'yyyy-MM-dd HH:mm' || !m) throw new Error('Unparseable date: ' + text);
+        const wall = RealDate.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]);
+        let guess = wall;
+        for (let i = 0; i < 2; i++) {
+          const p = zoneParts(guess, tz);
+          const shown = RealDate.UTC(+p.y, +p.mo - 1, +p.d, +p.h, +p.mi);
+          guess += wall - shown;
+        }
+        return new RealDate(guess);
+      },
       newBlob: (data, contentType, name) => ({ data, contentType, name, getDataAsString: () => data })
     },
     SpreadsheetApp: {
@@ -382,6 +399,13 @@ function createApp(options) {
 }
 
 /** Stub Gemini: labels each question by its first word, translation = text. */
+function zoneParts(ms, tz) {
+  const f = new Intl.DateTimeFormat('en-US', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+  const out = {};
+  f.formatToParts(new Date(ms)).forEach((p) => { out[p.type] = p.value; });
+  return { y: out.year, mo: out.month, d: out.day, h: out.hour, mi: out.minute };
+}
+
 function defaultGemini(call) {
   if (call.schema.properties.assignments) {
     const lines = call.prompt.split('New questions:\n')[1].split('\n\nDo not invent')[0].split('\n');

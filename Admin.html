@@ -142,6 +142,14 @@
   .event-sessions { padding: 12px 12px 0; }
   .event-sessions > .hint { padding: 0 2px 12px; margin: 0; }
   .event.loose { border-style: dashed; }
+  .import-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; margin: 6px 0 12px; }
+  .import-table th, .import-table td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  .import-table .act { font-weight: 600; white-space: nowrap; }
+  .import-table .create { color: var(--action); }
+  .import-table .error { color: var(--stop); }
+  .import-table .skip { color: var(--muted); }
+  .import-wrap { overflow-x: auto; }
+  .error-text { color: var(--stop); }
   .swatch-dot { display: inline-block; width: 0.8em; height: 0.8em; border-radius: 50%; vertical-align: -1px; margin-right: 4px; border: 1px solid rgba(0,0,0,0.15); }
   details.archived { margin-top: 8px; }
   details.archived summary { cursor: pointer; font-weight: 600; }
@@ -172,7 +180,40 @@
   <div class="actions" style="margin-bottom:16px">
     <button type="button" class="primary" id="newEvent">New event</button>
     <button type="button" id="newSession">New session</button>
+    <span style="flex:1"></span>
+    <button type="button" class="quiet" id="exportCsv">Export CSV</button>
+    <button type="button" class="quiet" id="importCsv">Import CSV</button>
   </div>
+
+  <div class="panel form" id="exportPanel" hidden>
+    <h2>Sessions CSV</h2>
+    <p class="hint" style="margin-top:0" id="exportHint"></p>
+    <textarea id="exportText" rows="6" readonly spellcheck="false" style="width:100%;font-family:ui-monospace,Menlo,monospace;font-size:0.8rem"></textarea>
+    <div class="actions" style="margin-top:8px">
+      <button type="button" id="exportCopy">Copy</button>
+      <button type="button" class="quiet" id="exportClose">Close</button>
+    </div>
+  </div>
+
+  <form class="panel form" id="importForm" hidden autocomplete="off">
+    <h2>Import sessions from CSV</h2>
+    <p class="hint" style="margin-top:0">Use the format from <b>Export CSV</b> — edit it in Google Sheets or Excel, then save as CSV. Only the <b>Session</b> column is required; columns you leave out keep their current settings. Times are in the app's time zone, like <code>2026-10-03 18:30</code>. Events that don't exist yet are created; a blank Event cell takes a session out of its event. Ended sessions are never changed.</p>
+    <label class="field"><span>CSV file</span><input type="file" id="importFile" accept=".csv,text/csv"></label>
+    <label class="field"><span>…or paste it</span>
+      <textarea id="importText" rows="5" spellcheck="false" style="font-family:ui-monospace,Menlo,monospace;font-size:0.8rem"></textarea>
+    </label>
+    <div class="field">
+      <span class="field-label">When a session already exists (same name, start and end — or same name when it has no times)</span>
+      <label class="choice"><input type="radio" name="importDup" value="update" checked><span>Update it with the file's values</span></label>
+      <label class="choice"><input type="radio" name="importDup" value="skip"><span>Leave it as it is</span></label>
+    </div>
+    <div id="importPreview"></div>
+    <div class="actions">
+      <button type="button" class="primary" id="importCheck">Check file</button>
+      <button type="submit" class="primary" id="importGo" hidden>Import</button>
+      <button type="button" class="quiet" id="importCancel">Cancel</button>
+    </div>
+  </form>
 
   <form class="panel form" id="eventForm" hidden autocomplete="off">
     <h2 id="eventFormTitle">New event</h2>
@@ -1342,6 +1383,111 @@
   };
 
   $('newEvent').onclick = function () { openEventForm(null); };
+
+  // ------------------------------------------------------------ CSV
+
+  $('exportCsv').onclick = function () {
+    var btn = this;
+    call('exportSessionsCsv', [], function (res) {
+      // Try a download; sandboxed pages sometimes block it, so the text is shown to copy too.
+      try {
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([res.csv], { type: 'text/csv;charset=utf-8' }));
+        a.download = res.filename;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+      } catch (e) {}
+      $('exportHint').textContent = res.count + (res.count === 1 ? ' session' : ' sessions') + ' exported as ' + res.filename +
+        '. If the download didn\'t start, copy the text below into a file ending in .csv.';
+      $('exportText').value = res.csv.replace(/^\ufeff/, '');
+      $('exportPanel').hidden = false;
+    }, btn);
+  };
+  $('exportCopy').onclick = function () { copyInput($('exportText')); toast('Copied'); };
+  $('exportClose').onclick = function () { $('exportPanel').hidden = true; };
+
+  var checkedText = null;
+
+  function importText() { return $('importText').value; }
+
+  function resetImportCheck() {
+    checkedText = null;
+    $('importGo').hidden = true;
+    $('importCheck').hidden = false;
+    $('importPreview').innerHTML = '';
+  }
+
+  $('importCsv').onclick = function () {
+    $('sessionForm').hidden = true;
+    $('eventForm').hidden = true;
+    $('importText').value = '';
+    $('importFile').value = '';
+    resetImportCheck();
+    $('importForm').hidden = false;
+  };
+  $('importCancel').onclick = function () { $('importForm').hidden = true; };
+  $('importText').addEventListener('input', resetImportCheck);
+  var dups = document.querySelectorAll('input[name=importDup]');
+  for (var di = 0; di < dups.length; di++) dups[di].addEventListener('change', resetImportCheck);
+  $('importFile').addEventListener('change', function () {
+    var file = this.files && this.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function () { $('importText').value = String(reader.result || ''); resetImportCheck(); };
+    reader.readAsText(file);
+  });
+
+  function drawImport(res, done) {
+    var box = $('importPreview');
+    box.innerHTML = '';
+    var summary = done
+      ? 'Imported: ' + res.created + ' created, ' + res.updated + ' updated, ' + res.skipped + ' skipped, ' + res.failed + ' with problems (not imported).'
+      : 'Check: ' + res.created + ' to create, ' + res.updated + ' to update, ' + res.skipped + ' to skip, ' + res.failed + ' with problems.' +
+        (res.events.length ? ' New events: ' + res.events.join(', ') + '.' : '');
+    box.appendChild(el('p', res.failed ? 'hint error-text' : 'hint', summary));
+    var wrap = el('div', 'import-wrap');
+    var table = el('table', 'import-table');
+    var head = el('tr');
+    ['Row', 'Event', 'Session', 'Result', 'Notes'].forEach(function (t) { head.appendChild(el('th', null, t)); });
+    table.appendChild(head);
+    var words = { create: done ? 'Created' : 'Create', update: done ? 'Updated' : 'Update', skip: 'Skip', error: 'Problem' };
+    res.rows.forEach(function (r) {
+      var tr = el('tr');
+      tr.appendChild(el('td', null, String(r.row)));
+      tr.appendChild(el('td', null, r.event));
+      tr.appendChild(el('td', null, r.name));
+      tr.appendChild(el('td', 'act ' + r.action, words[r.action] || r.action));
+      tr.appendChild(el('td', null, r.errors.concat(r.warnings).join(' ')));
+      table.appendChild(tr);
+    });
+    wrap.appendChild(table);
+    box.appendChild(wrap);
+  }
+
+  $('importCheck').onclick = function () {
+    var text = importText();
+    if (!text.trim()) { toast('Choose a CSV file or paste one first.', true); return; }
+    call('importSessionsCsv', [text, { duplicates: radio('importDup') }, true], function (res) {
+      drawImport(res, false);
+      checkedText = text;
+      var n = res.created + res.updated;
+      $('importGo').textContent = 'Import ' + n + (n === 1 ? ' session' : ' sessions');
+      $('importGo').hidden = !n;
+    }, this);
+  };
+
+  $('importForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    if (checkedText === null || checkedText !== importText()) { resetImportCheck(); return; }
+    call('importSessionsCsv', [checkedText, { duplicates: radio('importDup') }, false], function (res) {
+      drawImport(res, true);
+      render(res.state);
+      $('importGo').hidden = true;
+      checkedText = null;
+      toast('Imported ' + (res.created + res.updated) + ' sessions' + (res.failed ? ' — ' + res.failed + ' rows had problems' : ''), !!res.failed);
+    }, $('importGo'));
+  });
   $('cancelEvent').onclick = function () { $('eventForm').hidden = true; };
 
   $('eventForm').addEventListener('submit', function (e) {
