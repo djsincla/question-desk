@@ -179,6 +179,7 @@ test('chromium: events collapse and expand, one at a time or all, and stay that 
     assert.equal(await page.textContent('#foldAll'), 'Expand all events');
     await page.click('button:has-text("Expand all events")');
     assert.equal(await page.locator('.event[data-event].collapsed').count(), 0);
+    await page.waitForTimeout(500);   // let that expand finish before measuring the full height
 
     // It slides rather than jumps: halfway through, the sessions area is partly open.
     // Sampled every frame, so a busy machine can't make the check miss the animation.
