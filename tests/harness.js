@@ -412,7 +412,11 @@ function defaultGemini(call) {
     const lines = call.prompt.split('New questions:\n')[1].split('\n\nDo not invent')[0].split('\n');
     const assignments = lines.filter(Boolean).map((line) => {
       const { id, text } = JSON.parse(line);
-      return { id, topic: 'About ' + text.split(' ')[0].toLowerCase(), language: 'English', translation: text };
+      const out = { id, topic: 'About ' + text.split(' ')[0].toLowerCase(), language: 'English', translation: text };
+      // Per-question translations when asked (prepared questions, in the session's languages).
+      const item = call.schema.properties.assignments.items.properties;
+      if (item.translations) out.translations = Object.fromEntries(Object.keys(item.translations.properties).map((c) => [c, '[' + c + '] ' + text]));
+      return out;
     });
     const topics = Array.from(new Set(assignments.map((a) => a.topic)));
     return {

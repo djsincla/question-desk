@@ -4,6 +4,24 @@ All notable changes to Question Desk. Versions follow [Semantic Versioning](http
 Each release is tagged `vX.Y.Z` and published as a GitHub release by `scripts/ship.sh`,
 which reads the notes for that version from this file.
 
+## [2.16.0] - 2026-09-13
+
+### Added
+- **Translate prepared questions when saved** (session option, on by default). As soon as
+  the session is saved, Gemini detects each prepared question's language and translates it
+  into English and **only the session's languages** (its event's choice, or the site's).
+  The queue's Prepared list shows the English wording with a language tag and what phones
+  and the room screen will show; **Add to queue** brings it in already translated; and
+  **Answer now** on it shows it in each of the session's languages. If Gemini is down at
+  save time, the every-minute run tries again, and adding a language to the event later
+  fills in the missing translation. Also in the sessions CSV.
+
+### Changed
+- Questions a facilitator ungroups are marked in a new *Grouping* column of the Questions
+  sheet (previously the language column held a placeholder), so questions that are already
+  translated are still grouped automatically. Run `setUp()` in the editor to add the column
+  headers, or they're added the next time it runs; the app works either way.
+
 ## [2.15.0] - 2026-09-13
 
 ### Added
@@ -549,6 +567,7 @@ Fixes from a full code review.
 - "Merge into one question" for reading a topic aloud.
 - Participant page in English, Korean and Spanish.
 
+[2.16.0]: https://github.com/djsincla/question-desk/releases/tag/v2.16.0
 [2.15.0]: https://github.com/djsincla/question-desk/releases/tag/v2.15.0
 [2.14.1]: https://github.com/djsincla/question-desk/releases/tag/v2.14.1
 [2.14.0]: https://github.com/djsincla/question-desk/releases/tag/v2.14.0

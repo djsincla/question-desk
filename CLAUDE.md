@@ -67,6 +67,12 @@ does not carry the query string. That exact bug shipped once (v2): every QR scan
   script time zone (the harness fakes both with real time-zone math).
 - A session's QA Facilitators are `facilitatorsFor_(session)`: its own plus its event's
   `moderators`. Use it (not `session.moderators`) for access, summaries and emails.
+- Questions sheet columns 10–11: `Grouping` (`ungrouped` = taken out of a topic by hand;
+  automatic grouping skips it unless Group now; before 2.16 a `?` language marked this) and
+  `Translations` (JSON in the session's languages). `session.translatePrepared` (default
+  on) makes `saveSessionAs_` call `translatePrepared_(sid)`: language, English and
+  `translationCodes_(session)` only; `translatePendingPrepared_()` retries from the schedule.
+  A single question on Answer now uses its stored translations.
 - Grouping by hand: `groupQuestions(sid, ids, topic)` sets the topic (language left blank,
   so the every-minute run still translates it and keeps the topic via `fixedTopic`);
   `ungroupQuestions` clears the topic and sets language to itself or `?` so automatic

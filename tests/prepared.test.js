@@ -24,8 +24,10 @@ test('prepared questions load with the session and wait out of sight', () => {
   assert.deepEqual(board.prepared.map((q) => q.text), ['What is the plan for respite hours?', 'How do families join the advisory board?']);
   assert.equal(board.unsorted.length + board.topics.length, 0, 'not in the queue');
 
+  const calls = h.env.geminiCalls.length;
+  assert.ok(h.env.geminiCalls.every((c) => !/Assign a topic/.test(c.prompt)), 'only translated when saved, never grouped');
   h.app.clusterAll_();
-  assert.equal(h.env.geminiCalls.length, 0, 'not sent for grouping');
+  assert.equal(h.env.geminiCalls.length, calls, 'not sent for grouping');
   const d = h.join(s);
   assert.deepEqual(h.anonymous().app.getTopics(s.id, d.deviceId).topics, [], 'not on phones');
 });
@@ -95,4 +97,65 @@ test('unused prepared questions stay out of the summary email', () => {
   assert.match(mail.htmlBody, /Used during the event/);
   assert.doesNotMatch(mail.htmlBody, /Never used/);
   assert.doesNotMatch(mail.attachments[0].getDataAsString(), /Never used/);
+});
+
+test('prepared questions are translated into the session\'s languages when saved, if the session asks', () => {
+  const h = createApp().install({ moderators: [MOD] });
+  const eid = h.app.saveEvent({ name: 'Community Day', languages: ['vi', 'zh'] }).savedEventId;
+  h.app.saveSession({ name: 'Talk', access: 'link', moderators: [MOD], eventId: eid, prepared: ['Is there parking nearby?'] });
+  const s = h.app.adminState().sessions[0];
+  assert.equal(s.translatePrepared, true, 'on by default');
+  const call = h.env.geminiCalls[h.env.geminiCalls.length - 1];
+  assert.match(call.prompt, /translate it into Vietnamese and Chinese \(Simplified\)/);
+  assert.doesNotMatch(call.prompt, /Korean|Spanish/, 'only the session\'s languages');
+
+  h.as(MOD);
+  const [prep] = h.app.getBoard(s.id).prepared;
+  assert.equal(prep.lang, 'English');
+  assert.deepEqual(prep.translations.map((t) => t.language), ['Vietnamese', 'Chinese (Simplified)']);
+
+  // Adding a language to the event later translates the missing one on the next run.
+  h.as(h.env.owner);
+  h.app.saveEvent({ id: eid, name: 'Community Day', languages: ['vi', 'zh', 'ko'] });
+  h.anonymous();
+  h.app.clusterAll_();
+  h.as(MOD);
+  assert.deepEqual(h.app.getBoard(s.id).prepared[0].translations.map((t) => t.language), ['Vietnamese', 'Chinese (Simplified)', 'Korean']);
+});
+
+test('Answer now on a translated prepared question shows it in the session\'s languages', () => {
+  const h = createApp().install({ moderators: [MOD] });
+  const eid = h.app.saveEvent({ name: 'Community Day', languages: ['vi'] }).savedEventId;
+  h.app.saveSession({ name: 'Talk', access: 'link', moderators: [MOD], eventId: eid, prepared: ['Is there parking nearby?'] });
+  const s = h.app.adminState().sessions[0];
+  h.app.setSessionActive(s.id, true);
+  h.as(MOD);
+  const [prep] = h.app.getBoard(s.id).prepared;
+  h.app.usePrepared(s.id, [prep.id]);
+  h.app.setNowAnswering(s.id, null, prep.id);
+  h.anonymous();
+  const labels = h.app.getRoomScreen(s.id, 'full', h.screenKey(s)).nowAnswering.labels;
+  assert.equal(labels.en, 'Is there parking nearby?');
+  assert.equal(labels.vi, '[vi] Is there parking nearby?', 'Vietnamese from the saved translation');
+});
+
+test('with the option off nothing is translated at save; a Gemini outage at save is retried by the schedule', () => {
+  const h = createApp().install({ moderators: [MOD] });
+  h.app.saveSession({ name: 'Off', access: 'link', moderators: [MOD], translatePrepared: false, prepared: ['Is there parking nearby?'] });
+  assert.equal(h.env.geminiCalls.length, 0);
+  assert.equal(h.app.adminState().sessions[0].translatePrepared, false);
+
+  const normal = h.env.gemini;
+  h.env.gemini = () => ({ status: 503, text: 'down' });
+  h.app.saveSession({ name: 'On', access: 'link', moderators: [MOD], prepared: ['Where do families park?'] });
+  const on = h.app.adminState().sessions.find((x) => x.name === 'On');
+  h.as(MOD);
+  assert.equal(h.app.getBoard(on.id).prepared[0].lang, '', 'not translated yet');
+  h.env.gemini = normal;
+  h.anonymous();
+  h.app.clusterAll_();
+  h.as(MOD);
+  assert.equal(h.app.getBoard(on.id).prepared[0].lang, 'English', 'translated by the next run');
+  const off = h.app.allSessions_().find((x) => x.name === 'Off');
+  assert.equal(h.app.getBoard(off.id).prepared[0].lang, '', 'the session that said no stays untranslated');
 });

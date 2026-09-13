@@ -382,6 +382,8 @@
       <textarea id="f-prepared" rows="5" placeholder="One question per line"></textarea>
       <div class="hint">Loaded ahead of time and kept out of sight. A QA Facilitator adds each one to the queue when it's useful. Saving replaces the ones not yet added.</div>
     </label>
+    <label class="choice" style="margin:-6px 0 14px"><input type="checkbox" id="f-translate-prepared" checked>
+      <span>Translate prepared questions when saved<small id="f-translate-hint">Into English and this session's languages, so they're ready to read out and to show on phones and the room screen with Answer now.</small></span></label>
 
     <fieldset>
       <legend>Schedule (optional)</legend>
@@ -1447,6 +1449,7 @@
     $('f-email').checked = s.id ? !!s.emailOnEnd : true;
     $('f-prepared').value = (s.prepared || []).join('\n');
     loadedPrepared = $('f-prepared').value;
+    $('f-translate-prepared').checked = s.id ? s.translatePrepared !== false : true;
     var guest = s.guestPage || {};
     $('f-guest-room').checked = !!guest.room;
     $('f-guest-slide').checked = !!guest.slide;
@@ -1857,6 +1860,7 @@
       // Sent only when edited: saving replaces unused prepared questions with new ids, which
       // would break "Add to queue" on an open queue and could revive one just added there.
       prepared: $('f-prepared').value !== loadedPrepared ? $('f-prepared').value : undefined,
+      translatePrepared: $('f-translate-prepared').checked,
       guestPage: { room: $('f-guest-room').checked, slide: $('f-guest-slide').checked, url: $('f-guest-url').value },
       summary: radio('summaryMode') === 'custom'
         ? { mode: 'custom', facilitators: $('f-summary-facilitators').checked, extra: $('f-summary-extra').value }

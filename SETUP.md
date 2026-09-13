@@ -74,7 +74,11 @@ grouped into topics by Gemini instead of as one long undifferentiated list.
   you to type the session's name. Drag sessions (or use ▲ ▼) to set their order within
   their event. **Prepared questions** (one per line) are loaded ahead of time
   and appear in the QA Facilitator's queue under *Prepared questions*, where each can be
-  added to the live queue when it's useful.
+  added to the live queue when it's useful. With **Translate prepared questions when saved**
+  (on by default), Gemini detects each one's language and translates it into English and
+  the session's languages as soon as you save, so it's ready to read out and to show on
+  phones and the room screen with **Answer now**. If Gemini is down, the every-minute run
+  tries again; adding a language to the event later fills in the new translation.
   - **In-room QR** — the room screen code changes every 150 seconds. Only people who
     can see the screen can ask. The room screen and slide links carry their own key;
     **Replace room screen link** retires a leaked one (re-copy it into slides).

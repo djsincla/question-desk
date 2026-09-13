@@ -58,6 +58,9 @@
   .prepared summary { padding: 11px 14px; cursor: pointer; font-weight: 600; border-radius: var(--radius); }
   .prepared summary span { color: var(--muted); font-weight: 400; }
   .prepared li .text { color: var(--ink); }
+  .prepared .also { display: block; color: var(--muted); font-size: 0.82rem; margin: 6px 0 0; }
+  .prepared .also span { display: inline; }
+  .prepared .also b { font-weight: 600; }
   .dismissed-box { margin-top: 28px; }
   .dismissed-box li .text { color: var(--muted); }
   .topic.done:not(.live) { opacity: 0.72; }
@@ -482,14 +485,28 @@
     list.forEach(function (q) {
       var li = el('li');
       var text = el('div', 'text');
-      text.textContent = q.text;
+      var translated = q.translation && q.translation !== q.text;
+      if (q.lang && translated) {
+        var chip = el('span', 'chip');
+        chip.textContent = q.lang;
+        text.appendChild(chip);
+      }
+      text.appendChild(document.createTextNode(translated ? q.translation : q.text));
+      if (translated && showOriginals) {
+        var orig = el('span', 'original');
+        orig.textContent = q.text;
+        text.appendChild(orig);
+      }
+      if (q.translations && q.translations.length) {
+        text.appendChild(alsoShown('With Answer now, phones and the room screen show', q.translations, 'also'));
+      }
       li.appendChild(text);
       var acts = el('div', 'acts');
       var add = el('button', 'primary');
       add.textContent = 'Add to queue';
       add.onclick = function () {
         state.prepared = state.prepared.filter(function (p) { return p.id !== q.id; });
-        state.unsorted.push({ id: q.id, text: q.text, lang: '', translation: '', topic: '', status: 'new', submitted: Date.now() });
+        state.unsorted.push({ id: q.id, text: q.text, lang: q.lang || '', translation: q.translation || '', topic: '', status: 'new', submitted: Date.now() });
         normalize(state);
         draw(state, true);
         send('usePrepared', [sid, [q.id]]);
