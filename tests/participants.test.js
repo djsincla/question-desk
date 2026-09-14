@@ -285,3 +285,15 @@ test('an old room code stays dead when the room screen comes back after a break'
   token(h.app.getRoomScreen(s.id, 'full', r).url);
   assert.equal(h.app.claimDevice(s.id, photographed).ok, false);
 });
+
+test('questions are only ever written to the sheet while holding the script lock', () => {
+  // Parallel appendRow calls overwrote each other in a 40-phone load test (2.14.1–2.15.0).
+  const h = createApp().install();
+  const s = h.session({ name: 'Lock', access: 'link', active: true, cooldownSeconds: 0 });
+  for (let i = 0; i < 5; i++) h.ask(s, h.join(s), 'Question number ' + i + ' please');
+  h.app.saveSession({ id: s.id, name: 'Lock', access: 'link', prepared: ['A prepared one'] });
+  h.anonymous();
+  h.app.doPost({ postData: { contents: JSON.stringify({ key: 'nope', text: 'x' }) } });
+  assert.equal(h.questions().rows.length, 7, 'header, five questions and one prepared');
+  assert.deepEqual(h.env.unlockedAppends, [], 'no question row written without the lock');
+});

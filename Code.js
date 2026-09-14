@@ -51,6 +51,7 @@ const CONFIG = {
   cooldownSeconds: 300,           // default wait between questions per phone; each session can change it
   cooldownCeiling: 3600,          // longest wait a session may set
   roomLimitPerMinute: 15,         // per session intake cap
+  submitLockWaitMs: 30000,        // how long a submission queues for its turn to write before "busy"
   meTooLimitPerMinute: 300,       // per session Me too taps (a full room tapping at once fits)
   entryTokenSeconds: 150,         // how often an in-room QR rotates
   deviceTokenSeconds: 21600,      // 6h — CacheService maximum
@@ -1707,36 +1708,37 @@ function submitQuestion_(sid, deviceId, text, credential, skipRoomCap) {
   const waiting = cooldownRemaining_(session, deviceId);
   if (waiting > 0) return { ok: false, reason: 'cooldown', waitSeconds: waiting };
 
-  // A full room submits at once, so the script lock is held only for the quick checks
-  // (session still open, room cap) — milliseconds. Opening the spreadsheet (often half a
-  // second) happens before it, and the append after it: appendRow is atomic, so parallel
-  // appends can't collide, and they only ever add rows at the end, which never moves the
-  // rows other locked operations address by position.
+  // Opening the spreadsheet (often half a second) happens before taking the lock, so the
+  // lock is held only for the checks and the append. The append MUST stay inside the lock:
+  // despite appendRow being documented as atomic, a 40-phone load test lost 25 of 40
+  // questions to parallel appends overwriting each other (2.14.1–2.15.0).
   const timing = { start: Date.now() };
   const sheet = questionSheet_();
   timing.opened = Date.now();
 
   const lock = LockService.getScriptLock();
   try {
-    lock.waitLock(10000);
+    // A full room queues here; waiting beats telling people to try again.
+    lock.waitLock(CONFIG.submitLockWaitMs);
   } catch (err) {
     return { ok: false, reason: 'busy' };
   }
   timing.locked = Date.now();
+  const id = newId_(8);
   try {
     const now = getSession_(sid);
     if (!now || now.status !== 'active') return { ok: false, reason: now && now.status === 'ended' ? 'ended' : 'inactive' };
     if (now.open === false) return { ok: false, reason: 'closed' };
     if (!skipRoomCap && !roomBudgetAvailable_(sid)) return { ok: false, reason: 'busy' };
+    timing.checked = Date.now();
+    sheet.appendRow([id, new Date(), deviceId || 'unknown', sheetSafe_(clean), 'new', '', '', '', sid]);
+    SpreadsheetApp.flush();
+    questionsChanged_();
   } finally {
     lock.releaseLock();
   }
-  timing.released = Date.now();
-
-  const id = newId_(8);
-  sheet.appendRow([id, new Date(), deviceId || 'unknown', sheetSafe_(clean), 'new', '', '', '', sid]);
-  questionsChanged_();
   timing.appended = Date.now();
+  timing.released = timing.checked;
   if (deviceId) {
     // Store when the phone asked, not when its wait ends, so a session's wait can
     // be changed mid-event and apply to phones already waiting.
@@ -1746,7 +1748,7 @@ function submitQuestion_(sid, deviceId, text, credential, skipRoomCap) {
   if (skipRoomCap) {
     // Load test only: where the time went.
     res.timing = { openMs: timing.opened - timing.start, lockWaitMs: timing.locked - timing.opened,
-                   lockHeldMs: timing.released - timing.locked, appendMs: timing.appended - timing.released };
+                   lockHeldMs: timing.appended - timing.locked, appendMs: timing.appended - timing.checked };
   }
   return res;
 }

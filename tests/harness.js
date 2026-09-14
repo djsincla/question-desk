@@ -29,6 +29,8 @@ function createApp(options) {
     activeUser: options.activeUser === undefined ? (options.owner || OWNER) : options.activeUser,
     outbox: [],
     geminiCalls: [],
+    lockDepth: 0,
+    unlockedAppends: [],   // rows appended to Questions without the script lock (must stay empty)
     gemini: defaultGemini,
     mailQuota: 100,
     faviconError: null,
@@ -122,6 +124,7 @@ function createApp(options) {
         return value;
       },
       appendRow(values) {
+        if (sheet.name === 'Questions' && env.lockDepth === 0 && values[0] !== 'ID') env.unlockedAppends.push(values);
         const r = sheet.rows.length + 1;
         values.forEach((v) => {
           if (typeof v === 'string' && v.length > 50000) throw new Error('Cell over 50,000 characters');
@@ -188,7 +191,12 @@ function createApp(options) {
     },
     PropertiesService: { getScriptProperties: () => scriptProperties },
     CacheService: { getScriptCache: () => scriptCache },
-    LockService: { getScriptLock: () => ({ waitLock() {}, tryLock() { return true; }, releaseLock() {} }) },
+    // Tracks whether the script lock is held, so tests can prove questions are only written under it.
+    LockService: { getScriptLock: () => ({
+      waitLock() { env.lockDepth++; },
+      tryLock() { env.lockDepth++; return true; },
+      releaseLock() { env.lockDepth = Math.max(0, env.lockDepth - 1); }
+    }) },
     Session: {
       getActiveUser: () => ({ getEmail: () => env.activeUser || '' }),
       getEffectiveUser: () => ({ getEmail: () => env.owner }),
@@ -223,7 +231,8 @@ function createApp(options) {
         if (!ss) throw new Error('No spreadsheet ' + id);
         return ss;
       },
-      create: (name) => makeSpreadsheet(name)
+      create: (name) => makeSpreadsheet(name),
+      flush: () => {}
     },
     MailApp: {
       sendEmail: (message) => {
