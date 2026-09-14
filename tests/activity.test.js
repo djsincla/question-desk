@@ -98,7 +98,9 @@ test('CSV imports are logged per session and as a whole; the log is searchable a
 test('log text that looks like a formula is stored as text, and old entries are trimmed', () => {
   const h = createApp().install();
   h.app.saveSession({ name: '=HYPERLINK("http://evil.example")' });
+  assert.ok(h.app.flushAudit_() >= 1, 'entries written');
   const sheet = h.spreadsheet().getSheetByName('Activity log');
+  assert.ok(sheet.rows.some((r) => String(r[4]).indexOf('HYPERLINK') !== -1), 'the entry is there');
   assert.deepEqual(sheet.formulas, []);
 
   for (let i = 0; i < 30; i++) sheet.appendRow([new Date(), 'x', 'Filler', '', '', '']);
@@ -109,11 +111,26 @@ test('log text that looks like a formula is stored as text, and old entries are 
   assert.equal(sheet.rows[0][0], 'Time', 'header kept');
 });
 
-test('a logging failure never blocks the action', () => {
+test('a logging failure never blocks the action, and buffered entries wait for the sheet', () => {
   const h = createApp().install();
-  const sheet = h.spreadsheet().getSheetByName('Activity log') || h.app.auditSheet_();
-  sheet.appendRow = () => { throw new Error('Sheets is down'); };
+  // Both the buffer and the direct fallback refuse.
+  const realSet = h.props.setProperty;
+  h.props.setProperty = function (k, v) { if (String(k).indexOf('A_') === 0) throw new Error('Storage is full'); return realSet.call(this, k, v); };
+  const sheet = h.app.auditSheet_();
+  const realSetValues = sheet.getRange;
+  sheet.getRange = function () { throw new Error('Sheets is down'); };
   assert.doesNotThrow(() => h.app.saveSession({ name: 'Still saves' }));
+  sheet.getRange = realSetValues;
+  h.props.setProperty = realSet;
   assert.equal(h.app.adminState().sessions[0].name, 'Still saves');
   assert.ok(h.env.logs.some((l) => /Activity log: Error: Sheets is down/.test(l)));
+
+  // Normally entries sit in the buffer until a flush writes them all at once.
+  const rowsBefore = sheet.rows.length;
+  h.app.saveSession({ name: 'Buffered one' });
+  h.app.saveSession({ name: 'Buffered two' });
+  assert.equal(sheet.rows.length, rowsBefore, 'not written yet');
+  assert.equal(h.app.flushAudit_(), 2);
+  assert.deepEqual(sheet.rows.slice(rowsBefore).map((r) => r[2]), ['Session created', 'Session created']);
+  assert.equal(h.app.flushAudit_(), 0, 'buffer cleared');
 });

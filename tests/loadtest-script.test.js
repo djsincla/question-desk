@@ -85,7 +85,7 @@ test('loadtest.js tells a reply lost on Google\'s redirect from a question that 
     assert.equal(results.filter((r) => r.replyLost).length, 3);
     assert.equal(after - before, 9, 'all nine were saved');
     assert.ok(lines.some((l) => /reply lost \(Google page\)\s+3/.test(l)), lines.join('\n'));
-    assert.ok(lines.some((l) => /lock wait\s+p50 \d+/.test(l)), 'shows where the time went');
+    assert.ok(lines.some((l) => /save\s+p50 \d+/.test(l)), 'shows where the time went');
   } finally {
     console.log = log;
     server.close();

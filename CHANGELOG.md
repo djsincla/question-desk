@@ -4,6 +4,27 @@ All notable changes to Question Desk. Versions follow [Semantic Versioning](http
 Each release is tagged `vX.Y.Z` and published as a GitHub release by `scripts/ship.sh`,
 which reads the notes for that version from this file.
 
+## [2.17.0] - 2026-09-13
+
+### Changed
+- **Submissions no longer wait for the spreadsheet.** Each question is saved to its own
+  Script Properties entry — durable, a few milliseconds, and no waiting in line, because no
+  two submissions share an entry — and written to the Questions sheet in one batch: on
+  each queue refresh (so it appears within about 5 seconds), every minute, and before
+  anything that needs every question (grouping, summaries, ending or archiving a session).
+  A batch that's interrupted can't write a question twice. A full room now submits about
+  as fast as one person.
+- **Batched cell updates.** Marking answered, dismissing (including **Dismiss all**),
+  grouping and ungrouping by hand, adding prepared questions and retention each update
+  their cells in one call instead of one per question.
+- **Shared queue board.** The queue's questions and topics are cached per session and
+  shared by every facilitator's refresh, and cleared by any change, so several open queues
+  no longer each read both sheets every 5 seconds. Me too counts and switches stay live.
+- **Buffered activity log.** Log entries are saved the same way as submissions and
+  written to the sheet in batches (every minute, and whenever the Activity tab loads), so
+  logging no longer adds a spreadsheet write to each queue click.
+- The load test reports how long saving took ("save") instead of lock timings.
+
 ## [2.16.0] - 2026-09-13
 
 ### Fixed
@@ -575,6 +596,7 @@ Fixes from a full code review.
 - "Merge into one question" for reading a topic aloud.
 - Participant page in English, Korean and Spanish.
 
+[2.17.0]: https://github.com/djsincla/question-desk/releases/tag/v2.17.0
 [2.16.0]: https://github.com/djsincla/question-desk/releases/tag/v2.16.0
 [2.15.0]: https://github.com/djsincla/question-desk/releases/tag/v2.15.0
 [2.14.1]: https://github.com/djsincla/question-desk/releases/tag/v2.14.1

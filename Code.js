@@ -17,7 +17,7 @@
 
 /** Bump with every release; scripts/ship.sh tags git and publishes release notes from CHANGELOG.md. */
 const APP = {
-  version: '2.16.0',
+  version: '2.17.0',
   repo: 'https://github.com/djsincla/question-desk'
 };
 
@@ -51,13 +51,13 @@ const CONFIG = {
   cooldownSeconds: 300,           // default wait between questions per phone; each session can change it
   cooldownCeiling: 3600,          // longest wait a session may set
   roomLimitPerMinute: 15,         // per session intake cap
-  submitLockWaitMs: 30000,        // how long a submission queues for its turn to write before "busy"
   meTooLimitPerMinute: 300,       // per session Me too taps (a full room tapping at once fits)
   entryTokenSeconds: 150,         // how often an in-room QR rotates
   deviceTokenSeconds: 21600,      // 6h — CacheService maximum
   clusterBatchSize: 25,
   maxPrepared: 100,               // prepared questions per session
   maxImportRows: 200,             // sessions per CSV import
+  boardCacheSeconds: 30,          // the queue's board; every change clears it, so this only bounds staleness
   topicCacheSeconds: 5,           // participant topic lists; a full room polls this (phones every 15 s)
   logoMaxChars: 60000,            // base64 data URL; pages load on weak venue wifi
   maxRecipients: 50,
@@ -406,14 +406,54 @@ function audit_(action, session, details) {
     const who = EXEC_.auditWho || currentEmail_() || 'unknown';
     const label = !session ? '' : session.eventName !== undefined ? session.eventName
       : (eventName_(session) ? eventName_(session) + ' — ' : '') + (session.name || '');
-    auditSheet_().appendRow([
-      new Date(), sheetSafe_(who), sheetSafe_(action), session && session.id ? session.id : '',
-      sheetSafe_(String(label).slice(0, 200)),
-      sheetSafe_(String((details || '') + (EXEC_.auditVia ? ' (' + EXEC_.auditVia + ')' : '')).slice(0, 1000))
-    ]);
+    const entry = [Date.now(), who, action, session && session.id ? session.id : '', String(label).slice(0, 200),
+      String((details || '') + (EXEC_.auditVia ? ' (' + EXEC_.auditVia + ')' : '')).slice(0, 1000)];
+    // Buffered (a few ms), and written to the sheet in batches by flushAudit_(), so logging
+    // doesn't add a spreadsheet write to every queue click. Keys sort in the order logged.
+    EXEC_.auditSeq = (EXEC_.auditSeq || 0) + 1;
+    const key = AUDIT_PREFIX + String(entry[0]).padStart(15, '0') + '_' + String(EXEC_.auditSeq).padStart(4, '0') + '_' + newId_(4);
+    try {
+      props_().setProperty(key, JSON.stringify(entry));
+    } catch (err) {
+      writeAudit_([entry]);   // storage full or refusing: straight to the sheet
+    }
   } catch (err) {
     console.error('Activity log: ' + err);
   }
+}
+
+const AUDIT_PREFIX = 'A_';   // A_<time>_<seq>_<rand>: an activity log entry not yet in the sheet
+
+function writeAudit_(entries) {
+  const sheet = auditSheet_();
+  const rows = entries.map(function (e) {
+    return [new Date(e[0]), sheetSafe_(e[1]), sheetSafe_(e[2]), e[3], sheetSafe_(e[4]), sheetSafe_(e[5])];
+  });
+  const last = sheet.getLastRow();
+  if (sheet.getMaxRows() < last + rows.length) sheet.insertRowsAfter(sheet.getMaxRows(), last + rows.length - sheet.getMaxRows() + 200);
+  sheet.getRange(last + 1, 1, rows.length, 6).setValues(rows);
+}
+
+/** Moves buffered activity log entries into the sheet in one write, in the order they happened. */
+function flushAudit_() {
+  // By time and sequence; the random tail isn't compared, so same-millisecond entries keep their stored order.
+  const order = function (k) { return k.slice(0, AUDIT_PREFIX.length + 20); };
+  const has = function (all) {
+    return Object.keys(all).filter(function (k) { return k.indexOf(AUDIT_PREFIX) === 0; })
+      .sort(function (a, b) { return order(a) < order(b) ? -1 : order(a) > order(b) ? 1 : 0; });
+  };
+  if (!has(props_().getProperties()).length) return 0;
+  let written = 0;
+  withLock_(function () {
+    const all = props_().getProperties();
+    const keys = has(all);
+    if (!keys.length) return;
+    const entries = keys.map(function (k) { try { return JSON.parse(all[k]); } catch (e) { return null; } }).filter(Boolean);
+    if (entries.length) writeAudit_(entries);
+    keys.forEach(function (k) { props_().deleteProperty(k); });
+    written = entries.length;
+  });
+  return written;
 }
 
 function auditSheet_() {
@@ -430,6 +470,7 @@ function auditSheet_() {
 function getActivity(options) {
   requireAdmin_();
   options = options || {};
+  try { flushAudit_(); } catch (err) { console.error('Activity log flush: ' + err); }
   if (!props_().getProperty('SHEET_ID')) return { entries: [], total: 0 };
   const sheet = spreadsheet_().getSheetByName(CONFIG.auditSheetName);
   if (!sheet || sheet.getLastRow() < 2) return { entries: [], total: 0 };
@@ -451,6 +492,7 @@ function getActivity(options) {
 
 function trimAudit_() {
   if (!props_().getProperty('SHEET_ID')) return;
+  flushAudit_();
   const sheet = spreadsheet_().getSheetByName(CONFIG.auditSheetName);
   if (!sheet) return;
   const extra = sheet.getLastRow() - 1 - CONFIG.auditMaxRows;
@@ -812,6 +854,7 @@ function runMaintenance_() {
  */
 function applyRetention_() {
   const months = opsSettings_().retentionMonths;
+  flushInbox_();
   if (!months || !props_().getProperty('SHEET_ID')) return { questions: 0 };
   const cutoff = Date.now() - months * 30.44 * 24 * 3600 * 1000;
   const marker = REMOVED_TEXT(months);
@@ -824,34 +867,43 @@ function applyRetention_() {
   withLock_(function () {
     const qs = questionSheet_();
     const values = qs.getDataRange().getValues();
+    const textRows = [], translationRows = [];
     for (let i = 1; i < values.length; i++) {
       if (!old[String(values[i][COLS.session - 1])]) continue;
       if (String(values[i][COLS.text - 1]).indexOf('[wording removed') === 0) continue;
-      qs.getRange(i + 1, COLS.text).setValue(marker);
-      if (values[i][COLS.translation - 1]) qs.getRange(i + 1, COLS.translation).setValue(marker);
+      textRows.push(i + 1);
+      if (values[i][COLS.translation - 1]) translationRows.push(i + 1);
       questions++;
     }
+    setCells_(qs, COLS.text, textRows, marker);
+    setCells_(qs, COLS.translation, translationRows, marker);
+    setCells_(qs, COLS.translations, textRows, '');
     questionsChanged_();
     const ts = topicSheet_();
     const tv = ts.getDataRange().getValues();
+    const mergedRows = [];
     for (let j = 1; j < tv.length; j++) {
       if (!old[String(tv[j][0])] || !tv[j][2] || String(tv[j][2]).indexOf('[wording removed') === 0) continue;
-      ts.getRange(j + 1, 3).setValue(marker);
-      ts.getRange(j + 1, 6).setValue('{}');
+      mergedRows.push(j + 1);
       merged++;
     }
+    setCells_(ts, 3, mergedRows, marker);
+    setCells_(ts, 6, mergedRows, '{}');
     topicsChanged_();
   });
+  flushAudit_();
   const audit = spreadsheet_().getSheetByName(CONFIG.auditSheetName);
   if (audit && audit.getLastRow() > 1) {
     const av = audit.getDataRange().getValues();
+    const logRows = [];
     for (let k = 1; k < av.length; k++) {
       const at = new Date(av[k][0]).getTime();
-      if (at >= cutoff || !/^(Marked answered|Dismissed|Reopened|Topic merged)$/.test(String(av[k][2]))) continue;
+      if (at >= cutoff || !/^(Marked answered|Dismissed|Reopened|Topic merged|Answer now)$/.test(String(av[k][2]))) continue;
       if (String(av[k][5]).indexOf('[wording removed') === 0) continue;
-      audit.getRange(k + 1, 6).setValue(marker);
+      logRows.push(k + 1);
       log++;
     }
+    setCells_(audit, 6, logRows, marker);
   }
   Object.keys(old).forEach(invalidateTopics_);
   if (questions || merged || log) {
@@ -894,6 +946,7 @@ function storageUse_() {
 
 /** The weekly report's content, also shown by "Send the weekly report now". */
 function weeklyReport_() {
+  flushInbox_();
   const tz = Session.getScriptTimeZone();
   const fmt = function (ms) { return Utilities.formatDate(new Date(ms), tz, 'EEE MMM d, h:mm a'); };
   const now = Date.now();
@@ -1050,6 +1103,7 @@ function translatePrepared_(sid) {
     });
     questionsChanged_();
   });
+  if (done) invalidateTopics_(sid);
   return done;
 }
 
@@ -1291,6 +1345,7 @@ function archiveSheet_() {
 }
 
 function archiveSession_(sid) {
+  flushInbox_(sid);
   let archived = null;
   withLock_(function () {
     const session = getSession_(sid);
@@ -1708,37 +1763,30 @@ function submitQuestion_(sid, deviceId, text, credential, skipRoomCap) {
   const waiting = cooldownRemaining_(session, deviceId);
   if (waiting > 0) return { ok: false, reason: 'cooldown', waitSeconds: waiting };
 
-  // Opening the spreadsheet (often half a second) happens before taking the lock, so the
-  // lock is held only for the checks and the append. The append MUST stay inside the lock:
-  // despite appendRow being documented as atomic, a 40-phone load test lost 25 of 40
-  // questions to parallel appends overwriting each other (2.14.1–2.15.0).
+  // A full room submits at once. Each question is saved to its own Script Properties key —
+  // durable, milliseconds, and no lock because no two submissions share a key — and written
+  // to the sheet in batches by flushInbox_() (queue refreshes, the every-minute run, and
+  // anything that needs every question). Never append to the sheet in parallel: a
+  // 40-phone test lost 25 questions that way (2.14.1–2.15.0).
   const timing = { start: Date.now() };
-  const sheet = questionSheet_();
-  timing.opened = Date.now();
-
-  const lock = LockService.getScriptLock();
-  try {
-    // A full room queues here; waiting beats telling people to try again.
-    lock.waitLock(CONFIG.submitLockWaitMs);
-  } catch (err) {
-    return { ok: false, reason: 'busy' };
-  }
-  timing.locked = Date.now();
+  if (!skipRoomCap && !roomBudgetAvailable_(sid)) return { ok: false, reason: 'busy' };
   const id = newId_(8);
+  const row = [id, Date.now(), deviceId || 'unknown', clean, sid];
   try {
-    const now = getSession_(sid);
-    if (!now || now.status !== 'active') return { ok: false, reason: now && now.status === 'ended' ? 'ended' : 'inactive' };
-    if (now.open === false) return { ok: false, reason: 'closed' };
-    if (!skipRoomCap && !roomBudgetAvailable_(sid)) return { ok: false, reason: 'busy' };
-    timing.checked = Date.now();
-    sheet.appendRow([id, new Date(), deviceId || 'unknown', sheetSafe_(clean), 'new', '', '', '', sid]);
-    SpreadsheetApp.flush();
-    questionsChanged_();
-  } finally {
-    lock.releaseLock();
+    props_().setProperty(INBOX_PREFIX + sid + '_' + id, JSON.stringify(row));
+  } catch (err) {
+    // Settings storage full or refusing: write straight to the sheet, one at a time.
+    console.error('Inbox write failed, appending directly: ' + err);
+    try {
+      withLock_(function () {
+        questionSheet_().appendRow([id, new Date(row[1]), row[2], sheetSafe_(clean), 'new', '', '', '', sid]);
+        questionsChanged_();
+      });
+    } catch (lockErr) {
+      return { ok: false, reason: 'busy' };
+    }
   }
-  timing.appended = Date.now();
-  timing.released = timing.checked;
+  timing.saved = Date.now();
   if (deviceId) {
     // Store when the phone asked, not when its wait ends, so a session's wait can
     // be changed mid-event and apply to phones already waiting.
@@ -1747,8 +1795,7 @@ function submitQuestion_(sid, deviceId, text, credential, skipRoomCap) {
   const res = { ok: true, id: id, cooldownSeconds: cooldownFor_(session) };
   if (skipRoomCap) {
     // Load test only: where the time went.
-    res.timing = { openMs: timing.opened - timing.start, lockWaitMs: timing.locked - timing.opened,
-                   lockHeldMs: timing.appended - timing.locked, appendMs: timing.appended - timing.checked };
+    res.timing = { saveMs: timing.saved - timing.start };
   }
   return res;
 }
@@ -1880,8 +1927,11 @@ function publicTopicsCached_(session) {
   return fresh;
 }
 
+/** Clears a session's cached phone topic list and queue board, after anything changes them. */
 function invalidateTopics_(sid) {
-  CacheService.getScriptCache().remove('topics:' + sid);
+  const cache = CacheService.getScriptCache();
+  cache.remove('topics:' + sid);
+  cache.remove('board:' + sid);
 }
 
 function publicTopics_(session) {
@@ -2037,14 +2087,68 @@ function mySessions() {
 
 function getBoard(sid) {
   const session = requireSession_(sid);
+  flushInbox_(sid);   // this refresh is how new questions reach the sheet within seconds
 
-  const rows = sessionRows_(sid);
+  // The sheet-derived part is shared by every facilitator's refresh (see boardData_);
+  // votes, the session's settings and anything about the viewer are always fresh.
+  const data = boardData_(session);
   const votes = votesFor_(sid);
+  data.topics.forEach(function (t) { t.votes = votes[t.topic] || 0; });
+  data.topics.sort(function (a, b) {
+    return (a.answered - b.answered) || (b.count + b.votes) - (a.count + a.votes);
+  });
+  const health = health_();
+  const loose = data.unsorted;
+
+  return {
+    session: {
+      id: session.id,
+      name: session.name,
+      eventName: eventName_(session),
+      status: session.status,
+      access: session.access,
+      links: sessionLinks_(session)
+    },
+    isAdmin: isAdmin_(),
+    adminUrl: baseUrl_() + '?view=admin',
+    topics: data.topics,
+    unsorted: loose,
+    // When grouping is failing (or questions have waited a while), sort the ungrouped ones by
+    // a shared word so a facilitator isn't left with a flat list.
+    groupingDown: (health.failures || 0) >= 2 ? (health.lastError || 'Grouping is failing') : '',
+    looseGroups: loose.length >= 2 && ((health.failures || 0) >= 2 ||
+      loose.some(function (q) { return q.status !== 'answered' && Date.now() - q.submitted > 3 * 60 * 1000; }))
+      ? keywordGroups_(loose) : null,
+    open: session.open !== false,
+    nowAnswering: session.nowAnswering && session.nowAnswering.topic ? session.nowAnswering.topic : null,
+    nowAnsweringQuestion: session.nowAnswering && session.nowAnswering.question ? session.nowAnswering.question : null,
+    nowAnsweringSince: session.nowAnswering ? session.nowAnswering.at || null : null,
+    autoShowOnPhones: !!session.autoShowOnPhones,
+    autoGroup: session.autoGroup !== false,
+    merged: data.merged,
+    mergedTranslations: data.mergedTranslations,
+    dismissed: data.dismissed,
+    prepared: data.prepared
+  };
+}
+
+/**
+ * Questions, topics, merged questions and prepared questions for the queue, read from both
+ * sheets once and cached per session for a few seconds — however many facilitators have the
+ * queue open. Every change to a session's questions or topics clears it (invalidateTopics_).
+ */
+function boardData_(session) {
+  const sid = session.id;
+  const cache = CacheService.getScriptCache();
+  const hit = cache.get('board:' + sid);
+  if (hit) return JSON.parse(hit);
+
+  const all = sessionRows_(sid, true);
   const topics = {};
   const loose = [];
-
   const dismissed = [];
-  rows.forEach(function (q) {
+  all.forEach(function (q) {
+    if (q.status === 'prepared') return;
     if (q.status === 'dismissed') { dismissed.push(q); return; }
     if (!q.topic) { loose.push(q); return; }
     if (!topics[q.topic]) topics[q.topic] = [];
@@ -2061,14 +2165,12 @@ function getBoard(sid) {
   const grouped = Object.keys(topics).map(function (name) {
     const list = topics[name].sort(byAnswered);
     return {
-      topic: name, questions: list, count: list.length, votes: votes[name] || 0,
+      topic: name, questions: list, count: list.length, votes: 0,
       answered: list.every(function (q) { return q.status === 'answered'; }),
       shown: !!(records[name] && records[name].shown),
       // What phones and the room screen show in other languages, so it is reviewed too.
       translations: translationList_(records[name] && records[name].labels, session)
     };
-  }).sort(function (a, b) {
-    return (a.answered - b.answered) || (b.count + b.votes) - (a.count + a.votes);
   });
 
   const merged = {};
@@ -2080,44 +2182,24 @@ function getBoard(sid) {
     }
   });
 
-  return {
-    session: {
-      id: session.id,
-      name: session.name,
-      eventName: eventName_(session),
-      status: session.status,
-      access: session.access,
-      links: sessionLinks_(session)
-    },
-    isAdmin: isAdmin_(),
-    adminUrl: baseUrl_() + '?view=admin',
+  const data = {
     topics: grouped,
     unsorted: loose,
-    // When grouping is failing (or questions have waited a while), sort the ungrouped ones by
-    // a shared word so a facilitator isn't left with a flat list.
-    groupingDown: (health_().failures || 0) >= 2 ? (health_().lastError || 'Grouping is failing') : '',
-    looseGroups: loose.length >= 2 && ((health_().failures || 0) >= 2 ||
-      loose.some(function (q) { return q.status !== 'answered' && Date.now() - q.submitted > 3 * 60 * 1000; }))
-      ? keywordGroups_(loose) : null,
-    open: session.open !== false,
-    nowAnswering: session.nowAnswering && session.nowAnswering.topic ? session.nowAnswering.topic : null,
-    nowAnsweringQuestion: session.nowAnswering && session.nowAnswering.question ? session.nowAnswering.question : null,
-    nowAnsweringSince: session.nowAnswering ? session.nowAnswering.at || null : null,
-    autoShowOnPhones: !!session.autoShowOnPhones,
-    autoGroup: session.autoGroup !== false,
     merged: merged,
     mergedTranslations: mergedTranslations,
     dismissed: dismissed.sort(function (a, b) { return b.submitted - a.submitted; }),
-    prepared: sessionRows_(sid, true)
-      .filter(function (q) { return q.status === 'prepared'; })
-      .map(function (q) {
-        return { id: q.id, text: q.text, lang: q.lang, translation: q.translation, translations: translationList_(q.translations, session) };
-      })
+    prepared: all.filter(function (q) { return q.status === 'prepared'; }).map(function (q) {
+      return { id: q.id, text: q.text, lang: q.lang, translation: q.translation, translations: translationList_(q.translations, session) };
+    })
   };
+  const json = JSON.stringify(data);
+  if (json.length < 95000) cache.put('board:' + sid, json, CONFIG.boardCacheSeconds);   // big sessions skip the cache
+  return data;
 }
 
 function setStatus(sid, ids, status) {
   const session = requireSession_(sid);
+  flushInbox_(sid);
   if (session.status === 'ended') throw new Error('This session has ended.');
   if (['new', 'answered', 'dismissed'].indexOf(status) === -1) throw new Error('Unknown status.');
 
@@ -2127,13 +2209,15 @@ function setStatus(sid, ids, status) {
   withLock_(function () {
     const sheet = questionSheet_();
     const values = sheet.getDataRange().getValues();
+    const rows = [];
     for (let i = 1; i < values.length; i++) {
       if (String(values[i][COLS.session - 1]) === sid && wanted[String(values[i][COLS.id - 1])] &&
           values[i][COLS.status - 1] !== 'prepared') {
-        sheet.getRange(i + 1, COLS.status).setValue(status);
+        rows.push(i + 1);
         changedText.push(String(values[i][COLS.text - 1]));
       }
     }
+    setCells_(sheet, COLS.status, rows, status);
     questionsChanged_();
   });
   invalidateTopics_(sid);
@@ -2192,14 +2276,16 @@ function usePrepared(sid, ids) {
   withLock_(function () {
     const sheet = questionSheet_();
     const values = sheet.getDataRange().getValues();
+    const rows = [];
     for (let i = 1; i < values.length; i++) {
       if (String(values[i][COLS.session - 1]) === sid && wanted[String(values[i][COLS.id - 1])] &&
           values[i][COLS.status - 1] === 'prepared') {
-        sheet.getRange(i + 1, COLS.submitted).setValue(new Date());
-        sheet.getRange(i + 1, COLS.status).setValue('new');
+        rows.push(i + 1);
         added++;
       }
     }
+    setCells_(sheet, COLS.submitted, rows, new Date());
+    setCells_(sheet, COLS.status, rows, 'new');
     questionsChanged_();
   });
   if (!added) throw new Error('Those prepared questions were already added or removed.');
@@ -2216,6 +2302,7 @@ function usePrepared(sid, ids) {
  */
 function setNowAnswering(sid, topic, questionId) {
   const session = requireSession_(sid);
+  if (questionId) flushInbox_(sid);
   if (session.status === 'ended') throw new Error('This session has ended.');
   topic = topic ? String(topic).slice(0, 200) : '';
   questionId = questionId ? String(questionId) : '';
@@ -2255,6 +2342,7 @@ function setAutoShowOnPhones(sid, on) {
  */
 function groupQuestions(sid, ids, topic) {
   const session = requireSession_(sid);
+  flushInbox_(sid);
   if (session.status === 'ended') throw new Error('This session has ended.');
   topic = cleanText_(topic, 80);
   if (!topic) throw new Error('Give the group a topic name.');
@@ -2265,13 +2353,16 @@ function groupQuestions(sid, ids, topic) {
   withLock_(function () {
     const sheet = questionSheet_();
     const values = sheet.getDataRange().getValues();
+    const rows = [], flagged = [];
     for (let i = 1; i < values.length; i++) {
       const status = values[i][COLS.status - 1];
       if (String(values[i][COLS.session - 1]) !== sid || !wanted[String(values[i][COLS.id - 1])] || status === 'prepared') continue;
-      sheet.getRange(i + 1, COLS.topic).setValue(sheetSafe_(topic));
-      if (values[i][COLS.grouping - 1]) sheet.getRange(i + 1, COLS.grouping).setValue('');
+      rows.push(i + 1);
+      if (values[i][COLS.grouping - 1]) flagged.push(i + 1);
       moved++;
     }
+    setCells_(sheet, COLS.topic, rows, sheetSafe_(topic));
+    setCells_(sheet, COLS.grouping, flagged, '');
     questionsChanged_();
   });
   if (!moved) throw new Error('Those questions are no longer in the queue.');
@@ -2305,13 +2396,15 @@ function ungroupQuestions(sid, ids) {
   withLock_(function () {
     const sheet = questionSheet_();
     const values = sheet.getDataRange().getValues();
+    const rows = [];
     for (let i = 1; i < values.length; i++) {
       if (String(values[i][COLS.session - 1]) !== sid || !wanted[String(values[i][COLS.id - 1])] || !values[i][COLS.topic - 1]) continue;
-      // Marked, so the every-minute grouping doesn't put it straight back.
-      sheet.getRange(i + 1, COLS.topic).setValue('');
-      sheet.getRange(i + 1, COLS.grouping).setValue('ungrouped');
+      rows.push(i + 1);
       moved++;
     }
+    // Marked, so the every-minute grouping doesn't put them straight back.
+    setCells_(sheet, COLS.topic, rows, '');
+    setCells_(sheet, COLS.grouping, rows, 'ungrouped');
     questionsChanged_();
   });
   invalidateTopics_(sid);
@@ -2323,6 +2416,7 @@ function ungroupQuestions(sid, ids) {
 
 function adminState() {
   const me = requireAdmin_();
+  flushInbox_();
   const counts = {};
   const prepared = {};
   const values = questionValues_();
@@ -2618,6 +2712,8 @@ function endSession_(sid) {
     s.ended = Date.now();
     s.nowAnswering = null;
   });
+  // Questions sent a moment before the end still count: move them into the sheet first.
+  try { flushInbox_(sid); } catch (err) { console.error('Inbox flush at end: ' + err); }
   props_().deleteProperty('TOKEN_' + sid);
   invalidateTopics_(sid);
   audit_('Session ended', session, '');
@@ -2680,6 +2776,8 @@ function deleteSession(sid, typedName) {
 }
 
 function deleteSession_(sid) {
+  const inbox = INBOX_PREFIX + sid + '_';
+  Object.keys(props_().getProperties()).forEach(function (k) { if (k.indexOf(inbox) === 0) props_().deleteProperty(k); });
   withLock_(function () {
     [[questionSheet_(), COLS.session], [topicSheet_(), 1]].forEach(function (pair) {
       const sheet = pair[0];
@@ -3034,6 +3132,7 @@ function sendSummary_(session, recipients) {
 
 /** One session's summary: the email body (topics and every question) and CSV rows. */
 function summaryContent_(session, brand) {
+  flushInbox_(session.id);
   const rows = sessionRows_(session.id);
   const records = topicRecords_(session.id);
   const votes = votesFor_(session.id);
@@ -3286,7 +3385,10 @@ function doPost(e) {
 
   // After a round, the script asks how many questions really arrived: a reply can be lost
   // on Google's redirect even when the question was saved.
-  if (body.action === 'count') return json_({ ok: true, saved: sessionRows_(lt.sid).length });
+  if (body.action === 'count') {
+    flushInbox_(lt.sid);
+    return json_({ ok: true, saved: sessionRows_(lt.sid).length });
+  }
 
   const started = Date.now();
   const res = submitQuestion_(lt.sid, Utilities.getUuid(), String(body.text || 'Load test question'),
@@ -3352,6 +3454,8 @@ function clusterQuestions(e) {
 
 /** Runs the schedule, then groups new questions in every active session. */
 function clusterAll_() {
+  try { flushInbox_(); } catch (err) { console.error('Inbox flush: ' + err); }
+  try { flushAudit_(); } catch (err) { console.error('Activity log flush: ' + err); }
   try {
     runSchedule_();
   } catch (err) {
@@ -3398,6 +3502,7 @@ function clusterSession_(sid, force) {
 }
 
 function clusterSessionNow_(sid, force) {
+  flushInbox_(sid);
   const cache = CacheService.getScriptCache();
   const sessionNow = getSession_(sid);
   // Automatic grouping can be switched off per session; questions are still translated.
@@ -3803,6 +3908,65 @@ function parseJson_(value) {
 }
 
 /** Anonymous text must never be evaluated as a spreadsheet formula. */
+const INBOX_PREFIX = 'Q_';   // Q_<session>_<question id>: a submitted question not yet in the sheet
+
+/**
+ * Moves buffered submissions (one Script Properties key each) into the Questions sheet in a
+ * single write, oldest first. sid limits it to one session. Safe to repeat: rows already in
+ * the sheet (a flush interrupted before clearing its keys) aren't written twice. Returns how
+ * many rows were written.
+ */
+function flushInbox_(sid) {
+  const prefix = INBOX_PREFIX + (sid ? sid + '_' : '');
+  const has = function (all) { return Object.keys(all).filter(function (k) { return k.indexOf(prefix) === 0; }); };
+  if (!has(props_().getProperties()).length) return 0;
+  let written = 0;
+  const touched = {};
+  withLock_(function () {
+    const all = props_().getProperties();   // again, inside the lock: another run may have flushed
+    const keys = has(all);
+    if (!keys.length) return;
+    const sheet = questionSheet_();
+    const last = sheet.getLastRow();
+    const inSheet = {};
+    if (last > 1) sheet.getRange(2, COLS.id, last - 1, 1).getValues().forEach(function (r) { inSheet[String(r[0])] = true; });
+    const rows = keys.map(function (k) { try { return JSON.parse(all[k]); } catch (e) { return null; } })
+      .filter(function (r) { return r && !inSheet[String(r[0])]; })
+      .sort(function (a, b) { return a[1] - b[1]; })
+      .map(function (r) {
+        touched[r[4]] = true;
+        return [r[0], new Date(r[1]), r[2], sheetSafe_(r[3]), 'new', '', '', '', r[4]];
+      });
+    if (rows.length) {
+      const need = last + rows.length;
+      if (sheet.getMaxRows() < need) sheet.insertRowsAfter(sheet.getMaxRows(), need - sheet.getMaxRows() + 200);
+      sheet.getRange(last + 1, 1, rows.length, 9).setValues(rows);
+      SpreadsheetApp.flush();
+    }
+    keys.forEach(function (k) { props_().deleteProperty(k); });
+    written = rows.length;
+    questionsChanged_();
+  });
+  Object.keys(touched).forEach(invalidateTopics_);
+  return written;
+}
+
+/** Questions still in the inbox for a session (not yet in the sheet). */
+function inboxCount_(sid) {
+  const prefix = INBOX_PREFIX + sid + '_';
+  return Object.keys(props_().getProperties()).filter(function (k) { return k.indexOf(prefix) === 0; }).length;
+}
+
+/**
+ * Writes one value into the same column of many rows in a single call (a RangeList), instead
+ * of one call per cell — "Dismiss all" on 20 questions was 20 round trips to Sheets.
+ */
+function setCells_(sheet, col, rows, value) {
+  if (!rows.length) return;
+  const letter = String.fromCharCode(64 + col);   // columns A–Z are all we use
+  sheet.getRangeList(rows.map(function (r) { return letter + r; })).setValue(value);
+}
+
 function sheetSafe_(value) {
   const s = String(value);
   return /^[=+\-@]/.test(s) ? "'" + s : s;

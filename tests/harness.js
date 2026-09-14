@@ -30,6 +30,7 @@ function createApp(options) {
     outbox: [],
     geminiCalls: [],
     lockDepth: 0,
+    rangeListCalls: 0,
     unlockedAppends: [],   // rows appended to Questions without the script lock (must stay empty)
     gemini: defaultGemini,
     mailQuota: 100,
@@ -133,6 +134,8 @@ function createApp(options) {
         return sheet;
       },
       getLastRow() { return sheet.rows.length; },
+      getMaxRows() { return Math.max(1000, sheet.rows.length); },
+      insertRowsAfter() { return sheet; },
       getName() { return sheet.name; },
       deleteRow(row) { sheet.rows.splice(row - 1, 1); return sheet; },
       deleteRows(row, howMany) { sheet.rows.splice(row - 1, howMany); return sheet; },
@@ -141,6 +144,16 @@ function createApp(options) {
         env.sheetReads++;
         const w = sheet.width();
         return { getValues: () => sheet.rows.map((r) => pad(r, w)) };
+      },
+      // A RangeList of single cells in A1 notation ("E5"), as setCells_ uses.
+      getRangeList(a1s) {
+        env.rangeListCalls++;
+        const cells = a1s.map((a1) => {
+          const m = /^([A-Z])(\d+)$/.exec(a1);
+          if (!m) throw new Error('Unsupported A1 cell: ' + a1);
+          return [Number(m[2]), m[1].charCodeAt(0) - 64];
+        });
+        return { setValue(v) { cells.forEach(([row, col]) => setCell(row, col, v)); return this; } };
       },
       getRange(a, b, c, d) {
         if (typeof a === 'string') return { setNumberFormat() { return this; } };
@@ -322,7 +335,9 @@ function createApp(options) {
     anonymous() { env.activeUser = ''; return h; },
     advance(seconds) { clock.now += seconds * 1000; return h; },
     spreadsheet() { return spreadsheets.get(scriptProperties.getProperty('SHEET_ID')); },
-    questions() { return h.spreadsheet().getSheetByName('Questions'); },
+    // The Questions sheet as it is once buffered submissions are written (flushInbox_).
+    questions() { app.flushInbox_(); return h.spreadsheet().getSheetByName('Questions'); },
+    questionsRaw() { return h.spreadsheet().getSheetByName('Questions'); },
     topics() { return h.spreadsheet().getSheetByName('Topics'); },
     assets() { return h.spreadsheet().getSheetByName('Assets'); },
 

@@ -97,11 +97,8 @@ async function round(opts, n) {
   }
   const timed = results.filter((r) => r.timing);
   if (timed.length) {
-    const part = (key) => { const v = timed.map((r) => r.timing[key]).sort((a, b) => a - b); return 'p50 ' + percentile(v, 50) + ' · p95 ' + percentile(v, 95); };
-    console.log('    open sheet   ' + part('openMs') + ' ms');
-    console.log('    lock wait    ' + part('lockWaitMs') + ' ms   (queueing behind other submissions)');
-    console.log('    lock held    ' + part('lockHeldMs') + ' ms');
-    console.log('    append row   ' + part('appendMs') + ' ms');
+    const part = (key) => { const v = timed.map((r) => r.timing[key]).filter((x) => typeof x === 'number').sort((a, b) => a - b); return 'p50 ' + percentile(v, 50) + ' · p95 ' + percentile(v, 95); };
+    console.log('    save         ' + part('saveMs') + ' ms   (into the inbox; written to the sheet in batches)');
   }
   Object.keys(outcomes).sort().forEach((k) => console.log('  ' + (k === 'ok' ? '✓ ' : '✗ ') + k.padEnd(28) + outcomes[k]));
   const sample = results.find((r) => r.sample);

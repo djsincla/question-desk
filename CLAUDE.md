@@ -67,6 +67,19 @@ does not carry the query string. That exact bug shipped once (v2): every QR scan
   script time zone (the harness fakes both with real time-zone math).
 - A session's QA Facilitators are `facilitatorsFor_(session)`: its own plus its event's
   `moderators`. Use it (not `session.moderators`) for access, summaries and emails.
+- **Writes to Sheets are batched; never append question rows in parallel.** A submission
+  saves `Q_<sid>_<id>` in Script Properties (no lock: unique key) and returns;
+  `flushInbox_(sid?)` writes buffered questions to the sheet in one `setValues` under the
+  lock, oldest first, skipping ids already there. It runs on every `getBoard`, in
+  `adminState`, each minute, and before grouping, summaries, ending, archiving and staff
+  question actions. Parallel `appendRow` lost 25 of 40 questions in a load test (2.14.1–2.15.0);
+  a harness test fails if a question row is ever written without the lock. Activity log
+  entries are buffered the same way (`A_<time>_<seq>_<rand>`, `flushAudit_()` each minute and
+  before reading). Same-value cell updates use `setCells_` (one RangeList call).
+- The queue's board is cached per session (`boardData_`, `board:<sid>`, 30 s) — rows, topics,
+  merged and prepared questions; votes, session settings and viewer details are always
+  fresh. `invalidateTopics_(sid)` clears it with the phone topic cache: call it after any
+  change to a session's questions, topics or languages.
 - Questions sheet columns 10–11: `Grouping` (`ungrouped` = taken out of a topic by hand;
   automatic grouping skips it unless Group now; before 2.16 a `?` language marked this) and
   `Translations` (JSON in the session's languages). `session.translatePrepared` (default

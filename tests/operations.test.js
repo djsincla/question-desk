@@ -217,6 +217,7 @@ test('grouping writes land on the right rows even if rows move while Gemini is w
   const live = h.session({ name: 'Live', access: 'link', active: true });
   h.ask(doomed, h.join(doomed), 'Delete me first');
   h.ask(live, h.join(live), 'Parking matters');
+  h.questions();   // both submissions written to the sheet, in order
 
   const normal = h.env.gemini;
   h.env.gemini = (call) => {

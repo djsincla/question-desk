@@ -297,3 +297,54 @@ test('questions are only ever written to the sheet while holding the script lock
   assert.equal(h.questions().rows.length, 7, 'header, five questions and one prepared');
   assert.deepEqual(h.env.unlockedAppends, [], 'no question row written without the lock');
 });
+
+test('a burst of questions is saved to the inbox without the lock, then written to the sheet in one batch', () => {
+  const h = createApp().install({ moderators: ['mod@example.org'] });
+  const s = h.session({ name: 'Burst', access: 'link', active: true, moderators: ['mod@example.org'], cooldownSeconds: 0 });
+  const d = h.join(s);
+  h.env.lockDepth = 0;
+  h.anonymous();
+  const before = h.questionsRaw().rows.length;
+  const ids = [];
+  for (let i = 0; i < 12; i++) {
+    const res = h.app.submitQuestion(s.id, d.deviceId, 'Burst question number ' + i, d.credential);
+    assert.equal(res.ok, true);
+    ids.push(res.id);
+  }
+  assert.equal(h.questionsRaw().rows.length, before, 'nothing written to the sheet during the burst');
+  assert.equal(h.app.inboxCount_(s.id), 12);
+
+  // The facilitator's next refresh brings them in, oldest first, in one write.
+  h.as('mod@example.org');
+  const board = h.app.getBoard(s.id);
+  assert.equal(board.unsorted.length, 12);
+  assert.deepEqual(h.questionsRaw().rows.slice(before).map((r) => r[0]), ids, 'in the order they were asked');
+  assert.equal(h.app.inboxCount_(s.id), 0);
+  assert.deepEqual(h.env.unlockedAppends, []);
+
+  // A flush interrupted after writing but before clearing its keys doesn't duplicate rows.
+  h.anonymous();
+  const again = h.app.submitQuestion(s.id, d.deviceId, 'One more question here', d.credential);
+  const key = 'Q_' + s.id + '_' + again.id;
+  const saved = h.props.getProperty(key);
+  h.app.flushInbox_(s.id);
+  h.props.setProperty(key, saved);
+  h.app.flushInbox_(s.id);
+  assert.equal(h.questionsRaw().rows.filter((r) => r[0] === again.id).length, 1);
+});
+
+test('questions sent just before a session ends are in its summary, and deleting a session clears its inbox', () => {
+  const h = createApp().install({ moderators: ['mod@example.org'] });
+  const s = h.session({ name: 'Ending', access: 'link', active: true, moderators: ['mod@example.org'], emailOnEnd: true, cooldownSeconds: 0 });
+  h.ask(s, h.join(s), 'The very last question');
+  assert.equal(h.app.inboxCount_(s.id), 1);
+  h.app.endSession(s.id, 'Ending');
+  assert.match(h.env.outbox[0].attachments[0].getDataAsString(), /The very last question/);
+
+  const t = h.session({ name: 'Doomed', access: 'link', active: true });
+  h.ask(t, h.join(t), 'Never written anywhere');
+  h.app.setSessionActive(t.id, false);
+  h.app.deleteSession(t.id, 'Doomed');
+  assert.equal(h.app.inboxCount_(t.id), 0);
+  assert.ok(!h.questionsRaw().rows.some((r) => r[3] === 'Never written anywhere'));
+});

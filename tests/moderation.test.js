@@ -170,7 +170,10 @@ test('a queue button opens the spreadsheet once and reads each sheet at most onc
   const [opens, reads] = measure(() => h.app.setTopicShown(a.id, 'About parking', true));
   assert.equal(opens, 1, 'setTopicShown opens the spreadsheet once');
   assert.ok(reads <= 3, 'setTopicShown reads ' + reads + ' times (questions, topics, and topics again under the lock)');
-  assert.deepEqual(measure(() => h.app.getBoard(a.id)), [1, 2], 'getBoard: one open, questions + topics');
+  // The board is cached per session: refreshes after the one that followed a change read nothing.
+  assert.deepEqual(measure(() => h.app.getBoard(a.id)), [0, 0], 'getBoard from the cache: no spreadsheet at all');
+  h.app.invalidateTopics_(a.id);
+  assert.deepEqual(measure(() => h.app.getBoard(a.id)), [1, 2], 'getBoard after a change: one open, questions + topics');
   const [o2, r2] = measure(() => h.app.setStatus(a.id, [id], 'answered'));
   assert.equal(o2, 1);
   assert.ok(r2 <= 3, 'setStatus reads ' + r2);
@@ -209,4 +212,33 @@ test('the room screen checks for changes every 5 seconds', () => {
   const link = h.session({ name: 'Link', access: 'link', active: true });
   assert.ok(h.app.getRoomScreen(room.id).refreshInSeconds <= 5);
   assert.equal(h.app.getRoomScreen(link.id).refreshInSeconds, 5);
+});
+
+test('the queue board is shared from the cache and always fresh after a change', () => {
+  const { h, a } = setup();
+  h.ask(a, h.join(a), 'Parking question one');
+  h.app.clusterAll_();
+  h.as(MOD);
+  const first = h.app.getBoard(a.id);
+  h.env.opens = 0;
+  for (let i = 0; i < 5; i++) h.app.getBoard(a.id);
+  assert.equal(h.env.opens, 0, 'five refreshes, no spreadsheet reads');
+
+  // Every kind of change shows up on the very next refresh.
+  const qid = first.topics[0].questions[0].id;
+  h.app.setStatus(a.id, [qid], 'answered');
+  assert.equal(h.app.getBoard(a.id).topics[0].questions[0].status, 'answered');
+  h.anonymous();
+  h.ask(a, h.join(a), 'A brand new question');
+  h.as(MOD);
+  assert.ok(h.app.getBoard(a.id).unsorted.some((q) => q.text === 'A brand new question'), 'new questions from the inbox');
+  h.anonymous();
+  h.app.meToo(a.id, h.join(a).deviceId, 'About parking');   // not shown: refused, no change
+  h.as(MOD);
+  h.app.setStatus(a.id, [qid], 'new');   // fully answered topics leave phones
+  h.app.setTopicShown(a.id, 'About parking', true);
+  h.anonymous();
+  h.app.meToo(a.id, h.join(a).deviceId, 'About parking');
+  h.as(MOD);
+  assert.equal(h.app.getBoard(a.id).topics[0].votes, 1, 'Me too counts are always fresh');
 });
