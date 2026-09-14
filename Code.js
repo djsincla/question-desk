@@ -17,7 +17,7 @@
 
 /** Bump with every release; scripts/ship.sh tags git and publishes release notes from CHANGELOG.md. */
 const APP = {
-  version: '2.18.0',
+  version: '2.19.0',
   repo: 'https://github.com/djsincla/question-desk'
 };
 
@@ -50,7 +50,7 @@ const CONFIG = {
   maxLengthCeiling: 1024,         // no session may allow more than this
   cooldownSeconds: 300,           // default wait between questions per phone; each session can change it
   cooldownCeiling: 3600,          // longest wait a session may set
-  roomLimitPerMinute: 15,         // per session intake cap
+  roomLimitPerMinute: 120,        // per session intake cap: a full room at once (100 tested), spam still groups
   meTooLimitPerMinute: 300,       // per session Me too taps (a full room tapping at once fits)
   entryTokenSeconds: 150,         // how often an in-room QR rotates
   deviceTokenSeconds: 21600,      // 6h — CacheService maximum
@@ -1832,7 +1832,11 @@ function cooldownRemaining_(session, deviceId) {
   return Math.max(0, Math.ceil((askedAt + cooldownFor_(session) * 1000 - Date.now()) / 1000));
 }
 
-/** Per-session intake cap, so no single device can flood the queue. */
+/**
+ * Per-session intake cap, so no single device can flood the queue. Approximate under a burst
+ * (the counter isn't locked, so parallel submissions can read the same count) — it's flood
+ * protection, not an exact quota.
+ */
 function roomBudgetAvailable_(sid) {
   const cache = CacheService.getScriptCache();
   const bucket = 'room:' + sid + ':' + Math.floor(Date.now() / 60000);

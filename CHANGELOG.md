@@ -4,6 +4,14 @@ All notable changes to Question Desk. Versions follow [Semantic Versioning](http
 Each release is tagged `vX.Y.Z` and published as a GitHub release by `scripts/ship.sh`,
 which reads the notes for that version from this file.
 
+## [2.19.0] - 2026-09-13
+
+### Changed
+- **Room cap raised from 15 to 120 questions a minute per session.** Since 2.17 a full room
+  can submit at once (a 100-at-once load test saved every question in about a second), so
+  the old cap would have told most of a large room to try again. Spam is still handled by
+  grouping, the wait between questions, and the queue's Dismiss all.
+
 ## [2.18.0] - 2026-09-13
 
 ### Fixed
@@ -611,6 +619,7 @@ Fixes from a full code review.
 - "Merge into one question" for reading a topic aloud.
 - Participant page in English, Korean and Spanish.
 
+[2.19.0]: https://github.com/djsincla/question-desk/releases/tag/v2.19.0
 [2.18.0]: https://github.com/djsincla/question-desk/releases/tag/v2.18.0
 [2.17.0]: https://github.com/djsincla/question-desk/releases/tag/v2.17.0
 [2.16.0]: https://github.com/djsincla/question-desk/releases/tag/v2.16.0

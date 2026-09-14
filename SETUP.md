@@ -273,7 +273,8 @@ but that's an instruction, not a guarantee.
   60 minutes on its form, and a change applies at once, even to phones already waiting.
   Stops double-taps and casual repeat posting. It is beatable by re-scanning in a
   private window — for in-room sessions, only by someone who can see the room screen.
-- **Per-session cap, 15 questions a minute.** Identity-free flood protection. Excess
+- **Per-session cap, 120 questions a minute.** Enough for a full room submitting at once (a
+  100-at-once load test saved every question); identity-free flood protection. Excess
   submissions get a "try again in a moment" message rather than being dropped.
 - **Question length.** 300 characters by default, adjustable per session up to 1024.
   Oversized submissions are rejected before the server does any work on them.

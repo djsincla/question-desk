@@ -220,7 +220,8 @@ What exists instead:
   exchanges that short-lived token once for a long-lived device token. A URL
   forwarded outside the room goes dead. This scopes submission to physical
   presence, which is the strongest guarantee available here.
-- A room-wide cap of 15 questions/minute. Identity-free flood protection.
+- A room-wide cap of 120 questions/minute (was 15 until 2.19, when submissions stopped
+  queuing for the sheet). Identity-free flood protection; approximate under bursts.
 - **Clustering is the real spam defense.** Twenty questions from one person collapse
   into one topic card the facilitator dismisses once. If a change would weaken
   clustering to strengthen the cooldown, it is the wrong trade.

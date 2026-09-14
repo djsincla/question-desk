@@ -185,8 +185,9 @@ test('load test controls are admin only and the room cap still applies to normal
   h.as(h.env.owner);
   const view = h.app.startLoadTest().loadTest;
   const session = h.app.getSession_(view.sid);
-  for (let i = 0; i < 15; i++) h.ask(session, h.join(session), 'Normal path ' + i);
-  assert.equal(h.ask(session, h.join(session), 'Sixteenth').reason, 'busy', 'google.script.run path keeps the cap');
+  const cap = h.app.CONFIG.roomLimitPerMinute;
+  for (let i = 0; i < cap; i++) h.ask(session, h.join(session), 'Normal path ' + i);
+  assert.equal(h.ask(session, h.join(session), 'One past the cap').reason, 'busy', 'google.script.run path keeps the cap');
 });
 
 // ------------------------------------------------------------ deletion and safety

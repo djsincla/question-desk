@@ -168,11 +168,12 @@ test('cooldown is per session', () => {
   assert.equal(h.ask(b, deviceB, 'Question for room B').ok, true);
 });
 
-test('room cap: 15 per minute per session, independent across sessions', () => {
+test('room cap: 120 per minute per session, independent across sessions', () => {
   const h = createApp().install();
+  assert.equal(h.app.CONFIG.roomLimitPerMinute, 120, 'room for a full room submitting at once');
   const a = h.session({ name: 'A', access: 'link', active: true });
   const b = h.session({ name: 'B', access: 'link', active: true });
-  for (let i = 0; i < 15; i++) assert.equal(h.ask(a, h.join(a), 'Question number ' + i).ok, true);
+  for (let i = 0; i < 120; i++) assert.equal(h.ask(a, h.join(a), 'Question number ' + i).ok, true);
   assert.equal(h.ask(a, h.join(a), 'One too many').reason, 'busy');
   assert.equal(h.ask(b, h.join(b), 'Other room is fine').ok, true);
   h.advance(60);
