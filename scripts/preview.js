@@ -215,7 +215,7 @@ function serve(port, options) {
     const page = h.app.doGet({ parameter: params });
     const html = fs.readFileSync(path.join(ROOT, page.file), 'utf8')
       .replace('<?!= boot ?>', page.boot)
-      .replace('<?!= styles ?>', fs.readFileSync(path.join(ROOT, 'Styles.html'), 'utf8'))
+      .replace('<?!= styles ?>', () => page.styles)
       .replace('<head>', '<head><title>' + page.title + '</title>' + shim(as, params));
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
     res.end(html);

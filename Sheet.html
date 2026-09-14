@@ -4,35 +4,6 @@
 <base target="_top">
 <?!= styles ?>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" integrity="sha512-CNgIRecGo7nphbeZ04Sc13ka07paqdeTu0WR1IM4kNcpmBAUSHSQX0FslNhTDadL4O5SAGapGt4FodqL8My0mA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-<style>
-  /* Printable QR sheets for an event's shareable-link sessions: one page each. */
-  body { padding: 24px; }
-  .toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; max-width: 46rem; margin: 0 auto 20px; }
-  .toolbar p { margin: 0; flex: 1 1 18rem; color: var(--muted); }
-  .page {
-    background: var(--card); max-width: 46rem; margin: 0 auto 24px; padding: 48px 40px;
-    border-radius: var(--radius); box-shadow: var(--shadow); text-align: center;
-    border-top: 8px solid var(--action);
-  }
-  .page img.logo { max-height: 70px; max-width: 280px; margin-bottom: 12px; }
-  .page .org { color: var(--muted); margin: 0 0 4px; }
-  .page .event { color: var(--muted); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; font-size: 0.85rem; margin: 0 0 18px; }
-  .page h1 { font-size: 2.2rem; line-height: 1.15; margin: 0 0 6px; }
-  .page .heading { font-size: 1.2rem; color: var(--muted); margin: 0 0 26px; }
-  .qr { display: inline-block; padding: 6px; background: #fff; border-radius: 16px; box-shadow: 0 0 0 6px var(--action); }
-  .qr svg { display: block; width: 340px; height: 340px; }
-  .scan { margin: 26px 0 0; font-size: 1.35rem; font-weight: 600; }
-  .scan span { display: block; font-size: 1.05rem; font-weight: 500; color: var(--muted); margin-top: 4px; }
-  .anon { margin: 18px 0 0; color: var(--muted); }
-  .link { margin: 22px auto 0; font-size: 0.78rem; color: var(--faint); word-break: break-all; max-width: 34rem; }
-  .skipped { max-width: 46rem; margin: 0 auto; color: var(--muted); }
-  @media print {
-    body { background: #fff; padding: 0; }
-    .toolbar, .skipped { display: none !important; }
-    .page { box-shadow: none; border-radius: 0; margin: 0; max-width: none; min-height: 100vh; page-break-after: always; break-after: page; }
-    .page:last-of-type { page-break-after: auto; break-after: auto; }
-  }
-</style>
 </head>
 <body>
 <div class="toolbar">

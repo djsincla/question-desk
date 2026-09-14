@@ -89,24 +89,54 @@ for (const page of PAGES) {
     const scriptlets = html.match(/<\?[\s\S]*?\?>/g) || [];
     scriptlets.forEach((s) => assert.ok(s === '<?!= boot ?>' || s === '<?!= styles ?>', page + ' has an unexpected scriptlet ' + s));
     if (scriptlets.indexOf('<?!= boot ?>') !== -1) assert.match(html, /var BOOT = <\?!= boot \?>;/);
-    // The shared stylesheet goes in the head, before the page's own styles so they can override it.
-    if (scriptlets.indexOf('<?!= styles ?>') !== -1) {
-      assert.ok(html.indexOf('<?!= styles ?>') < html.indexOf('<style>'), page + ': shared styles come before the page styles');
-      assert.ok(html.indexOf('<?!= styles ?>') < html.indexOf('</head>'), page + ': shared styles are in the head');
-    }
+    // Styles come only from Styles.html, in the head.
+    assert.ok(html.indexOf('<?!= styles ?>') !== -1 && html.indexOf('<?!= styles ?>') < html.indexOf('</head>'), page + ': styles are in the head');
+  });
+
+  test(page + ': has no styles of its own (they all live in Styles.html)', () => {
+    assert.doesNotMatch(html, /<style[\s>]/, page + ' has a style block: move it to its section of Styles.html');
+    assert.doesNotMatch(html, /\sstyle=["']/, page + ' has a style attribute: use a class from Styles.html');
+    assert.doesNotMatch(html, /cssText|setAttribute\(\s*['"]style['"]/, page + ' sets styles from a script');
+    // Scripts may only set values that come from data: brand colors, a meter's width.
+    const sets = Array.from(html.matchAll(/\.style\.([A-Za-z]+)/g), (m) => m[1]).filter((prop) => prop !== 'setProperty');
+    sets.forEach((prop) => assert.ok(['width', 'background'].indexOf(prop) !== -1, page + ' sets style.' + prop + ' from a script: use a class'));
+    Array.from(html.matchAll(/\.style\.setProperty\(\s*'([^']+)'/g), (m) => m[1]).forEach((name) => {
+      assert.match(name, /^--/, page + ' sets ' + name + ' from a script: only CSS variables (brand colors)');
+    });
   });
 }
 
-test('the shared stylesheet is one style block, uploaded with the app, and used by every page but the room screen', () => {
+test('every style is in Styles.html: one style block, a section per page, and each page gets only its own', () => {
   const css = fs.readFileSync(path.join(ROOT, 'Styles.html'), 'utf8').trim();
   assert.match(css, /^<style>[\s\S]*<\/style>$/);
   assert.equal((css.match(/<style>/g) || []).length, 1);
   assert.doesNotMatch(css, /<\?|<script|@import|url\(/, 'no scriptlets, scripts or external resources');
   assert.match(fs.readFileSync(path.join(ROOT, '.claspignore'), 'utf8'), /^!Styles\.html$/m);
-  PAGES.filter((p) => p !== 'Present.html').forEach((p) => {
-    assert.match(fs.readFileSync(path.join(ROOT, p), 'utf8'), /<\?!= styles \?>/, p + ' includes the shared styles');
+  assert.match(SERVER, /template\.styles = stylesFor_\(file\);/);
+
+  const sections = Array.from(css.matchAll(/\/\* =+ @pages ([A-Za-z ]+) \*\//g), (m) => m[1].split(' '));
+  const names = PAGES.map((p) => p.replace('.html', ''));
+  names.forEach((name) => {
+    assert.ok(sections.some((list) => list.length === 1 && list[0] === name), 'Styles.html has a section for ' + name);
   });
-  assert.match(SERVER, /template\.styles = HtmlService\.createHtmlOutputFromFile\('Styles'\)\.getContent\(\);/);
+  sections.flat().forEach((name) => assert.ok(names.indexOf(name) !== -1, 'section for an unknown page: ' + name));
+
+  const { createApp } = require('./harness');
+  const h = createApp().install();
+  const forPage = (p) => h.app.stylesFor_(p);
+  names.forEach((name) => {
+    const out = forPage(name + '.html');
+    assert.match(out, /^<style>\n[\s\S]+<\/style>$/);
+    assert.doesNotMatch(out, /@pages/, 'markers are stripped');
+  });
+  // Each page gets the shared section (except the room screen) and its own, never another page's.
+  assert.match(forPage('Ask.html'), /--action:/);
+  assert.match(forPage('Ask.html'), /\.metoo/);
+  assert.doesNotMatch(forPage('Ask.html'), /#gemForm/, 'phones never download the Admin styles');
+  assert.match(forPage('Admin.html'), /#gemForm/);
+  assert.doesNotMatch(forPage('Admin.html'), /qr-only/);
+  assert.match(forPage('Present.html'), /qr-only/);
+  assert.doesNotMatch(forPage('Present.html'), /label\.field/, 'the room screen keeps only its projector styles');
 });
 
 test('no raw U+2028/U+2029 in any source file', () => {

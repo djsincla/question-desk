@@ -303,6 +303,7 @@ function createApp(options) {
             const out = {
               file,
               boot: template.boot,
+              styles: template.styles,
               data: JSON.parse(template.boot),
               title: '',
               setTitle(t) { out.title = t; return out; },
@@ -319,7 +320,7 @@ function createApp(options) {
         };
         return template;
       },
-      createHtmlOutputFromFile: () => ({ getContent: () => '' })
+      createHtmlOutputFromFile: (name) => ({ getContent: () => require('fs').readFileSync(require('path').join(__dirname, '..', name + '.html'), 'utf8') })
     }
   };
 

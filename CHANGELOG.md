@@ -4,6 +4,15 @@ All notable changes to Question Desk. Versions follow [Semantic Versioning](http
 Each release is tagged `vX.Y.Z` and published as a GitHub release by `scripts/ship.sh`,
 which reads the notes for that version from this file.
 
+## [2.21.1] - 2026-09-14
+
+### Changed
+- **Every style is in one file, `Styles.html`.** The pages' own style blocks, style
+  attributes and styles set from scripts moved into it, in a section per page. Each page
+  still loads only the shared styles and its own section, so phones don't download the Admin
+  page's styles. Nothing looks different: before-and-after screenshots of 28 page states
+  match pixel for pixel (apart from random keys and ticking clocks).
+
 ## [2.21.0] - 2026-09-14
 
 ### Added
@@ -677,6 +686,7 @@ Fixes from a full code review.
 - "Merge into one question" for reading a topic aloud.
 - Participant page in English, Korean and Spanish.
 
+[2.21.1]: https://github.com/djsincla/question-desk/releases/tag/v2.21.1
 [2.21.0]: https://github.com/djsincla/question-desk/releases/tag/v2.21.0
 [2.20.0]: https://github.com/djsincla/question-desk/releases/tag/v2.20.0
 [2.19.0]: https://github.com/djsincla/question-desk/releases/tag/v2.19.0

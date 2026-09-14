@@ -17,7 +17,7 @@
 
 /** Bump with every release; scripts/ship.sh tags git and publishes release notes from CHANGELOG.md. */
 const APP = {
-  version: '2.21.0',
+  version: '2.21.1',
   repo: 'https://github.com/djsincla/question-desk'
 };
 
@@ -164,8 +164,8 @@ function doGet(e) {
 /** Renders a page with server data injected as a JSON literal (see BOOT in each file). */
 function page_(file, title, boot, session) {
   const template = HtmlService.createTemplateFromFile(file);
-  // Shared design tokens and components (Styles.html), inlined so pages stay one request.
-  template.styles = HtmlService.createHtmlOutputFromFile('Styles').getContent();
+  // Every page's styles live in Styles.html; inlined so pages stay one request.
+  template.styles = stylesFor_(file);
   boot.brand = brand_(session);
   template.boot = JSON.stringify(boot)
     .replace(/</g, '\\u003c')
@@ -183,6 +183,22 @@ function page_(file, title, boot, session) {
     try { output.setFaviconUrl(boot.brand.faviconUrl); } catch (err) { console.error('Favicon: ' + err); }
   }
   return output;
+}
+
+/**
+ * The <style> block for one page: the sections of Styles.html marked "@pages" with this page's
+ * name (the shared section, then the page's own). A phone never downloads the Admin styles.
+ */
+function stylesFor_(file) {
+  const page = String(file).replace(/\.html$/, '');
+  const css = HtmlService.createHtmlOutputFromFile('Styles').getContent();
+  const inner = css.slice(css.indexOf('<style>') + 7, css.lastIndexOf('</style>'));
+  const parts = inner.split(/[ \t]*\/\* =+ @pages ([A-Za-z ]+) \*\/\n/);
+  let out = '';
+  for (let i = 1; i < parts.length; i += 2) {
+    if (parts[i].split(' ').indexOf(page) !== -1) out += parts[i + 1];
+  }
+  return '<style>\n' + out + '</style>';
 }
 
 /** Splash page at the bare app address. Staff see their live sessions; everyone else sees how to join. */

@@ -3,36 +3,6 @@
 <head>
 <base target="_top">
 <?!= styles ?>
-<style>
-  html, body { min-height: 100%; }
-  body { display: flex; flex-direction: column; background: radial-gradient(1200px 400px at 50% -120px, var(--action-soft), transparent 70%), var(--paper); }
-  .band { height: 6px; background: var(--accent); }
-  main {
-    flex: 1;
-    width: 100%;
-    max-width: 36rem;
-    margin: 0 auto;
-    padding: 9vh 24px 32px;
-  }
-  .logo { display: block; max-height: 88px; max-width: 260px; margin-bottom: 20px; }
-  .org { color: var(--muted); font-size: 1rem; margin: 0 0 6px; }
-  h1 { font-size: clamp(1.8rem, 6vw, 2.6rem); line-height: 1.1; margin: 0 0 14px; font-weight: 650; }
-  .welcome { font-size: 1.1rem; margin: 0 0 28px; }
-  .join { background: var(--card); border: 1px solid var(--rule); border-left: 4px solid var(--accent); border-radius: var(--radius); padding: 18px 20px; margin-bottom: 28px; box-shadow: var(--shadow); }
-  .join p { margin: 0 0 6px; }
-  .join p:last-child { margin-bottom: 0; }
-  .join .main { font-weight: 600; font-size: 1.05rem; }
-  .join p[lang]:not([lang="en"]) { color: var(--muted); }
-  .staff { border-top: 1px solid var(--rule); padding-top: 18px; }
-  .staff h2 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 0 0 10px; font-weight: 600; }
-  .staff ul { list-style: none; margin: 0 0 12px; padding: 0; }
-  .staff li { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; background: var(--card); border: 1px solid var(--rule); border-radius: var(--radius-sm); padding: 10px 14px; margin-bottom: 8px; box-shadow: var(--shadow-sm); }
-  .staff li span { color: var(--muted); font-size: 0.85rem; }
-  .staff a { color: var(--accent); }
-  .staff .links a { margin-left: 12px; }
-  .quiet { color: var(--muted); font-size: 0.9rem; margin: 0; }
-  footer { text-align: center; color: var(--muted); font-size: 0.85rem; padding: 18px 24px 24px; }
-</style>
 </head>
 <body>
 <div class="band"></div>

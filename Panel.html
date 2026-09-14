@@ -3,34 +3,6 @@
 <head>
 <base target="_top">
 <?!= styles ?>
-<style>
-  /* Panelist view: a tablet or laptop on the panel table. Read-only, large, calm. */
-  html, body { height: 100%; }
-  body {
-    --bg: #10171f;
-    --fg: #ffffff;
-    --soft: #9dabb8;
-    display: flex;
-    flex-direction: column;
-    background: var(--bg);
-    color: var(--fg);
-    padding: 4vh 5vw;
-  }
-  body.light { --bg: #ffffff; --fg: #172230; --soft: #5d6877; }
-  .top { display: flex; align-items: center; justify-content: space-between; gap: 16px; color: var(--soft); font-size: clamp(0.85rem, 1.6vw, 1.1rem); }
-  .top img { max-height: 5vh; max-width: 30vw; }
-  body:not(.light) .top img { background: #fff; padding: 4px 8px; border-radius: 6px; }
-  main { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 2.5vh; max-width: 70rem; margin: 0 auto; width: 100%; }
-  .label { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; font-size: clamp(0.8rem, 1.6vw, 1.1rem); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--soft); }
-  .timer { font-variant-numeric: tabular-nums; letter-spacing: 0; text-transform: none; font-weight: 600; background: var(--action); color: var(--action-ink); border-radius: 999px; padding: 3px 12px; }
-  .timer.long { background: #c77b12; }
-  .topic { font-size: clamp(1.4rem, 3.4vw, 2.6rem); font-weight: 600; line-height: 1.2; margin: 0; color: var(--soft); }
-  .question { font-size: clamp(1.8rem, 5.2vw, 4.4rem); font-weight: 650; line-height: 1.15; margin: 0; text-wrap: balance; letter-spacing: -0.015em; }
-  .waiting { font-size: clamp(1.4rem, 3.6vw, 2.8rem); color: var(--soft); margin: 0; }
-  .foot { display: flex; justify-content: space-between; gap: 16px; color: var(--soft); font-size: clamp(0.8rem, 1.4vw, 1rem); font-variant-numeric: tabular-nums; }
-  .foot .stale { color: #e8a13a; font-weight: 600; }
-  main > * { animation: qd-rise 0.3s var(--ease); }
-</style>
 </head>
 <body>
 <div class="top">

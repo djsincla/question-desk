@@ -15,8 +15,13 @@ Workspace account. See SETUP.md for install and deployment.
 - `Moderate.html` — facilitator queue for one session, grouped by topic, Now answering
 - `Admin.html` — sessions (schedule, per-session branding), people, branding, health, load test
 - `Denied.html` — not-allowed page, also the session picker
-- `Styles.html` — shared design tokens and components (one `<style>` block), inlined into
-  every page except Present.html by `page_()` through `<?!= styles ?>`
+- `Styles.html` — **every style for the Apps Script pages**, one `<style>` block in sections
+  marked `/* ==== @pages Admin Ask … */`: the shared section (tokens, components, utilities
+  that replaced style attributes), then one section per page. `stylesFor_(file)` inlines
+  only the sections naming that page through `<?!= styles ?>` (the room screen gets only its
+  own). Pages have no `<style>` blocks, `style=` attributes or script-set styles except
+  data-driven values (CSS variables, a brand color dot, a meter width); `tests/pages.test.js`
+  enforces it. docs/ pages (guest page, add-in) are separate sites with their own styles.
 - `appsscript.json` — manifest; web app set to execute as owner, anonymous access
 - `.claspignore` — allowlist of what `clasp push` uploads; add new pages here
 - `tests/` — Node test suite that runs `Code.js` against fake Apps Script services
@@ -52,8 +57,8 @@ Workspace account. See SETUP.md for install and deployment.
 
 Pages get server data through a single template scriptlet, `var BOOT = <?!= boot ?>;`,
 filled by `page_()` with `<` and U+2028/2029 escaped. The only other scriptlet is
-`<?!= styles ?>` in the head (the trusted Styles.html, before the page's own styles, which
-may override it). Do not add other scriptlets, and
+`<?!= styles ?>` in the head (the page's sections of the trusted Styles.html). Do not add
+other scriptlets, and
 never read `window.location` for parameters — pages run in a sandboxed iframe whose URL
 does not carry the query string. That exact bug shipped once (v2): every QR scan failed.
 
@@ -326,7 +331,7 @@ instruction in any prompt edits.
   then save; polls don't overwrite while a save is in flight. Server reads go through the
   per-execution cache (`questionValues_`, `topicValues_`); writes must call
   `questionsChanged_()` / `topicsChanged_()`. `tests/harness.js` resets it per call.
-- Present.html's CSS order matters: the wide grid layout (brand/footer, words + code, Now
+- The room screen's CSS (the Present section of Styles.html) order matters: the wide grid layout (brand/footer, words + code, Now
   answering, status + clock rows), then the `@media (max-aspect-ratio: 5/4)` stacked layout,
   then the `qr-only` slide rules last. Nothing is `position: fixed` except the band and the
   slide's clock. `fit()` lowers the `--fit` font multiplier until no part overlaps or leaves

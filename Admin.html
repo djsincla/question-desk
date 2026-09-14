@@ -3,173 +3,6 @@
 <head>
 <base target="_top">
 <?!= styles ?>
-<style>
-  /* Keep the scrollbar's space even when the page is short, so collapsing, filtering or a
-     refresh that changes the page's height never shifts everything sideways. */
-  html { overflow-y: scroll; scrollbar-gutter: stable; }
-  body { padding: 20px; font-size: 15px; }
-  .wrap { max-width: 60rem; margin: 0 auto; }
-  header { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding-bottom: 12px; border-bottom: 1px solid var(--rule); }
-  header .title { display: flex; align-items: center; gap: 12px; }
-  header img { max-height: 36px; max-width: 160px; }
-  h1 { font-size: 1.2rem; margin: 0; font-weight: 600; }
-  h2 { font-size: 1rem; margin: 0 0 10px; font-weight: 600; }
-  h3 { font-size: 0.95rem; margin: 0; font-weight: 600; }
-  .who { color: var(--muted); font-size: 0.9rem; }
-  a { color: var(--action); }
-
-  /* Tabs: a segmented bar with an accent underline that slides between tabs. */
-  nav.tabs { display: flex; gap: 2px; margin: 18px 0 22px; border-bottom: 1px solid var(--rule); overflow-x: auto; }
-  nav.tabs button { border: 0; border-radius: var(--radius-sm) var(--radius-sm) 0 0; background: none; box-shadow: none; padding: 9px 14px; color: var(--muted); position: relative; white-space: nowrap; }
-  nav.tabs button:hover { background: rgba(16, 24, 40, 0.04); color: var(--ink); }
-  nav.tabs button::after { content: ""; position: absolute; left: 10px; right: 10px; bottom: -1px; height: 3px; border-radius: 3px 3px 0 0; background: var(--action); transform: scaleX(0); transition: transform 0.2s var(--ease); }
-  nav.tabs button[aria-selected="true"] { color: var(--ink); font-weight: 600; }
-  nav.tabs button[aria-selected="true"]::after { transform: scaleX(1); }
-  section[id^="tab-"]:not([hidden]) { animation: qd-rise 0.22s var(--ease); }
-
-  input[type=text], input[type=email], input[type=number], input[type=url], input[type=datetime-local], textarea { width: 100%; }
-  textarea { min-height: 5rem; resize: vertical; }
-  label.field { display: block; margin-bottom: 14px; }
-  label.field > span, .field-label { display: block; font-weight: 600; font-size: 0.9rem; margin-bottom: 4px; }
-  .hint { color: var(--muted); font-size: 0.85rem; margin-top: 3px; }
-  .choice { display: flex; gap: 8px; align-items: flex-start; margin-bottom: 6px; font-weight: 400; }
-  .choice input { margin-top: 3px; }
-  .choice small { display: block; color: var(--muted); }
-  .row { display: flex; gap: 16px; flex-wrap: wrap; }
-  .row > * { flex: 1 1 14rem; }
-  .actions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
-
-  .panel { padding: 18px; margin-bottom: 18px; }
-  .panel.form { border-top: 3px solid var(--action); box-shadow: var(--shadow-lg); animation: qd-rise 0.22s var(--ease); }
-
-  .session { border: 1px solid var(--rule); border-radius: var(--radius); margin-bottom: 12px; background: var(--card); box-shadow: var(--shadow-sm); transition: box-shadow 0.15s var(--ease), border-color 0.15s var(--ease); }
-  .session:hover { box-shadow: var(--shadow); border-color: var(--rule-strong); }
-  .session .head { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 12px 14px; }
-  .session .meta { color: var(--muted); font-size: 0.85rem; margin-top: 2px; }
-  .session .links { border-top: 1px solid var(--rule); padding: 12px 14px; background: var(--paper); border-radius: 0 0 var(--radius) 0; }
-  .linkrow { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
-  .linkrow b { flex: 0 0 9rem; font-size: 0.85rem; }
-  .linkrow input { flex: 1; font-size: 0.85rem; }
-  .pill { vertical-align: 2px; margin-left: 6px; }
-
-  ul.people { list-style: none; margin: 0 0 12px; padding: 0; }
-  ul.people li { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 7px 0; border-bottom: 1px solid #eef1f3; }
-  .adder { display: flex; gap: 8px; }
-
-  .logo-preview { display: flex; align-items: center; justify-content: center; min-height: 80px; border: 1px dashed var(--rule-strong); border-radius: var(--radius-sm); margin-bottom: 8px; padding: 10px; background: var(--paper); }
-  .logo-preview img { max-height: 80px; max-width: 100%; }
-  .swatch { display: flex; gap: 8px; align-items: center; }
-  .swatch input[type=color] { width: 44px; height: 36px; padding: 2px; }
-  dl.status { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 0; }
-  dl.status dt { color: var(--muted); }
-  dl.status dd { margin: 0; }
-
-  .toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 10px 16px; border-radius: 6px; max-width: 90vw; box-shadow: 0 4px 16px rgba(0,0,0,0.2); z-index: 20; }
-  .toast.error { background: var(--stop); }
-
-  .modal { position: fixed; inset: 0; background: rgba(15, 23, 32, 0.45); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); display: flex; align-items: flex-start; justify-content: center; padding: 8vh 16px; z-index: 10; }
-  .modal .panel { width: 100%; max-width: 32rem; box-shadow: var(--shadow-lg); animation: qd-rise 0.2s var(--ease); }
-  .empty { color: var(--muted); padding: 24px 0; text-align: center; }
-  details.advanced summary { cursor: pointer; color: var(--muted); font-size: 0.9rem; }
-  fieldset { border: 1px solid var(--rule); border-radius: var(--radius-sm); padding: 12px 14px; margin: 0 0 14px; background: var(--paper); }
-  legend { font-weight: 600; font-size: 0.9rem; padding: 0 6px; }
-  .pill.test { background: #eef0fb; color: #3b4a9a; border-color: #cfd5f2; }
-  table.checks { width: 100%; border-collapse: collapse; margin-top: 10px; }
-  #gemForm select, #gemForm input[type=text], #gemForm input[type=number] { width: 100%; }
-  button.linkish { border: 0; background: none; padding: 0; color: var(--action); text-decoration: underline; font: inherit; cursor: pointer; box-shadow: none; }
-  table.checks td { padding: 8px 6px; border-bottom: 1px solid #eef1f3; vertical-align: top; }
-  table.checks td:first-child { width: 1.5rem; font-weight: 700; }
-  td.ok { color: var(--action); }
-  td.bad { color: var(--stop); }
-  pre.cmd { background: var(--paper); border: 1px solid var(--rule); border-radius: 4px; padding: 10px; white-space: pre-wrap; word-break: break-all; font-size: 0.85rem; margin: 8px 0; }
-  header { border-top: 4px solid var(--action); padding-top: 14px; }
-  #dialog .panel { max-width: 30rem; }
-  #dialogBody { margin: 0 0 14px; white-space: pre-line; }
-  .typed { font-weight: 600; background: var(--paper); border: 1px solid var(--rule); border-radius: 3px; padding: 0 4px; }
-  .session { display: flex; }
-  .session .grip { flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 6px 4px; border-right: 1px solid var(--rule); background: var(--paper); border-radius: var(--radius) 0 0 var(--radius); }
-  .session .grip .handle { cursor: grab; color: var(--muted); font-size: 1.1rem; line-height: 1; padding: 4px 6px; user-select: none; }
-  .session .grip button { border: 0; background: none; box-shadow: none; padding: 2px 6px; color: var(--muted); font-size: 0.8rem; }
-  .session .grip button:disabled { visibility: hidden; }
-  .session .body { flex: 1; min-width: 0; }
-  .session.dragging { opacity: 0.45; }
-  /* Active sessions stand out: tinted with the brand accent and an accent edge. */
-  .session.is-active { background: #eef6f4; box-shadow: inset 4px 0 0 var(--action); }
-  .session.is-active { background: color-mix(in srgb, var(--action) 9%, #fff); border-color: color-mix(in srgb, var(--action) 45%, #fff); box-shadow: inset 4px 0 0 var(--action); }
-  .session.is-active .grip { background: color-mix(in srgb, var(--action) 14%, #fff); }
-  .session.is-ended { background: #fafbfb; }
-  .session.is-ended h3 { color: var(--muted); }
-  .session.drop-before { box-shadow: 0 -3px 0 var(--action); }
-  .session.drop-after { box-shadow: 0 3px 0 var(--action); }
-
-  /* Events group their sessions. */
-  .event { border: 1px solid var(--rule); border-radius: calc(var(--radius) + 4px); margin-bottom: 20px; background: var(--card); box-shadow: var(--shadow); overflow: hidden; }
-  .event-head { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 14px 16px; background: linear-gradient(180deg, var(--card), var(--paper)); box-shadow: inset 4px 0 0 var(--event-accent, var(--action)); }
-  /* Collapse animates the height (0fr ↔ 1fr), so the page below slides instead of jumping. */
-  .event-fold { display: grid; grid-template-rows: 1fr; transition: grid-template-rows 0.24s var(--ease); }
-  .event.collapsed .event-fold { grid-template-rows: 0fr; }
-  .event-fold-inner { min-height: 0; overflow: hidden; visibility: visible; transition: visibility 0s; }
-  /* Hidden sessions can't be tabbed into, once the fold has finished closing. */
-  .event.collapsed .event-fold-inner { visibility: hidden; transition: visibility 0s 0.24s; }
-  .event-sessions { border-top: 1px solid var(--rule); }
-  .event .collapse { border: 0; background: none; box-shadow: none; width: 2rem; height: 2rem; padding: 0; border-radius: 50%; color: var(--muted); font-size: 1.5rem; line-height: 1; display: inline-flex; align-items: center; justify-content: center; }
-  .event .collapse:hover { background: rgba(16, 24, 40, 0.06); color: var(--ink); }
-  .event .collapse span { display: inline-block; transform: rotate(90deg); transition: transform 0.2s var(--ease); }
-  .event.collapsed .collapse span { transform: none; }
-
-  .event-head .order { display: flex; gap: 2px; }
-  .event-head .order button { border: 0; background: none; box-shadow: none; padding: 4px 7px; color: var(--muted); font-size: 0.8rem; }
-  .event-head .order button:hover { background: rgba(16, 24, 40, 0.06); color: var(--ink); }
-  .event-head .order button:disabled { visibility: hidden; }
-  .event-head .title { flex: 1 1 14rem; min-width: 0; }
-  .event-head h2 { margin: 0; font-size: 1.05rem; }
-  .event-head .meta { color: var(--muted); font-size: 0.85rem; margin-top: 2px; }
-  .event-sessions { padding: 12px 12px 0; }
-  .event-sessions > .hint { padding: 0 2px 12px; margin: 0; }
-  .event.loose { border-style: dashed; box-shadow: none; background: transparent; }
-  .event.loose .event-head { background: transparent; box-shadow: none; }
-  .import-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; margin: 6px 0 12px; }
-  .import-table th, .import-table td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--rule); vertical-align: top; }
-  .import-table .act { font-weight: 600; white-space: nowrap; }
-  .import-table .create { color: var(--action); }
-  .import-table .error { color: var(--stop); }
-  .import-table .skip { color: var(--muted); }
-  .import-wrap { overflow-x: auto; }
-  .error-text { color: var(--stop); }
-  details.more { position: relative; }
-  details.more > summary { list-style: none; cursor: pointer; padding: 7px 12px; border-radius: var(--radius-sm); color: var(--muted); font-weight: 500; border: 1px solid transparent; }
-  details.more > summary::-webkit-details-marker { display: none; }
-  details.more > summary:hover, details.more[open] > summary { background: rgba(16, 24, 40, 0.05); color: var(--ink); }
-  details.more .menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 6; min-width: 15rem; background: var(--card); border: 1px solid var(--rule); border-radius: var(--radius); box-shadow: var(--shadow-lg); padding: 6px; animation: qd-rise 0.15s var(--ease); }
-  details.more .menu button, details.more .menu a { display: block; width: 100%; text-align: left; border: 0; box-shadow: none; background: none; padding: 8px 10px; border-radius: var(--radius-sm); color: var(--ink); text-decoration: none; font-weight: 500; }
-  details.more .menu button:hover, details.more .menu a:hover { background: var(--paper); }
-  details.more .menu .danger { color: var(--stop); }
-  details.more .menu hr { border: 0; border-top: 1px solid var(--rule); margin: 4px 0; }
-  .checklist h3 { margin: 18px 0 6px; }
-  .checklist table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
-  .checklist td { padding: 6px 8px; border-bottom: 1px solid var(--rule); vertical-align: top; }
-  .checklist td.mark { width: 1.6rem; font-weight: 700; text-align: center; }
-  .checklist td.mark.ok { color: var(--good); }
-  .checklist td.mark.bad { color: var(--stop); }
-  .checklist td.mark.warn { color: var(--hold); }
-  .checklist .muted { color: var(--muted); }
-  .meter-bar { height: 8px; border-radius: 999px; background: var(--paper); border: 1px solid var(--rule); overflow: hidden; }
-  .meter-bar span { display: block; height: 100%; background: var(--action); border-radius: 999px; transition: width 0.3s var(--ease); }
-  .meter-bar span.high { background: var(--stop); }
-  .lang-grid { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 4px 0 12px; }
-  .lang-grid label { display: inline-flex; align-items: center; gap: 6px; }
-  .lang-grid .native { color: var(--muted); font-size: 0.85rem; }
-  .activity-filters input[type=search], .activity-filters select { font: inherit; padding: 7px 9px; border: 1px solid var(--rule); border-radius: 4px; background: #fff; }
-  .activity-filters input[type=search] { flex: 1 1 16rem; min-width: 0; }
-  .activity-filters select { flex: 0 1 18rem; min-width: 0; }
-  .activity-table td:first-child { white-space: nowrap; color: var(--muted); }
-  .activity-table .who { white-space: nowrap; }
-  .swatch-dot { display: inline-block; width: 0.8em; height: 0.8em; border-radius: 50%; vertical-align: -1px; margin-right: 4px; border: 1px solid rgba(0,0,0,0.15); }
-  details.archived { margin-top: 8px; }
-  details.archived summary { cursor: pointer; font-weight: 600; }
-  details.archived ul { list-style: none; margin: 10px 0 0; padding: 0; }
-  details.archived li { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 7px 0; border-bottom: 1px solid #eef1f3; }
-</style>
 </head>
 <body>
 <div class="wrap">
@@ -177,7 +10,7 @@
 <header>
   <div class="title">
     <img id="logo" alt="" hidden>
-    <h1>Question Desk admin</h1>
+    <h1>Question Desk Administration</h1>
   </div>
   <div class="who"><span id="who">Loading…</span> · <span id="version"></span> <a id="notes" target="_blank" rel="noopener" hidden>Release notes</a></div>
 </header>
@@ -192,27 +25,27 @@
 
 <!-- Sessions -->
 <section id="tab-sessions">
-  <div class="actions" style="margin-bottom:16px">
+  <div class="actions space-below-16">
     <button type="button" class="primary" id="newEvent">New event</button>
     <button type="button" id="newSession">New session</button>
-    <span style="flex:1"></span>
+    <span class="grow"></span>
     <button type="button" class="quiet" id="exportCsv">Export CSV</button>
     <button type="button" class="quiet" id="importCsv">Import CSV</button>
   </div>
 
   <div class="panel form" id="exportPanel" hidden>
     <h2>Sessions CSV</h2>
-    <p class="hint" style="margin-top:0" id="exportHint"></p>
-    <textarea id="exportText" rows="6" readonly spellcheck="false" style="width:100%;font-family:ui-monospace,Menlo,monospace;font-size:0.8rem"></textarea>
-    <div class="actions" style="margin-top:8px">
+    <p class="hint flush-top" id="exportHint"></p>
+    <textarea class="full-width code-text" id="exportText" rows="6" readonly spellcheck="false"></textarea>
+    <div class="actions space-above-8">
       <button type="button" id="exportCopy">Copy</button>
       <button type="button" class="quiet" id="exportClose">Close</button>
     </div>
   </div>
 
   <div class="panel form checklist" id="checklistPanel" hidden>
-    <div class="actions" style="justify-content:space-between">
-      <h2 id="checklistTitle" style="margin:0">Day-of checklist</h2>
+    <div class="actions spread">
+      <h2 class="flush" id="checklistTitle">Day-of checklist</h2>
       <span>
         <button type="button" id="checklistRefresh">Check again</button>
         <button type="button" class="quiet" id="checklistClose">Close</button>
@@ -224,10 +57,10 @@
 
   <form class="panel form" id="importForm" hidden autocomplete="off">
     <h2>Import sessions from CSV</h2>
-    <p class="hint" style="margin-top:0">Use the format from <b>Export CSV</b> — edit it in Google Sheets or Excel, then save as CSV. Only the <b>Session</b> column is required; columns you leave out keep their current settings. Times are in the app's time zone, like <code>2026-10-03 18:30</code>. Events that don't exist yet are created; a blank Event cell takes a session out of its event. Ended sessions are never changed.</p>
+    <p class="hint flush-top">Use the format from <b>Export CSV</b> — edit it in Google Sheets or Excel, then save as CSV. Only the <b>Session</b> column is required; columns you leave out keep their current settings. Times are in the app's time zone, like <code>2026-10-03 18:30</code>. Events that don't exist yet are created; a blank Event cell takes a session out of its event. Ended sessions are never changed.</p>
     <label class="field"><span>CSV file</span><input type="file" id="importFile" accept=".csv,text/csv"></label>
     <label class="field"><span>…or paste it</span>
-      <textarea id="importText" rows="5" spellcheck="false" style="font-family:ui-monospace,Menlo,monospace;font-size:0.8rem"></textarea>
+      <textarea class="code-text" id="importText" rows="5" spellcheck="false"></textarea>
     </label>
     <div class="field">
       <span class="field-label">When a session already exists (same name, start and end — or same name when it has no times)</span>
@@ -258,11 +91,11 @@
       <legend>Languages</legend>
       <label class="choice"><input type="radio" name="evLangMode" value="site" checked><span>The site's languages<small id="ev-lang-site"></small></span></label>
       <label class="choice"><input type="radio" name="evLangMode" value="custom"><span>Choose for this event<small>For example, add Vietnamese for a community partner. English is always included.</small></span></label>
-      <div class="lang-grid" id="ev-langs" hidden style="margin:6px 0 0 24px"></div>
+      <div class="lang-grid indent" id="ev-langs" hidden></div>
     </fieldset>
     <fieldset>
       <legend>Event branding (optional)</legend>
-      <div class="hint" style="margin:0 0 10px">Overrides the site branding for this event's sessions. Leave a field blank to use the site's. A session can still set its own name, color and logo.</div>
+      <div class="hint flush-top flush-sides space-below-10">Overrides the site branding for this event's sessions. Leave a field blank to use the site's. A session can still set its own name, color and logo.</div>
       <div class="row">
         <label class="field"><span>Organization name</span><input type="text" id="ev-org" maxlength="80"></label>
         <div class="field">
@@ -353,14 +186,14 @@
 
     <fieldset>
       <legend>Use the guest page for</legend>
-      <p class="hint" style="margin-top:0">Avoids Google's "Sorry, unable to open the file" on phones and browsers signed into several Google accounts. Unticked opens Google's address directly.</p>
+      <p class="hint flush-top">Avoids Google's "Sorry, unable to open the file" on phones and browsers signed into several Google accounts. Unticked opens Google's address directly.</p>
       <label class="choice"><input type="checkbox" id="f-guest-room">
         <span>Room screen<small>The room screen link, and the QR code on the room screen.</small></span></label>
       <label class="choice"><input type="checkbox" id="f-guest-slide">
         <span>PowerPoint slide<small>The PowerPoint slide link, and the QR code on the slide.</small></span></label>
       <label class="choice"><input type="checkbox" id="f-guest-panel">
         <span>Panelist view<small>The panelist view link, for the panel's tablet or laptop.</small></span></label>
-      <label class="field" id="f-guest-url-box" hidden style="margin:6px 0 0 24px">
+      <label class="field indent" id="f-guest-url-box" hidden>
         <span>Guest page address for this session (optional)</span>
         <input type="url" id="f-guest-url" placeholder="Uses the address on the Branding tab">
         <div class="hint">Leave blank to use the organization's guest page. Fill in to use another site, such as a partner's. A shareable questions link uses the guest page when Room screen or PowerPoint slide is ticked.</div>
@@ -373,9 +206,9 @@
         <span>Organization default<small id="f-summary-default"></small></span></label>
       <label class="choice"><input type="radio" name="summaryMode" value="custom">
         <span>Custom for this session</span></label>
-      <div id="f-summary-custom" hidden style="margin:6px 0 0 24px">
+      <div class="indent" id="f-summary-custom" hidden>
         <label class="choice"><input type="checkbox" id="f-summary-facilitators" checked><span>This session's QA Facilitators</span></label>
-        <label class="field" style="margin-bottom:0"><span>Also send to</span>
+        <label class="field flush-bottom"><span>Also send to</span>
           <textarea id="f-summary-extra" rows="2" placeholder="board@example.org, partner@example.org"></textarea>
           <div class="hint">Any email address, including people outside your organization. Separate with commas or new lines.</div>
         </label>
@@ -386,7 +219,7 @@
       <textarea id="f-prepared" rows="5" placeholder="One question per line"></textarea>
       <div class="hint">Loaded ahead of time and kept out of sight. A QA Facilitator adds each one to the queue when it's useful. Saving replaces the ones not yet added.</div>
     </label>
-    <label class="choice" style="margin:-6px 0 14px"><input type="checkbox" id="f-translate-prepared" checked>
+    <label class="choice tuck-up"><input type="checkbox" id="f-translate-prepared" checked>
       <span>Translate prepared questions when saved<small id="f-translate-hint">Into English and this session's languages, so they're ready to read out and to show on phones and the room screen with Answer now.</small></span></label>
 
     <fieldset>
@@ -400,7 +233,7 @@
 
     <fieldset>
       <legend>Session branding (optional)</legend>
-      <div class="hint" style="margin:0 0 10px">For partner events. Leave blank to use your organization's branding.</div>
+      <div class="hint flush-top flush-sides space-below-10">For partner events. Leave blank to use your organization's branding.</div>
       <div class="row">
         <label class="field"><span>Organization name</span><input type="text" id="f-org" maxlength="80"></label>
         <div class="field">
@@ -437,11 +270,11 @@
 
 <!-- People -->
 <section id="tab-people" hidden>
-  <p class="hint" id="domainHint" style="margin-top:0"></p>
+  <p class="hint flush-top" id="domainHint"></p>
   <div class="row">
     <div class="panel">
       <h2>Administrators</h2>
-      <p class="hint" style="margin-top:0">Can create and run sessions, manage people, and change branding.</p>
+      <p class="hint flush-top">Can create and run sessions, manage people, and change branding.</p>
       <ul class="people" id="adminList"></ul>
       <form class="adder" data-role="admin">
         <input type="email" placeholder="name@domain.org" aria-label="Administrator email">
@@ -450,7 +283,7 @@
     </div>
     <div class="panel">
       <h2>QA Facilitators</h2>
-      <p class="hint" style="margin-top:0">Run the queue for the sessions they are assigned to: group, merge, approve topics for phones, and mark questions answered.</p>
+      <p class="hint flush-top">Run the queue for the sessions they are assigned to: group, merge, approve topics for phones, and mark questions answered.</p>
       <ul class="people" id="modList"></ul>
       <form class="adder" data-role="moderator">
         <input type="email" placeholder="name@domain.org" aria-label="QA Facilitator email">
@@ -459,7 +292,7 @@
     </div>
     <div class="panel" id="summaryPanel">
       <h2>Session Summary Email Recipients</h2>
-      <p class="hint" style="margin-top:0" id="summaryHint">Get every session's questions summary when it ends. Anyone can be added, even outside your organization.</p>
+      <p class="hint flush-top" id="summaryHint">Get every session's questions summary when it ends. Anyone can be added, even outside your organization.</p>
       <ul class="people" id="summaryList"></ul>
       <form class="adder" id="summaryAdder">
         <input type="email" placeholder="name@domain.org" aria-label="Session summary email recipient">
@@ -473,7 +306,7 @@
 <section id="tab-branding" hidden>
   <form class="panel" id="langForm">
     <h2>Languages</h2>
-    <p class="hint" style="margin-top:0">Shown on participants' phones, the room screen and topic labels for sessions that aren't in an event (and events that don't choose their own). English is always included; choose up to <span id="langMax">3</span> more so the room screen stays readable. Questions can be asked in any language either way.</p>
+    <p class="hint flush-top">Shown on participants' phones, the room screen and topic labels for sessions that aren't in an event (and events that don't choose their own). English is always included; choose up to <span id="langMax">3</span> more so the room screen stays readable. Questions can be asked in any language either way.</p>
     <div class="lang-grid" id="siteLangs"></div>
     <button type="submit" class="primary" id="saveLangs">Save languages</button>
   </form>
@@ -488,7 +321,7 @@
         <span class="field-label">Accent color</span>
         <div class="swatch">
           <input type="color" id="b-accent-pick" aria-label="Pick accent color">
-          <input type="text" id="b-accent" maxlength="7" style="width:7rem" aria-label="Accent color hex">
+          <input class="hex-input" type="text" id="b-accent" maxlength="7" aria-label="Accent color hex">
         </div>
         <div class="hint">Used for buttons on the participant page.</div>
       </div>
@@ -520,7 +353,7 @@
       </label>
       <details class="field advanced">
         <summary>Advanced</summary>
-        <label class="field" style="margin-top:10px"><span>Question Desk Google address</span>
+        <label class="field space-above-10"><span>Question Desk Google address</span>
           <input type="url" id="b-url" placeholder="">
           <div class="hint"><strong>Almost always leave this blank</strong> — Question Desk detects it. This is never the guest page address. Only if links open an old version, paste the <code>https://script.google.com/macros/s/…/exec</code> address from the Apps Script editor (Deploy → Manage deployments).</div>
         </label>
@@ -532,9 +365,9 @@
       <h2>Logo</h2>
       <div class="logo-preview" id="logoPreview"><span class="hint">No logo</span></div>
       <div class="actions">
-        <label class="choice" style="margin:0"><input type="file" id="logoFile" accept="image/png,image/jpeg,image/webp,image/svg+xml"></label>
+        <label class="choice flush"><input type="file" id="logoFile" accept="image/png,image/jpeg,image/webp,image/svg+xml"></label>
       </div>
-      <div class="actions" style="margin-top:8px">
+      <div class="actions space-above-8">
         <button type="button" id="removeLogo" class="danger" hidden>Remove logo</button>
       </div>
       <div class="hint">Resized in your browser before upload so pages stay fast on venue wifi. A wide logo on a transparent or white background works best.</div>
@@ -548,7 +381,7 @@
 <section id="tab-activity" hidden>
   <div class="panel">
     <h2>Activity log</h2>
-    <p class="hint" style="margin-top:0">Who changed what, and when: administrators, QA Facilitators and the automatic schedule. Participants' questions aren't listed here. The full log is the <b>Activity log</b> tab of the spreadsheet.</p>
+    <p class="hint flush-top">Who changed what, and when: administrators, QA Facilitators and the automatic schedule. Participants' questions aren't listed here. The full log is the <b>Activity log</b> tab of the spreadsheet.</p>
     <div class="actions activity-filters">
       <input type="search" id="actSearch" placeholder="Search people, actions, sessions…" aria-label="Search the activity log">
       <select id="actTarget" aria-label="Show one session or event"></select>
@@ -563,10 +396,10 @@
   <div class="row">
     <div class="panel">
       <h2>Health check</h2>
-      <p class="hint" style="margin-top:0">Tests the Gemini key and model, the every-minute trigger, the sheet, email quota and the app address. Admins are also emailed automatically if grouping fails 3 minutes in a row.</p>
+      <p class="hint flush-top">Tests the Gemini key and model, the every-minute trigger, the sheet, email quota and the app address. Admins are also emailed automatically if grouping fails 3 minutes in a row.</p>
       <button type="button" class="primary" id="runHealth">Run health check</button>
       <table class="checks" id="checks"></table>
-      <dl class="status" style="margin-top:14px">
+      <dl class="status space-above-14">
         <dt>Last grouping</dt><dd id="s-grouping"></dd>
         <dt>Emails left today</dt><dd id="s-quota"></dd>
         <dt>Submissions sheet</dt><dd><a id="s-sheet" target="_blank" rel="noopener">Open</a></dd>
@@ -574,7 +407,7 @@
     </div>
     <div class="panel" id="geminiPanel">
       <h2>Gemini</h2>
-      <p class="hint" style="margin-top:0">How Question Desk asks Gemini to group, merge and translate. Saved changes apply to the very next request — no redeploy. More thinking can group and translate messy or mixed-language questions better, but takes longer; less thinking answers faster.</p>
+      <p class="hint flush-top">How Question Desk asks Gemini to group, merge and translate. Saved changes apply to the very next request — no redeploy. More thinking can group and translate messy or mixed-language questions better, but takes longer; less thinking answers faster.</p>
       <form id="gemForm">
         <label class="field"><span>Model</span>
           <input type="text" id="gem-model" list="gem-models" autocomplete="off" spellcheck="false" required>
@@ -626,7 +459,7 @@
         <div class="hint">Removing replaces each question's original wording, its translation and merged questions with a note. Topics, languages, answered status, times and counts stay, so summaries and reports still add up. It can't be undone.</div>
       </label>
       <label class="choice"><input type="checkbox" id="ops-weekly"><span>Email administrators a weekly report<small>Mondays after 8 a.m.: grouping, Gemini, email quota and storage health, sessions coming up and just ended, and questions asked.</small></span></label>
-      <div class="field" style="margin-top:12px">
+      <div class="field space-above-12">
         <span class="field-label">Settings storage</span>
         <div class="meter-bar"><span id="ops-storage-bar"></span></div>
         <div class="hint" id="ops-storage"></div>
@@ -638,12 +471,12 @@
     </div>
     <div class="panel">
       <h2>Load test</h2>
-      <p class="hint" style="margin-top:0">Simulates a full room submitting at once, through the same code path phones use, against a throwaway session. Run it before an event, not during one.</p>
+      <p class="hint flush-top">Simulates a full room submitting at once, through the same code path phones use, against a throwaway session. Run it before an event, not during one.</p>
       <div id="lt-off">
         <button type="button" id="startLoad">Start load test</button>
       </div>
       <div id="lt-on" hidden>
-        <p style="margin:0">Running until <strong id="lt-expires"></strong>. On your computer, in the project folder, run:</p>
+        <p class="flush">Running until <strong id="lt-expires"></strong>. On your computer, in the project folder, run:</p>
         <pre class="cmd" id="lt-cmd"></pre>
         <div class="actions">
           <button type="button" id="copyLoad">Copy command</button>
@@ -937,10 +770,9 @@
       return;
     }
     var tools = el('div', 'actions');
-    tools.style.justifyContent = 'space-between';
-    tools.style.marginBottom = '10px';
+    tools.classList.add('spread', 'space-below-10');
     var toolsHint = el('p', 'hint', state.sessions.length > 1 ? 'Drag ⋮⋮ or use ▲ ▼ to change the order of sessions within an event.' : '');
-    toolsHint.style.margin = '0';
+    toolsHint.classList.add('flush');
     tools.appendChild(toolsHint);
     if (state.events.length) {
       var foldAll = el('button', 'quiet');
@@ -1026,7 +858,7 @@
 
     var title = el('div', 'title');
     var name = el('h2', null, ev.name);
-    name.style.cursor = 'pointer';
+    name.classList.add('clickable');
     name.title = 'Show or hide this event\'s sessions';
     name.onclick = function () { fold.click(); };
     title.appendChild(name);
