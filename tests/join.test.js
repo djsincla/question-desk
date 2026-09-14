@@ -65,3 +65,14 @@ test('a self-hosted guest page can be locked to one Question Desk deployment', (
   assert.match(html, /<html lang="en" data-only-deployment="">/, 'the shared copy stays unlocked');
   assert.match(html, /JoinUrl\.target\(location\.search, document\.documentElement\.getAttribute\('data-only-deployment'\)\)/);
 });
+
+test('the guest page trusts exactly the same Google origins as the PowerPoint add-in', () => {
+  // docs/join is copied to other sites on its own, so it can't load the add-in's room-url.js;
+  // this keeps its copy of the check identical.
+  const html = fs.readFileSync(path.join(__dirname, '..', 'docs/join/index.html'), 'utf8');
+  const addin = fs.readFileSync(path.join(__dirname, '..', 'docs/addin/room-url.js'), 'utf8');
+  const guestRe = html.match(/if \(!(\/\^https:[^\n]*?\$\/)\.test\(e\.origin\)\)/);
+  const addinRe = addin.match(/return (\/\^https:[^\n]*?\$\/)\.test\(String\(origin/);
+  assert.ok(guestRe && addinRe, 'both checks found');
+  assert.equal(guestRe[1], addinRe[1]);
+});
