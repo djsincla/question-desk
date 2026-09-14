@@ -72,7 +72,10 @@ async function shoot(name, engine, url, contextOptions, opts) {
     await page.goto(base + url);
     await page.waitForSelector(opts.waitFor || 'body');
     if (opts.act) await opts.act(page);
-    await page.addStyleTag({ content: '*, *::before, *::after { animation: none !important; transition: none !important; caret-color: transparent !important; }' });
+    // No scrollbars: whether macOS shows them (and reserves their gutter) depends on a system
+    // setting and whether a mouse is plugged in, which moved every button 15 px.
+    await page.addStyleTag({ content: '*, *::before, *::after { animation: none !important; transition: none !important; caret-color: transparent !important; } ' +
+      'html, body { scrollbar-width: none !important; scrollbar-gutter: auto !important; }' });
     await page.waitForTimeout(700);
     const buffer = await page.screenshot({
       animations: 'disabled',
