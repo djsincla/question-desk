@@ -1,6 +1,6 @@
 'use strict';
 /**
- * Runs the real Code.js against in-memory fakes of the Apps Script services it
+ * Runs the real server code (Code.js and server/*.js) against in-memory fakes of the Apps Script services it
  * uses. Each createApp() call is a fresh, isolated install with its own clock,
  * properties, cache, spreadsheet, outbox and Gemini stub.
  *
@@ -13,7 +13,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 
-const SOURCE = fs.readFileSync(path.join(__dirname, '..', 'Code.js'), 'utf8');
+const SOURCE = require('./server-source').SERVER_SOURCE;
 const FUNCTION_NAMES = Array.from(SOURCE.matchAll(/^function ([A-Za-z0-9_]+)\s*\(/gm), (m) => m[1]);
 
 const DEPLOY_URL = 'https://script.google.com/a/macros/example.org/s/DEPLOYID/exec';

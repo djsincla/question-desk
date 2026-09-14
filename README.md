@@ -125,7 +125,7 @@ git config core.hooksPath .githooks
 
 - **No dependencies:** the web app has no build step or npm packages, and the tests
   need only Node 18+.
-- **Real code under test:** the tests run the actual `Code.js`, covering roles,
+- **Real code under test:** the tests run the actual server code, covering roles,
   sessions, tokens, limits, grouping, email, branding, schedules, health alerts and the
   load-test endpoint.
 - **Releases:** `scripts/ship.sh` handles them; see [`CHANGELOG.md`](CHANGELOG.md).

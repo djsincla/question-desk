@@ -13,8 +13,8 @@ grouped into topics by Gemini instead of as one long undifferentiated list.
 ## Install
 
 1. Push the code with clasp (see "Working on this locally" below). Pasting files into
-   the editor also works: `Code.gs` (from `Code.js`), `Ask.html`, `Present.html`,
-   `Moderate.html`, `Admin.html`, `Denied.html`, and `appsscript.json`.
+   the editor is possible but tedious: every file on the `.claspignore` allowlist — `Code.js`
+   and each `server/*.js` as script files, every `.html` file, and `appsscript.json`.
 2. Open **Project Settings → Script Properties** and add `GEMINI_API_KEY` — your AI
    Studio key. Everything else is managed on the Admin page.
 3. Run `setUp()` once from the editor. Approve the permission prompts, including
@@ -197,8 +197,9 @@ install and never belong in the repository.
 
 Gotchas:
 
-- Server code is `Code.js` locally. clasp uploads it as `.gs`; the HTML files keep
-  their extension. `.claspignore` is an allowlist — add any new page to it.
+- Server code is `Code.js` (settings, constants, routing) plus `server/*.js`, one file per
+  area; Apps Script runs them as one program. clasp uploads them as `.gs`; the HTML files
+  keep their extension. `.claspignore` is an allowlist — add any new page to it.
 - `clasp push` **overwrites** the remote project, and `clasp pull` overwrites your
   local files. There is no merge. Local, in git, is the source of truth — never edit
   in the web editor.
@@ -220,7 +221,7 @@ Before shipping, bump `APP.version` at the top of `Code.js` and add a dated sect
 `CHANGELOG.md`; `ship.sh` refuses a version that has already been released and uses
 that section as the GitHub release notes the Admin page links to.
 
-The tests run the real `Code.js` against fake Apps Script services, so roles,
+The tests run the real server code against fake Apps Script services, so roles,
 sessions, tokens, limits, clustering, emails and the setup migration are checked
 without deploying. A git pre-commit hook runs them automatically. They can't check
 real concurrency or how pages look on a phone — still do a scan on mobile data after

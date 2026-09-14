@@ -4,6 +4,24 @@ All notable changes to Question Desk. Versions follow [Semantic Versioning](http
 Each release is tagged `vX.Y.Z` and published as a GitHub release by `scripts/ship.sh`,
 which reads the notes for that version from this file.
 
+## [2.22.0] - 2026-09-14
+
+### Changed
+Code cleanup, with nothing meant to look or work differently (28 page states compared
+before and after, and the full test suite):
+- **Server code split by area.** `Code.js` keeps settings and page routing; the rest is in
+  `server/` (sessions, participants, moderation, Gemini, events, admin, people, summaries,
+  operations, CSV, activity log, text, helpers).
+- **One place for participant-facing text.** The participant page, landing page, room
+  screen, slide and QR sheets read their phrases in every language from one catalog
+  (`server/text.js`) instead of each keeping its own copy.
+- **Shared page script (`Scripts.html`)**, sectioned per page like the styles: the confirm
+  dialog (Admin and the queue now use the same one), the QR drawing, and small helpers.
+- **One helper for staff changes to questions** (answered, dismissed, grouped, ungrouped,
+  prepared questions added, shown on phones), always under the lock.
+- Smaller tidy-ups: one check for "this session has ended", clearer names, unused settings
+  removed, and a test that keeps the guest page's security check identical to the add-in's.
+
 ## [2.21.1] - 2026-09-14
 
 ### Changed
@@ -686,6 +704,7 @@ Fixes from a full code review.
 - "Merge into one question" for reading a topic aloud.
 - Participant page in English, Korean and Spanish.
 
+[2.22.0]: https://github.com/djsincla/question-desk/releases/tag/v2.22.0
 [2.21.1]: https://github.com/djsincla/question-desk/releases/tag/v2.21.1
 [2.21.0]: https://github.com/djsincla/question-desk/releases/tag/v2.21.0
 [2.20.0]: https://github.com/djsincla/question-desk/releases/tag/v2.20.0

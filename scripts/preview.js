@@ -5,7 +5,7 @@
  *
  *   node scripts/preview.js            → http://localhost:8787
  *
- * Runs the real Code.js on the test harness's fake Apps Script services and
+ * Runs the real server code (Code.js and server/) on the test harness's fake Apps Script services and
  * stands in for google.script.run with a small fetch shim, so pages behave as
  * they do when deployed. Choose who you are with ?as=owner | mod | anon.
  * Used by scripts/screenshots.js; handy for checking page changes before a ship.

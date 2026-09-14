@@ -2,6 +2,7 @@
 **/**
 !appsscript.json
 !Code.js
+!server/*.js
 !Ask.html
 !Present.html
 !Moderate.html

@@ -13,7 +13,7 @@ const path = require('node:path');
 
 const ROOT = path.join(__dirname, '..');
 const PAGES = ['Ask.html', 'Present.html', 'Panel.html', 'Sheet.html', 'Moderate.html', 'Denied.html', 'Admin.html', 'Home.html'];
-const SERVER = fs.readFileSync(path.join(ROOT, 'Code.js'), 'utf8');
+const { SERVER_FILES, SERVER_SOURCE: SERVER } = require('./server-source');
 const SERVER_FUNCTIONS = new Set(Array.from(SERVER.matchAll(/^function ([A-Za-z0-9_]+)\s*\(/gm), (m) => m[1]));
 
 function inlineScripts(html) {
@@ -155,7 +155,7 @@ test('every style is in Styles.html: one style block, a section per page, and ea
 });
 
 test('no raw U+2028/U+2029 in any source file', () => {
-  const files = ['Code.js'].concat(PAGES, fs.readdirSync(__dirname).map((f) => path.join('tests', f)));
+  const files = SERVER_FILES.concat(PAGES, ['Styles.html', 'Scripts.html'], fs.readdirSync(__dirname).map((f) => path.join('tests', f)));
   files.forEach((f) => {
     const text = fs.readFileSync(path.join(ROOT, f), 'utf8');
     assert.doesNotMatch(text, new RegExp('[' + String.fromCharCode(0x2028, 0x2029) + ']'), f);
@@ -169,6 +169,8 @@ test('every page the server renders exists, and every page is pushed by clasp', 
   PAGES.concat(['Code.js', 'appsscript.json']).forEach((file) => {
     assert.match(claspignore, new RegExp('^!' + file.replace('.', '\\.') + '$', 'm'), file + ' missing from .claspignore allowlist');
   });
+  assert.match(claspignore, /^!server\/\*\.js$/m, 'server/*.js missing from .claspignore allowlist');
+  assert.ok(SERVER_FILES.length > 1 && SERVER_FILES[0] === 'Code.js');
 });
 
 test('manifest keeps anonymous web app access and the scopes the code needs', () => {

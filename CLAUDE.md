@@ -6,7 +6,17 @@ Workspace account. See SETUP.md for install and deployment.
 
 ## Files
 
-- `Code.js` — all server logic (clasp uploads it as `Code.gs`); `APP.version` is the release
+- `Code.js` — settings (`APP.version` is the release, `CONFIG`), constants and page routing
+  (`doGet`, `page_`, `stylesFor_`/`scriptsFor_`)
+- `server/*.js` — the rest of the server code, one file per area: `sessions`, `participants`
+  (asking, Me too), `moderation` (room screen data, queue), `gemini` (settings, grouping,
+  translating, merging, keyword backup), `events`, `admin`, `people`, `summaries`,
+  `operations` (retention, archive, health, load test, schedule), `csv`, `activity`,
+  `text` (`UI_TEXT`: every participant-facing phrase in every language), `plumbing`. Apps
+  Script runs all files as one program: top-level code must not depend on another file's
+  constants at load time. The folder keeps names distinct from pages (Apps Script needs
+  unique file names across .gs and .html). `tests/server-source.js` lists the files for the
+  harness and static checks.
 - `Home.html` — landing page at the bare app address; staff links when signed in
 - `Ask.html` — participant page, localized en/ko/es; Me too topics and Now answering
 - `Present.html` — room screen: QR, Now answering banner, brand colors, light/dark
@@ -24,7 +34,11 @@ Workspace account. See SETUP.md for install and deployment.
   enforces it. docs/ pages (guest page, add-in) are separate sites with their own styles.
 - `appsscript.json` — manifest; web app set to execute as owner, anonymous access
 - `.claspignore` — allowlist of what `clasp push` uploads; add new pages here
-- `tests/` — Node test suite that runs `Code.js` against fake Apps Script services
+- `Scripts.html` — script shared by pages, in `@pages` sections like Styles.html
+  (`$`/`el`, the confirm dialog `ask()`, `qrArt()`, `tellFrame()`), inlined by
+  `scriptsFor_(file)` through `<?!= scripts ?>` before the page's own script. Pages must not
+  redeclare its names (a test checks).
+- `tests/` — Node test suite that runs the server code against fake Apps Script services
 - `scripts/ship.sh` — secret scan, tests, push, version, redeploy, tag, GitHub release
 - `scripts/loadtest.js` — simulates a full room against a running load test
 - `scripts/check-secrets.js` — blocks keys, IDs and real email addresses (hook and CI)
@@ -57,8 +71,9 @@ Workspace account. See SETUP.md for install and deployment.
 
 Pages get server data through a single template scriptlet, `var BOOT = <?!= boot ?>;`,
 filled by `page_()` with `<` and U+2028/2029 escaped. The only other scriptlet is
-`<?!= styles ?>` in the head (the page's sections of the trusted Styles.html). Do not add
-other scriptlets, and
+`<?!= styles ?>` in the head and `<?!= scripts ?>` before the page script (the page's sections
+of the trusted Styles.html and Scripts.html). Participant-facing text arrives as `BOOT.text`
+(`UI_TEXT_FOR`). Do not add other scriptlets, and
 never read `window.location` for parameters — pages run in a sandboxed iframe whose URL
 does not carry the query string. That exact bug shipped once (v2): every QR scan failed.
 
@@ -295,7 +310,7 @@ instruction in any prompt edits.
 - `node --test tests/*.test.js` — runs in well under a second, no npm install. The
   pre-commit hook (`.githooks`, enabled via `git config core.hooksPath .githooks`)
   runs it on every commit.
-- `tests/harness.js` loads the real `Code.js` with fakes for Properties, Cache, Lock,
+- `tests/harness.js` loads the real server code with fakes for Properties, Cache, Lock,
   Session, Spreadsheet, Mail, UrlFetch (Gemini), Script and Html services, plus a
   controllable clock. The fakes enforce the 9KB property limit and record any string
   the sheet would evaluate as a formula. Use `createApp().install()`, `h.session()`,
@@ -306,7 +321,7 @@ instruction in any prompt edits.
   server runs in the same process.
 - `tests/pages.test.js` statically checks the HTML: scripts parse, ES5 only, every
   `google.script.run` call names a public function that exists, manifest scopes match
-  the services `Code.js` uses, and every page is on the `.claspignore` allowlist.
+  the services the server code uses, and every page is on the `.claspignore` allowlist.
 - New behavior gets a test in the matching file (roles, sessions, participants,
   moderation, topics, email, branding, operations, home, setup, repo). Fix a bug by
   first writing the test that fails. `tests/loadtest-script.test.js` runs the real
@@ -327,6 +342,9 @@ instruction in any prompt edits.
   public and domain address forms). `ship.sh` runs it after deploying and prints a
   rollback command on failure. It cannot simulate a browser signed into other Google
   accounts.
+- Staff changes to question rows go through `changeQuestions_(sid, ids, match, set)` (lock,
+  re-read, one RangeList write per column); queue actions that need an open session use
+  `requireOpenSession_`.
 - Queue actions are optimistic in `Moderate.html` (`act`, `send`): change `state`, redraw,
   then save; polls don't overwrite while a save is in flight. Server reads go through the
   per-execution cache (`questionValues_`, `topicValues_`); writes must call
@@ -337,9 +355,9 @@ instruction in any prompt edits.
   slide's clock. `fit()` lowers the `--fit` font multiplier until no part overlaps or leaves
   the screen; call it after anything changes content or layout. The QR code is one SVG
   drawn by `qrArt()` from qrcode.js's model (rounded corners only, 2-module quiet zone in
-  the viewBox) — never let the library draw its canvas/img pair into the page. The
-  `qr-art` block is copied verbatim into Sheet.html; a test keeps them identical, and the
-  browser tests decode the on-screen code with jsQR.
+  the viewBox) — never let the library draw its canvas/img pair into the page. `qrArt()`
+  lives in Scripts.html (Present and Sheet sections), and the browser tests decode the
+  on-screen code with jsQR.
 - Releases: bump `APP.version` in `Code.js` (semver) and add a dated `CHANGELOG.md`
   section. `scripts/ship.sh "what changed"` then runs the secret scan and tests, pushes,
   creates an Apps Script version, redeploys the same live URL, tags `v<APP.version>`,
