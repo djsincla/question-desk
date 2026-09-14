@@ -2397,23 +2397,8 @@ function setStatus(sid, ids, status) {
   flushInbox_(sid);
   if (['new', 'answered', 'dismissed'].indexOf(status) === -1) throw new Error('Unknown status.');
 
-  const wanted = {};
-  ids.forEach(function (id) { wanted[String(id)] = true; });
-  const changedText = [];
-  withLock_(function () {
-    const sheet = questionSheet_();
-    const values = sheet.getDataRange().getValues();
-    const rows = [];
-    for (let i = 1; i < values.length; i++) {
-      if (String(values[i][COLS.session - 1]) === sid && wanted[String(values[i][COLS.id - 1])] &&
-          values[i][COLS.status - 1] !== 'prepared') {
-        rows.push(i + 1);
-        changedText.push(String(values[i][COLS.text - 1]));
-      }
-    }
-    setCells_(sheet, COLS.status, rows, status);
-    questionsChanged_();
-  });
+  const changedText = changeQuestions_(sid, ids, function (r) { return r[COLS.status - 1] !== 'prepared'; }, { status: status })
+    .map(function (r) { return String(r[COLS.text - 1]); });
   invalidateTopics_(sid);
   // Answering or dismissing what's on the room screen takes it down.
   if (status !== 'new' && session.nowAnswering) {
@@ -2462,24 +2447,8 @@ function setTopicShown(sid, topic, shown) {
 function usePrepared(sid, ids) {
   const session = requireOpenSession_(sid);
   if (!Array.isArray(ids) || !ids.length) throw new Error('Choose a prepared question to add.');
-  const wanted = {};
-  ids.forEach(function (id) { wanted[String(id)] = true; });
-  let added = 0;
-  withLock_(function () {
-    const sheet = questionSheet_();
-    const values = sheet.getDataRange().getValues();
-    const rows = [];
-    for (let i = 1; i < values.length; i++) {
-      if (String(values[i][COLS.session - 1]) === sid && wanted[String(values[i][COLS.id - 1])] &&
-          values[i][COLS.status - 1] === 'prepared') {
-        rows.push(i + 1);
-        added++;
-      }
-    }
-    setCells_(sheet, COLS.submitted, rows, new Date());
-    setCells_(sheet, COLS.status, rows, 'new');
-    questionsChanged_();
-  });
+  const added = changeQuestions_(sid, ids, function (r) { return r[COLS.status - 1] === 'prepared'; },
+    { submitted: new Date(), status: 'new' }).length;
   if (!added) throw new Error('Those prepared questions were already added or removed.');
   invalidateTopics_(sid);
   audit_('Prepared question added', session, added + (added === 1 ? ' question' : ' questions'));
@@ -2516,17 +2485,7 @@ function showSingle_(session, question, shown) {
   });
   if (!shown) return;
   if (!question.topic) {
-    withLock_(function () {
-      const sheet = questionSheet_();
-      const values = sheet.getDataRange().getValues();
-      const rows = [];
-      for (let i = 1; i < values.length; i++) {
-        if (String(values[i][COLS.session - 1]) === sid && String(values[i][COLS.id - 1]) === question.id &&
-            values[i][COLS.grouping - 1] !== 'ungrouped') rows.push(i + 1);
-      }
-      setCells_(sheet, COLS.grouping, rows, 'ungrouped');
-      questionsChanged_();
-    });
+    changeQuestions_(sid, [question.id], function (r) { return r[COLS.grouping - 1] !== 'ungrouped'; }, { grouping: 'ungrouped' });
   }
   // Phones show it in their language; if Gemini is down they show the English wording.
   try { translateQuestions_(sid, [question.id]); } catch (err) { console.error('Translating a shown question: ' + err); }
@@ -2588,26 +2547,13 @@ function groupQuestions(sid, ids, topic) {
   topic = cleanText_(topic, 80);
   if (!topic) throw new Error('Give the group a topic name.');
   if (!Array.isArray(ids) || !ids.length) throw new Error('Choose the questions to group.');
-  const wanted = {};
-  ids.forEach(function (id) { wanted[String(id)] = true; });
-  let moved = 0;
-  withLock_(function () {
-    const sheet = questionSheet_();
-    const values = sheet.getDataRange().getValues();
-    const rows = [], flagged = [];
-    for (let i = 1; i < values.length; i++) {
-      const status = values[i][COLS.status - 1];
-      if (String(values[i][COLS.session - 1]) !== sid || !wanted[String(values[i][COLS.id - 1])] || status === 'prepared') continue;
-      rows.push(i + 1);
-      if (values[i][COLS.grouping - 1]) flagged.push(i + 1);
-      moved++;
-    }
-    setCells_(sheet, COLS.topic, rows, sheetSafe_(topic));
-    setCells_(sheet, COLS.grouping, flagged, '');
-    questionsChanged_();
-  });
+  // Clearing Grouping lets the every-minute run translate them again (it keeps the topic).
+  const moved = changeQuestions_(sid, ids, function (r) { return r[COLS.status - 1] !== 'prepared'; },
+    { topic: sheetSafe_(topic), grouping: '' }).length;
   if (!moved) throw new Error('Those questions are no longer in the queue.');
   // Single questions that were on phones: their topic goes on phones, with their Me too taps.
+  const wanted = {};
+  ids.forEach(function (id) { wanted[String(id)] = true; });
   const carried = (session.shownQuestions || []).filter(function (id) { return wanted[id]; });
   if (carried.length) {
     withLock_(function () {
@@ -2648,23 +2594,8 @@ function setAutoGroup(sid, on) {
 function ungroupQuestions(sid, ids) {
   const session = requireOpenSession_(sid);
   if (!Array.isArray(ids) || !ids.length) throw new Error('Choose the questions to ungroup.');
-  const wanted = {};
-  ids.forEach(function (id) { wanted[String(id)] = true; });
-  let moved = 0;
-  withLock_(function () {
-    const sheet = questionSheet_();
-    const values = sheet.getDataRange().getValues();
-    const rows = [];
-    for (let i = 1; i < values.length; i++) {
-      if (String(values[i][COLS.session - 1]) !== sid || !wanted[String(values[i][COLS.id - 1])] || !values[i][COLS.topic - 1]) continue;
-      rows.push(i + 1);
-      moved++;
-    }
-    // Marked, so the every-minute grouping doesn't put them straight back.
-    setCells_(sheet, COLS.topic, rows, '');
-    setCells_(sheet, COLS.grouping, rows, 'ungrouped');
-    questionsChanged_();
-  });
+  // Marked, so the every-minute grouping doesn't put them straight back.
+  const moved = changeQuestions_(sid, ids, function (r) { return !!r[COLS.topic - 1]; }, { topic: '', grouping: 'ungrouped' }).length;
   invalidateTopics_(sid);
   if (moved) audit_('Ungrouped by hand', session, moved + (moved === 1 ? ' question' : ' questions'));
   return getBoard(sid);
@@ -4257,6 +4188,34 @@ function flushInbox_(sid) {
  * Writes one value into the same column of many rows in a single call (a RangeList), instead
  * of one call per cell — "Dismiss all" on 20 questions was 20 round trips to Sheets.
  */
+/**
+ * Changes some of one session's question rows: under the lock, re-reads the sheet (rows can
+ * move while waiting for it), picks the rows whose ID is in `ids` and that `match(row)`
+ * accepts (a row of sheet values; COLS gives the positions), and writes each value in `set`
+ * ({ status: 'answered', topic: '' … }) to all of them, one call per column. Returns the
+ * picked rows as they were before the change. Every staff action on questions goes through
+ * here, so none can write a row without the lock.
+ */
+function changeQuestions_(sid, ids, match, set) {
+  const wanted = {};
+  (ids || []).forEach(function (id) { wanted[String(id)] = true; });
+  const picked = [];
+  withLock_(function () {
+    const sheet = questionSheet_();
+    const values = sheet.getDataRange().getValues();
+    const rows = [];
+    for (let i = 1; i < values.length; i++) {
+      if (String(values[i][COLS.session - 1]) !== sid || !wanted[String(values[i][COLS.id - 1])]) continue;
+      if (match && !match(values[i])) continue;
+      rows.push(i + 1);
+      picked.push(values[i]);
+    }
+    Object.keys(set).forEach(function (name) { setCells_(sheet, COLS[name], rows, set[name]); });
+    questionsChanged_();
+  });
+  return picked;
+}
+
 function setCells_(sheet, col, rows, value) {
   if (!rows.length) return;
   const letter = String.fromCharCode(64 + col);   // columns A–Z are all we use
