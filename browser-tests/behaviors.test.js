@@ -123,7 +123,12 @@ test('chromium: export sessions to CSV, then check and import an edited file', a
     assert.match(csv, /Family Resource Night — September/);
 
     await page.click('#importCsv');
-    const edited = csv.trim() + '\r\n"Fall Family Conference 2026","Evening wrap-up","Last questions","room","dark","60","300","yes","","","","default","","","no","no","","","","","yes","inactive"';
+    // Build the new row from the exported header, so adding a column never breaks this test.
+    const header = csv.split(/\r?\n/)[0].split('","').map((h) => h.replace(/^\uFEFF?"|"$/g, ''));
+    const values = { 'Event': 'Fall Family Conference 2026', 'Session': 'Evening wrap-up', 'Heading participants see': 'Last questions',
+      'How people join (room or link)': 'room', 'Seconds between questions': '60', 'Longest question (characters)': '300' };
+    const row = header.map((h) => '"' + (values[h] || '') + '"').join(',');
+    const edited = csv.trim() + '\r\n' + row;
     await page.fill('#importText', edited);
     await page.click('#importCheck');
     await page.waitForSelector('.import-table');
