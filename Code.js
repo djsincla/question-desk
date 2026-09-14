@@ -166,6 +166,7 @@ function page_(file, title, boot, session) {
   // Every page's styles live in Styles.html; inlined so pages stay one request.
   template.styles = stylesFor_(file);
   boot.brand = brand_(session);
+  if (UI_TEXT_FOR[file]) boot.text = UI_TEXT[UI_TEXT_FOR[file]];
   template.boot = JSON.stringify(boot)
     .replace(/</g, '\\u003c')
     .split(String.fromCharCode(0x2028)).join('\\u2028')
@@ -1994,6 +1995,355 @@ function roomBudgetAvailable_(sid) {
   cache.put(bucket, String(used + 1), 120);
   return true;
 }
+
+// ---------------------------------------------------------------- participant-facing text
+
+/**
+ * Every word participants and the room see, in each language Question Desk offers (the codes
+ * in CONFIG.languages), in one place: `ask` for the participant page, `home` for the landing
+ * page, `screen` for the room screen, the PowerPoint slide and the printable QR sheets.
+ * page_() hands each page its part as BOOT.text. Adding a language means adding it here and to CONFIG.languages.
+ */
+const UI_TEXT = {
+  ask: {
+    en: {
+      sub: 'Your question goes to the facilitator. Your name is not attached.',
+      placeholder: 'What would you like to ask?',
+      send: 'Send question',
+      sending: 'Sending…',
+      sent: 'Sent. The facilitator has it.',
+      cooldown: 'You have already asked a question in the last few minutes.',
+      again: 'You can ask another question now.',
+      nextIn: 'Next question in ',
+      expiredBtn: 'Scan the code again',
+      expired: 'This link has expired. Scan the code on the screen in the room.',
+      linkExpiredBtn: 'Link expired',
+      linkExpired: 'This link is no longer valid. Ask the organizer for a new one.',
+      notFound: 'This link is not valid. Scan the code on the screen in the room.',
+      inactiveBtn: 'Not taking questions right now',
+      inactive: 'This session is not taking questions right now. Try again in a little while.',
+      endedBtn: 'Session ended',
+      ended: 'This session has ended. Thank you for your questions.',
+      closedBtn: 'Questions are closed',
+      closed: 'The facilitator has closed question submission.',
+      busy: 'A lot of questions are arriving at once. Try again in a moment.',
+      short: 'That is a bit short — add a few more words.',
+      long: 'Too long. Trim it to {n} characters.',
+      failed: 'That did not send. Check your connection and try again.',
+      youAsked: 'You have asked',
+      nowAnswering: 'Now answering',
+      topicsHeading: 'What people are asking about',
+      topicsHint: 'Tap Me too on anything you also want answered.',
+      meToo: 'Me too',
+      people: '{n} people',
+      person: '1 person',
+      answered: 'Answered',
+      answeredYou: 'Answered',
+      answeredNote: 'The facilitator marked a question you asked as answered.',
+      textSize: 'Larger text',
+      questionLabel: 'Your question',
+      langLabel: 'Language'
+    },
+    ko: {
+      sub: '질문은 진행자에게 전달됩니다. 이름은 표시되지 않습니다.',
+      placeholder: '무엇을 질문하시겠습니까?',
+      send: '질문 보내기',
+      sending: '보내는 중…',
+      sent: '전송되었습니다. 진행자가 확인합니다.',
+      cooldown: '최근 몇 분 이내에 이미 질문을 보내셨습니다.',
+      again: '이제 다른 질문을 보낼 수 있습니다.',
+      nextIn: '다음 질문까지 ',
+      expiredBtn: '코드를 다시 스캔하세요',
+      expired: '이 링크는 만료되었습니다. 화면의 코드를 다시 스캔해 주세요.',
+      linkExpiredBtn: '링크 만료',
+      linkExpired: '이 링크는 더 이상 유효하지 않습니다. 주최자에게 새 링크를 요청해 주세요.',
+      notFound: '유효하지 않은 링크입니다. 화면의 코드를 스캔해 주세요.',
+      inactiveBtn: '지금은 질문을 받지 않습니다',
+      inactive: '이 세션은 지금 질문을 받지 않습니다. 잠시 후 다시 시도해 주세요.',
+      endedBtn: '세션이 종료되었습니다',
+      ended: '이 세션은 종료되었습니다. 질문해 주셔서 감사합니다.',
+      closedBtn: '질문이 마감되었습니다',
+      closed: '진행자가 질문 접수를 마감했습니다.',
+      busy: '질문이 한꺼번에 많이 들어오고 있습니다. 잠시 후 다시 시도해 주세요.',
+      short: '조금 짧습니다. 몇 마디 더 적어 주세요.',
+      long: '너무 깁니다. {n}자 이내로 줄여 주세요.',
+      failed: '전송되지 않았습니다. 연결을 확인한 후 다시 시도해 주세요.',
+      youAsked: '보낸 질문',
+      nowAnswering: '지금 답변 중',
+      topicsHeading: '사람들이 묻는 주제',
+      topicsHint: '답변을 듣고 싶은 주제에 "저도요"를 눌러 주세요.',
+      meToo: '저도요',
+      people: '{n}명',
+      person: '1명',
+      answered: '답변 완료',
+      answeredYou: '답변 완료',
+      answeredNote: '진행자가 보내신 질문을 답변 완료로 표시했습니다.',
+      textSize: '글자 크게',
+      questionLabel: '질문',
+      langLabel: '언어'
+    },
+    es: {
+      sub: 'Tu pregunta llega al moderador. Tu nombre no se adjunta.',
+      placeholder: '¿Qué te gustaría preguntar?',
+      send: 'Enviar pregunta',
+      sending: 'Enviando…',
+      sent: 'Enviada. El moderador ya la tiene.',
+      cooldown: 'Ya enviaste una pregunta hace unos minutos.',
+      again: 'Ya puedes enviar otra pregunta.',
+      nextIn: 'Próxima pregunta en ',
+      expiredBtn: 'Escanea el código otra vez',
+      expired: 'Este enlace caducó. Vuelve a escanear el código de la pantalla.',
+      linkExpiredBtn: 'Enlace caducado',
+      linkExpired: 'Este enlace ya no es válido. Pide uno nuevo a quien organiza.',
+      notFound: 'Este enlace no es válido. Escanea el código de la pantalla.',
+      inactiveBtn: 'No recibe preguntas ahora',
+      inactive: 'Esta sesión no está recibiendo preguntas en este momento. Inténtalo de nuevo en un rato.',
+      endedBtn: 'Sesión terminada',
+      ended: 'Esta sesión terminó. Gracias por tus preguntas.',
+      closedBtn: 'Preguntas cerradas',
+      closed: 'El moderador cerró el envío de preguntas.',
+      busy: 'Están llegando muchas preguntas a la vez. Inténtalo en un momento.',
+      short: 'Es un poco corta: añade algunas palabras más.',
+      long: 'Demasiado larga. Redúcela a {n} caracteres.',
+      failed: 'No se envió. Revisa tu conexión e inténtalo de nuevo.',
+      youAsked: 'Has preguntado',
+      nowAnswering: 'Respondiendo ahora',
+      topicsHeading: 'Sobre qué pregunta la gente',
+      topicsHint: 'Toca "Yo también" en lo que también quieras que se responda.',
+      meToo: 'Yo también',
+      people: '{n} personas',
+      person: '1 persona',
+      answered: 'Respondida',
+      answeredYou: 'Respondida',
+      answeredNote: 'El moderador marcó como respondida una pregunta que enviaste.',
+      textSize: 'Texto más grande',
+      questionLabel: 'Tu pregunta',
+      langLabel: 'Idioma'
+    },
+    zh: {
+      sub: '您的问题会发送给主持人，不会显示您的姓名。',
+      placeholder: '您想问什么？',
+      send: '发送问题',
+      sending: '正在发送…',
+      sent: '已发送，主持人已收到。',
+      cooldown: '您在几分钟前已经提过问题了。',
+      again: '现在可以再提一个问题。',
+      nextIn: '下一个问题倒计时 ',
+      expiredBtn: '请重新扫描二维码',
+      expired: '此链接已过期。请扫描会场屏幕上的二维码。',
+      linkExpiredBtn: '链接已过期',
+      linkExpired: '此链接已失效。请向主办方索取新链接。',
+      notFound: '此链接无效。请扫描会场屏幕上的二维码。',
+      inactiveBtn: '目前不接受提问',
+      inactive: '本场目前不接受提问，请稍后再试。',
+      endedBtn: '本场已结束',
+      ended: '本场已结束。感谢您的提问。',
+      closedBtn: '提问已关闭',
+      closed: '主持人已关闭提问。',
+      busy: '同时收到的问题很多，请稍后再试。',
+      short: '有点短，请再多写几个字。',
+      long: '太长了，请删减到 {n} 个字符以内。',
+      failed: '发送失败。请检查网络连接后重试。',
+      youAsked: '您提过的问题',
+      nowAnswering: '正在回答',
+      topicsHeading: '大家在问的话题',
+      topicsHint: '如果您也想听到回答，请点“我也想问”。',
+      meToo: '我也想问',
+      people: '{n} 人',
+      person: '1 人',
+      answered: '已回答',
+      answeredYou: '已回答',
+      answeredNote: '主持人已将您提出的一个问题标记为已回答。',
+      textSize: '放大字体',
+      questionLabel: '您的问题',
+      langLabel: '语言'
+    },
+    vi: {
+      sub: 'Câu hỏi của bạn được gửi đến người điều phối. Tên của bạn không được đính kèm.',
+      placeholder: 'Bạn muốn hỏi gì?',
+      send: 'Gửi câu hỏi',
+      sending: 'Đang gửi…',
+      sent: 'Đã gửi. Người điều phối đã nhận được.',
+      cooldown: 'Bạn vừa gửi một câu hỏi cách đây vài phút.',
+      again: 'Bây giờ bạn có thể hỏi thêm một câu.',
+      nextIn: 'Câu hỏi tiếp theo sau ',
+      expiredBtn: 'Quét lại mã',
+      expired: 'Liên kết này đã hết hạn. Hãy quét mã trên màn hình trong phòng.',
+      linkExpiredBtn: 'Liên kết đã hết hạn',
+      linkExpired: 'Liên kết này không còn hiệu lực. Hãy xin ban tổ chức liên kết mới.',
+      notFound: 'Liên kết này không hợp lệ. Hãy quét mã trên màn hình trong phòng.',
+      inactiveBtn: 'Hiện chưa nhận câu hỏi',
+      inactive: 'Phiên này hiện chưa nhận câu hỏi. Vui lòng thử lại sau ít phút.',
+      endedBtn: 'Phiên đã kết thúc',
+      ended: 'Phiên này đã kết thúc. Cảm ơn các câu hỏi của bạn.',
+      closedBtn: 'Đã ngừng nhận câu hỏi',
+      closed: 'Người điều phối đã ngừng nhận câu hỏi.',
+      busy: 'Có nhiều câu hỏi đến cùng lúc. Vui lòng thử lại sau giây lát.',
+      short: 'Hơi ngắn — hãy viết thêm vài từ.',
+      long: 'Quá dài. Hãy rút gọn còn {n} ký tự.',
+      failed: 'Chưa gửi được. Hãy kiểm tra kết nối và thử lại.',
+      youAsked: 'Bạn đã hỏi',
+      nowAnswering: 'Đang trả lời',
+      topicsHeading: 'Mọi người đang hỏi về',
+      topicsHint: 'Chạm “Tôi cũng vậy” vào chủ đề bạn cũng muốn được trả lời.',
+      meToo: 'Tôi cũng vậy',
+      people: '{n} người',
+      person: '1 người',
+      answered: 'Đã trả lời',
+      answeredYou: 'Đã trả lời',
+      answeredNote: 'Người điều phối đã đánh dấu một câu hỏi của bạn là đã trả lời.',
+      textSize: 'Chữ lớn hơn',
+      questionLabel: 'Câu hỏi của bạn',
+      langLabel: 'Ngôn ngữ'
+    },
+    tl: {
+      sub: 'Ang iyong tanong ay ipinapadala sa facilitator. Hindi isinasama ang iyong pangalan.',
+      placeholder: 'Ano ang nais mong itanong?',
+      send: 'Ipadala ang tanong',
+      sending: 'Ipinapadala…',
+      sent: 'Naipadala. Natanggap ito ng facilitator.',
+      cooldown: 'Nagpadala ka na ng tanong ilang minuto ang nakalipas.',
+      again: 'Maaari kang magtanong muli.',
+      nextIn: 'Susunod na tanong sa ',
+      expiredBtn: 'I-scan muli ang code',
+      expired: 'Nag-expire ang link na ito. I-scan ang code sa screen sa silid.',
+      linkExpiredBtn: 'Nag-expire ang link',
+      linkExpired: 'Hindi na wasto ang link na ito. Humingi ng bagong link sa organizer.',
+      notFound: 'Hindi wasto ang link na ito. I-scan ang code sa screen sa silid.',
+      inactiveBtn: 'Hindi tumatanggap ng tanong ngayon',
+      inactive: 'Hindi tumatanggap ng tanong ang session na ito ngayon. Subukang muli mamaya.',
+      endedBtn: 'Tapos na ang session',
+      ended: 'Tapos na ang session na ito. Salamat sa inyong mga tanong.',
+      closedBtn: 'Sarado ang pagtatanong',
+      closed: 'Isinara ng facilitator ang pagpapadala ng tanong.',
+      busy: 'Maraming tanong ang dumarating sabay-sabay. Subukang muli sandali.',
+      short: 'Maikli nang kaunti — magdagdag ng ilang salita.',
+      long: 'Masyadong mahaba. Paikliin sa {n} na character.',
+      failed: 'Hindi naipadala. Suriin ang koneksyon at subukang muli.',
+      youAsked: 'Iyong mga tanong',
+      nowAnswering: 'Kasalukuyang sinasagot',
+      topicsHeading: 'Mga paksang itinatanong',
+      topicsHint: 'I-tap ang \'Ako rin\' sa paksang nais mong sagutin din.',
+      meToo: 'Ako rin',
+      people: '{n} katao',
+      person: '1 katao',
+      answered: 'Nasagot',
+      answeredYou: 'Nasagot',
+      answeredNote: 'Minarkahan ng facilitator na nasagot ang isa sa iyong mga tanong.',
+      textSize: 'Mas malaking titik',
+      questionLabel: 'Iyong tanong',
+      langLabel: 'Wika'
+    },
+    hy: {
+      sub: 'Ձեր հարցը կուղարկվի վարողին։ Ձեր անունը չի նշվի։',
+      placeholder: 'Ի՞նչ կցանկանայիք հարցնել',
+      send: 'Ուղարկել հարցը',
+      sending: 'Ուղարկվում է…',
+      sent: 'Ուղարկված է։ Վարողը ստացել է։',
+      cooldown: 'Դուք արդեն հարց եք ուղարկել մի քանի րոպե առաջ։',
+      again: 'Այժմ կարող եք ևս մեկ հարց տալ։',
+      nextIn: 'Հաջորդ հարցը՝ ',
+      expiredBtn: 'Կրկին սկանավորեք կոդը',
+      expired: 'Այս հղման ժամկետն անցել է։ Սկանավորեք դահլիճի էկրանի կոդը։',
+      linkExpiredBtn: 'Հղման ժամկետն անցել է',
+      linkExpired: 'Այս հղումն այլևս վավեր չէ։ Խնդրեք կազմակերպչից նոր հղում։',
+      notFound: 'Այս հղումը վավեր չէ։ Սկանավորեք դահլիճի էկրանի կոդը։',
+      inactiveBtn: 'Հարցեր հիմա չեն ընդունվում',
+      inactive: 'Այս նիստը հիմա հարցեր չի ընդունում։ Փորձեք մի փոքր ուշ։',
+      endedBtn: 'Նիստն ավարտվել է',
+      ended: 'Այս նիստն ավարտվել է։ Շնորհակալություն ձեր հարցերի համար։',
+      closedBtn: 'Հարցերի ընդունումը փակ է',
+      closed: 'Վարողը փակել է հարցերի ընդունումը։',
+      busy: 'Միաժամանակ շատ հարցեր են գալիս։ Փորձեք մի պահ անց։',
+      short: 'Մի փոքր կարճ է․ ավելացրեք մի քանի բառ։',
+      long: 'Չափազանց երկար է։ Կրճատեք մինչև {n} նիշ։',
+      failed: 'Չուղարկվեց։ Ստուգեք կապը և նորից փորձեք։',
+      youAsked: 'Ձեր հարցերը',
+      nowAnswering: 'Այժմ պատասխանվում է',
+      topicsHeading: 'Ինչի մասին են հարցնում',
+      topicsHint: 'Սեղմեք «Ես էլ» այն թեմայի վրա, որի պատասխանն էլ եք ուզում լսել։',
+      meToo: 'Ես էլ',
+      people: '{n} մարդ',
+      person: '1 մարդ',
+      answered: 'Պատասխանված է',
+      answeredYou: 'Պատասխանված է',
+      answeredNote: 'Վարողը ձեր հարցերից մեկը նշել է որպես պատասխանված։',
+      textSize: 'Ավելի մեծ տառեր',
+      questionLabel: 'Ձեր հարցը',
+      langLabel: 'Լեզու'
+    }
+  },
+  home: {
+    en: {
+      join: 'To ask a question, scan the code on the screen in the room.'
+    },
+    ko: {
+      join: '질문하려면 회의실 화면의 코드를 스캔하세요.'
+    },
+    es: {
+      join: 'Para hacer una pregunta, escanea el código de la pantalla de la sala.'
+    },
+    zh: {
+      join: '如需提问，请扫描会场屏幕上的二维码。'
+    },
+    vi: {
+      join: 'Để đặt câu hỏi, hãy quét mã trên màn hình trong phòng.'
+    },
+    tl: {
+      join: 'Para magtanong, i-scan ang code sa screen sa silid.'
+    },
+    hy: {
+      join: 'Հարց տալու համար սկանավորեք դահլիճի էկրանի կոդը։'
+    }
+  },
+  screen: {
+    en: {
+      scan: 'Point your camera at the code. Ask in any language.',
+      help: 'Page won’t open? Try a private browsing window.',
+      caption: 'Scan to ask a question',
+      anonymous: 'Questions are anonymous. Ask in any language.'
+    },
+    ko: {
+      scan: '카메라로 코드를 스캔하세요. 어떤 언어로도 질문할 수 있습니다.',
+      help: '페이지가 열리지 않으면 시크릿(개인 정보 보호) 창에서 열어 보세요.',
+      caption: '질문하려면 스캔하세요',
+      anonymous: '질문은 익명입니다. 어떤 언어로도 질문할 수 있습니다.'
+    },
+    es: {
+      scan: 'Apunta la cámara al código. Pregunta en cualquier idioma.',
+      help: '¿No se abre la página? Prueba en una ventana privada.',
+      caption: 'Escanea para preguntar',
+      anonymous: 'Las preguntas son anónimas. Pregunta en cualquier idioma.'
+    },
+    zh: {
+      scan: '用相机扫描二维码。可以用任何语言提问。',
+      help: '页面打不开？请试试无痕浏览窗口。',
+      caption: '扫码提问',
+      anonymous: '提问是匿名的，可以用任何语言提问。'
+    },
+    vi: {
+      scan: 'Hướng camera vào mã. Hỏi bằng bất kỳ ngôn ngữ nào.',
+      help: 'Không mở được trang? Hãy thử cửa sổ duyệt riêng tư.',
+      caption: 'Quét để đặt câu hỏi',
+      anonymous: 'Câu hỏi được ẩn danh. Hỏi bằng bất kỳ ngôn ngữ nào.'
+    },
+    tl: {
+      scan: 'Itutok ang camera sa code. Magtanong sa anumang wika.',
+      help: 'Hindi bumubukas ang page? Subukan ang private browsing window.',
+      caption: 'I-scan para magtanong',
+      anonymous: 'Hindi nagpapakilala ang mga tanong. Magtanong sa anumang wika.'
+    },
+    hy: {
+      scan: 'Ուղղեք տեսախցիկը կոդին։ Հարցրեք ցանկացած լեզվով։',
+      help: 'Էջը չի՞ բացվում։ Փորձեք գաղտնի դիտարկման պատուհան։',
+      caption: 'Սկանավորեք՝ հարց տալու համար',
+      anonymous: 'Հարցերն անանուն են։ Հարցրեք ցանկացած լեզվով։'
+    }
+  }
+};
+
+/** Which part of UI_TEXT each page gets. */
+const UI_TEXT_FOR = { 'Ask.html': 'ask', 'Home.html': 'home', 'Present.html': 'screen', 'Sheet.html': 'screen' };
 
 // ---------------------------------------------------------------- me too
 

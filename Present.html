@@ -17,11 +17,11 @@
 
 <div class="words">
   <h1 id="heading">Ask the panel</h1>
-  <p lang="en">Point your camera at the code. Ask in any language.</p>
+  <p lang="en" id="scanEn"></p>
   <span id="scanLines"></span>
   <!-- Google can refuse to open Apps Script pages in browsers signed into several Google
        accounts ("Sorry, unable to open the file"). Its error page can't carry our help. -->
-  <p class="help" id="helpLine"><span lang="en">Page won’t open? Try a private browsing window.</span></p>
+  <p class="help" id="helpLine"><span lang="en" id="helpEn"></span></p>
 </div>
 
 <div class="code" id="code" hidden></div>
@@ -34,7 +34,7 @@
   <div class="merged" id="nowMerged" hidden></div>
 </div>
 
-<div class="caption" id="caption" lang="en">Scan to ask a question<br><span id="captionLines"></span><small class="help">Page won’t open? Try a private browsing window.</small></div>
+<div class="caption" id="caption" lang="en"><br><span id="captionLines"></span><small class="help" id="captionHelp"></small></div>
 
 <div class="status" id="status"></div>
 <div class="clock" id="clock" aria-live="off"></div>
@@ -51,19 +51,18 @@
   var brand = BOOT.brand;
   var themeOverride = null;   // press T to cycle dark → light → high contrast, e.g. if the projector washes out
 
-  // Instructions in the session's languages (its event's choice); English is in the page.
-  var PHRASES = {
-    ko: { scan: '카메라로 코드를 스캔하세요. 어떤 언어로도 질문할 수 있습니다.', help: '페이지가 열리지 않으면 시크릿(개인 정보 보호) 창에서 열어 보세요.', caption: '질문하려면 스캔하세요' },
-    es: { scan: 'Apunta la cámara al código. Pregunta en cualquier idioma.', help: '¿No se abre la página? Prueba en una ventana privada.', caption: 'Escanea para preguntar' },
-    zh: { scan: '用相机扫描二维码。可以用任何语言提问。', help: '页面打不开？请试试无痕浏览窗口。', caption: '扫码提问' },
-    vi: { scan: 'Hướng camera vào mã. Hỏi bằng bất kỳ ngôn ngữ nào.', help: 'Không mở được trang? Hãy thử cửa sổ duyệt riêng tư.', caption: 'Quét để đặt câu hỏi' },
-    tl: { scan: 'Itutok ang camera sa code. Magtanong sa anumang wika.', help: 'Hindi bumubukas ang page? Subukan ang private browsing window.', caption: 'I-scan para magtanong' },
-    hy: { scan: 'Ուղղեք տեսախցիկը կոդին։ Հարցրեք ցանկացած լեզվով։', help: 'Էջը չի՞ բացվում։ Փորձեք գաղտնի դիտարկման պատուհան։', caption: 'Սկանավորեք՝ հարց տալու համար' }
-  };
+  // Instructions in the session's languages (its event's choice), from UI_TEXT.screen in Code.js.
+  var PHRASES = BOOT.text;
   var LANGS = (BOOT.languages && BOOT.languages.length ? BOOT.languages : ['en', 'ko', 'es'])
     .filter(function (c) { return c === 'en' || PHRASES[c]; });
 
   (function writeLanguages() {
+    document.getElementById('scanEn').textContent = PHRASES.en.scan;
+    document.getElementById('helpEn').textContent = PHRASES.en.help;
+    // Plain text, not a span: the caption's spans are the other languages, shown muted.
+    var captionBox = document.getElementById('caption');
+    captionBox.insertBefore(document.createTextNode(PHRASES.en.caption), captionBox.firstChild);
+    document.getElementById('captionHelp').textContent = PHRASES.en.help;
     var lines = document.getElementById('scanLines');
     var help = document.getElementById('helpLine');
     var caption = document.getElementById('captionLines');

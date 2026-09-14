@@ -13,7 +13,7 @@
   <p class="welcome" id="welcome" hidden></p>
 
   <div class="join">
-    <p class="main" lang="en">To ask a question, scan the code on the screen in the room.</p>
+    <p class="main" lang="en" id="joinEn"></p>
     <span id="joinLines"></span>
     <p class="quiet" id="anon">Questions are anonymous. You can ask in any language.</p>
   </div>
@@ -38,22 +38,16 @@
 
   function $(id) { return document.getElementById(id); }
 
-  // "Scan the code" in the site's languages; English is in the page.
-  var JOIN = {
-    ko: '질문하려면 회의실 화면의 코드를 스캔하세요.',
-    es: 'Para hacer una pregunta, escanea el código de la pantalla de la sala.',
-    zh: '如需提问，请扫描会场屏幕上的二维码。',
-    vi: 'Để đặt câu hỏi, hãy quét mã trên màn hình trong phòng.',
-    tl: 'Para magtanong, i-scan ang code sa screen sa silid.',
-    hy: 'Հարց տալու համար սկանավորեք դահլիճի էկրանի կոդը։'
-  };
+  // "Scan the code" in the site's languages, from UI_TEXT.home in Code.js.
+  var JOIN = BOOT.text;
   (function () {
     var slot = $('joinLines');
+    $('joinEn').textContent = JOIN.en.join;
     (BOOT.languages || ['en', 'ko', 'es']).forEach(function (code) {
-      if (!JOIN[code]) return;
+      if (code === 'en' || !JOIN[code]) return;
       var p = document.createElement('p');
       p.lang = code;
-      p.textContent = JOIN[code];
+      p.textContent = JOIN[code].join;
       slot.parentNode.insertBefore(p, slot);
     });
     slot.parentNode.removeChild(slot);

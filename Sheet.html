@@ -16,16 +16,9 @@
 <script>
   var BOOT = <?!= boot ?>;
   var brand = BOOT.brand || {};
-  var SCAN = {
-    en: ['Scan to ask a question', 'Questions are anonymous. Ask in any language.'],
-    ko: ['질문하려면 스캔하세요', '질문은 익명입니다. 어떤 언어로도 질문할 수 있습니다.'],
-    es: ['Escanea para preguntar', 'Las preguntas son anónimas. Pregunta en cualquier idioma.'],
-    zh: ['扫码提问', '提问是匿名的，可以用任何语言提问。'],
-    vi: ['Quét để đặt câu hỏi', 'Câu hỏi được ẩn danh. Hỏi bằng bất kỳ ngôn ngữ nào.'],
-    tl: ['I-scan para magtanong', 'Hindi nagpapakilala ang mga tanong. Magtanong sa anumang wika.'],
-    hy: ['Սկանավորեք՝ հարց տալու համար', 'Հարցերն անանուն են։ Հարցրեք ցանկացած լեզվով։']
-  };
-  var langs = (BOOT.languages || ['en']).filter(function (c) { return SCAN[c]; });
+  // "Scan to ask" in each language, from UI_TEXT.screen in Code.js.
+  var TEXT = BOOT.text;
+  var langs = (BOOT.languages || ['en']).filter(function (c) { return TEXT[c]; });
   if (brand.accent) document.documentElement.style.setProperty('--action', brand.accent);
 
   function el(tag, cls, text) {
@@ -128,15 +121,15 @@
     qr.appendChild(qrSvg(s.url));
     qr.firstChild.setAttribute('aria-label', 'QR code for ' + s.name);
     page.appendChild(qr);
-    var scan = el('p', 'scan', SCAN.en[0]);
+    var scan = el('p', 'scan', TEXT.en.caption);
     langs.forEach(function (code) {
       if (code === 'en') return;
-      var line = el('span', null, SCAN[code][0]);
+      var line = el('span', null, TEXT[code].caption);
       line.lang = code;
       scan.appendChild(line);
     });
     page.appendChild(scan);
-    page.appendChild(el('p', 'anon', SCAN.en[1]));
+    page.appendChild(el('p', 'anon', TEXT.en.anonymous));
     page.appendChild(el('p', 'link', s.url));
     document.getElementById('pages').appendChild(page);
   });

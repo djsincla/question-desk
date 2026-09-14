@@ -116,12 +116,14 @@ test('guests are told what to do if Google refuses to open a page', () => {
   const fs = require('node:fs');
   const path = require('node:path');
   const present = fs.readFileSync(path.join(__dirname, '..', 'Present.html'), 'utf8');
-  assert.match(present, /<span lang="en">Page won’t open\? Try a private browsing window\.<\/span>/);
-  // Other languages' help lines come from the page's phrase list, one per event language.
-  assert.match(present, /ko: \{[^}]*help: '[^']*시크릿[^']*'/);
-  assert.match(present, /es: \{[^}]*help: '¿No se abre la página\? Prueba en una ventana privada\.'/);
-  ['zh', 'vi', 'tl', 'hy'].forEach((code) => assert.match(present, new RegExp(code + ": \\{ scan: '[^']+', help: '[^']+', caption: '[^']+' \\}"), code));
-  assert.match(present, /class="caption"[^>]*>[\s\S]*?<small class="help">Page won’t open\?/, 'slide caption too');
+  const text = createApp().app.UI_TEXT.screen;
+  assert.equal(text.en.help, 'Page won’t open? Try a private browsing window.');
+  assert.match(text.ko.help, /시크릿/);
+  assert.equal(text.es.help, '¿No se abre la página? Prueba en una ventana privada.');
+  // The room screen shows it in English and each event language, and on the slide's caption.
+  assert.match(present, /getElementById\('helpEn'\)\.textContent = PHRASES\.en\.help/);
+  assert.match(present, /getElementById\('captionHelp'\)\.textContent = PHRASES\.en\.help/);
+  assert.match(present, /h\.textContent = ' ' \+ PHRASES\[code\]\.help/);
 
   const h = createApp().install();
   const s = h.session({ name: 'Help', access: 'link' });

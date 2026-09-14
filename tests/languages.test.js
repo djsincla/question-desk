@@ -81,22 +81,27 @@ test('adding a language to an event later fills it in on the next grouping witho
   assert.equal(labels.vi, '[vi] About parking', 'new language filled in');
 });
 
-test('every page language has every phrase, and the participant page offers only the session\'s languages', () => {
+test('every language has every phrase, in one catalog, and each page gets its part', () => {
   const read = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
   const h = createApp().install();
   const codes = Object.keys(h.app.CONFIG.languages);
-  const ask = read('Ask.html');
-  const STRINGS = eval('(' + ask.match(/var STRINGS = (\{[\s\S]*?\n  \});/)[1] + ')');
-  const keys = Object.keys(STRINGS.en);
-  codes.forEach((code) => {
-    assert.ok(STRINGS[code], 'participant page has ' + code);
-    assert.deepEqual(keys.filter((k) => !STRINGS[code][k]), [], code + ' is missing phrases');
+  const TEXT = h.app.UI_TEXT;
+  Object.keys(TEXT).forEach((part) => {
+    const keys = Object.keys(TEXT[part].en);
+    assert.deepEqual(Object.keys(TEXT[part]).sort(), codes.slice().sort(), part + ' covers exactly the offered languages');
+    codes.forEach((code) => assert.deepEqual(keys.filter((k) => !TEXT[part][code][k]), [], part + '.' + code + ' is missing phrases'));
   });
-  codes.filter((c) => c !== 'en').forEach((code) => {
-    assert.match(read('Present.html'), new RegExp('\\b' + code + ": \\{ scan: '"), 'room screen has ' + code);
-    assert.match(read('Home.html'), new RegExp('\\b' + code + ": '"), 'landing page has ' + code);
+  // Pages carry no phrase lists of their own: they read BOOT.text.
+  ['Ask.html', 'Home.html', 'Present.html', 'Sheet.html'].forEach((file) => {
+    assert.match(read(file), /BOOT\.text/, file);
+    assert.doesNotMatch(read(file), /[\uac00-\ud7af]|[\u4e00-\u9fff]|[\u0530-\u058f]/, file + ' has translated text in it; move it to UI_TEXT');
   });
-  assert.match(ask, /BOOT\.languages/);
+  const s = h.session({ name: 'Text', access: 'link', active: true });
+  const r = h.screenKey(s);
+  assert.deepEqual(h.app.doGet({ parameter: { view: 'present', s: s.id, r } }).data.text, TEXT.screen);
+  assert.deepEqual(h.app.doGet({ parameter: { s: s.id, k: h.app.getSession_(s.id).linkKey } }).data.text, TEXT.ask);
+  assert.deepEqual(h.app.doGet({ parameter: {} }).data.text, TEXT.home);
+  assert.match(read('Ask.html'), /BOOT\.languages/);
 });
 
 test('the room screen can be high contrast', () => {
