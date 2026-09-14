@@ -123,7 +123,7 @@ test('chromium: export sessions to CSV, then check and import an edited file', a
     assert.match(csv, /Family Resource Night — September/);
 
     await page.click('#importCsv');
-    const edited = csv.trim() + '\r\n"Fall Family Conference 2026","Evening wrap-up","Last questions","room","dark","60","300","yes","","","","default","","","no","no","","","","","inactive"';
+    const edited = csv.trim() + '\r\n"Fall Family Conference 2026","Evening wrap-up","Last questions","room","dark","60","300","yes","","","","default","","","no","no","","","","","yes","inactive"';
     await page.fill('#importText', edited);
     await page.click('#importCheck');
     await page.waitForSelector('.import-table');

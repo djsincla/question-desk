@@ -6,6 +6,14 @@ which reads the notes for that version from this file.
 
 ## [2.16.0] - 2026-09-13
 
+### Fixed
+- **Questions could be lost when many phones submitted at once (2.14.1–2.15.0).** A
+  40-at-once load test saved only 15 of 40 questions: 2.14.1 moved the spreadsheet append
+  outside the script lock, and parallel appends overwrote each other. The append is back
+  inside the lock (the spreadsheet is still opened before it, which kept most of the speed
+  gain), submissions now queue up to 30 seconds for their turn instead of getting "busy"
+  after 10, and a test fails if a question is ever written without the lock.
+
 ### Added
 - **Translate prepared questions when saved** (session option, on by default). As soon as
   the session is saved, Gemini detects each prepared question's language and translates it
