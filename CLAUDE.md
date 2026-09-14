@@ -99,7 +99,7 @@ does not carry the query string. That exact bug shipped once (v2): every QR scan
 - Questions sheet columns 10–11: `Grouping` (`ungrouped` = taken out of a topic by hand;
   automatic grouping skips it unless Group now; before 2.16 a `?` language marked this) and
   `Translations` (JSON in the session's languages). `session.translatePrepared` (default
-  on) makes `saveSessionAs_` call `translatePrepared_(sid)`: language, English and
+  on) makes `saveSessionAs_` call `translateQuestions_(sid)`: language, English and
   `translationCodes_(session)` only; `translatePendingPrepared_()` retries from the schedule.
   A single question on Answer now uses its stored translations.
 - Grouping by hand: `groupQuestions(sid, ids, topic)` sets the topic (language left blank,
@@ -188,12 +188,12 @@ does not carry the query string. That exact bug shipped once (v2): every QR scan
 
 - Single questions not in a topic can be shown on phones too (`setQuestionShown`,
   `session.shownQuestions`, Me too key `singleKey_(id)` = `q:<id>`); showing marks the row
-  `ungrouped` and translates it (`translatePrepared_(sid, ids)`); `groupQuestions` carries
+  `ungrouped` and translates it (`translateQuestions_(sid, ids)`); `groupQuestions` carries
   its approval and votes to the topic.
 - Participants never see anyone's question text unless a facilitator shows or answers that
   question, and see a topic label only after a
   moderator approves it (`setTopicShown`, `Topics` column G = `yes`). `getTopics()`
-  returns approved Gemini topic labels translated into `CONFIG.displayLanguages`; translations come back in the same
+  returns approved Gemini topic labels translated into the session's languages (`languagesFor_`); translations come back in the same
   grouping call (`labels` in the schema) and are stored in `Topics` column E. The
   moderator-language label stays the grouping key — do not group on translations.
 - A full room polls `getTopics()` every 30s, so the topic list is cached per session for

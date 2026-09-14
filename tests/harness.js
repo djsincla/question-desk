@@ -349,6 +349,8 @@ function createApp(options) {
     // The Questions sheet as it is once buffered submissions are written (flushInbox_).
     questions() { app.flushInbox_(); return h.spreadsheet().getSheetByName('Questions'); },
     questionsRaw() { return h.spreadsheet().getSheetByName('Questions'); },
+    /** Questions buffered for a session, not yet written to the sheet. */
+    inboxCount(sid) { return Object.keys(scriptProperties.getProperties()).filter((k) => k.indexOf('Q_' + sid + '_') === 0).length; },
     topics() { return h.spreadsheet().getSheetByName('Topics'); },
     assets() { return h.spreadsheet().getSheetByName('Assets'); },
 

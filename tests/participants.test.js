@@ -313,14 +313,14 @@ test('a burst of questions is saved to the inbox without the lock, then written 
     ids.push(res.id);
   }
   assert.equal(h.questionsRaw().rows.length, before, 'nothing written to the sheet during the burst');
-  assert.equal(h.app.inboxCount_(s.id), 12);
+  assert.equal(h.inboxCount(s.id), 12);
 
   // The facilitator's next refresh brings them in, oldest first, in one write.
   h.as('mod@example.org');
   const board = h.app.getBoard(s.id);
   assert.equal(board.unsorted.length, 12);
   assert.deepEqual(h.questionsRaw().rows.slice(before).map((r) => r[0]), ids, 'in the order they were asked');
-  assert.equal(h.app.inboxCount_(s.id), 0);
+  assert.equal(h.inboxCount(s.id), 0);
   assert.deepEqual(h.env.unlockedAppends, []);
 
   // A flush interrupted after writing but before clearing its keys doesn't duplicate rows.
@@ -338,7 +338,7 @@ test('questions sent just before a session ends are in its summary, and deleting
   const h = createApp().install({ moderators: ['mod@example.org'] });
   const s = h.session({ name: 'Ending', access: 'link', active: true, moderators: ['mod@example.org'], emailOnEnd: true, cooldownSeconds: 0 });
   h.ask(s, h.join(s), 'The very last question');
-  assert.equal(h.app.inboxCount_(s.id), 1);
+  assert.equal(h.inboxCount(s.id), 1);
   h.app.endSession(s.id, 'Ending');
   assert.match(h.env.outbox[0].attachments[0].getDataAsString(), /The very last question/);
 
@@ -346,6 +346,6 @@ test('questions sent just before a session ends are in its summary, and deleting
   h.ask(t, h.join(t), 'Never written anywhere');
   h.app.setSessionActive(t.id, false);
   h.app.deleteSession(t.id, 'Doomed');
-  assert.equal(h.app.inboxCount_(t.id), 0);
+  assert.equal(h.inboxCount(t.id), 0);
   assert.ok(!h.questionsRaw().rows.some((r) => r[3] === 'Never written anywhere'));
 });

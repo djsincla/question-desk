@@ -45,7 +45,6 @@ const CONFIG = {
   },
   defaultLanguages: ['en', 'ko', 'es'],
   maxLanguages: 4,
-  displayLanguages: { en: 'English', ko: 'Korean', es: 'Spanish' },   // the default set by name (older code and tests)
   defaultMaxLength: 300,          // per session, admin can change
   maxLengthCeiling: 1024,         // no session may allow more than this
   cooldownSeconds: 300,           // default wait between questions per phone; each session can change it
@@ -1166,7 +1165,7 @@ function sendWeeklyReportNow() {
  * were translated. With `onlyIds`, translates those questions instead, whatever their
  * status: a single question shown on phones or answered on its own.
  */
-function translatePrepared_(sid, onlyIds) {
+function translateQuestions_(sid, onlyIds) {
   const cache = CacheService.getScriptCache();
   const session = getSession_(sid);
   // Only the session's own languages (its event's choice, or the site's).
@@ -1181,7 +1180,7 @@ function translatePrepared_(sid, onlyIds) {
   };
   questionValues_().slice(1).forEach(function (r) {
     if (!eligible(r)) return;
-    if (preparedTranslated_(r, codes)) return;
+    if (translatedInto_(r, codes)) return;
     const id = String(r[COLS.id - 1]);
     if (Number(cache.get('tries:' + id) || 0) < 3 && todo.length < batchSize) todo.push({ id: id, text: String(r[COLS.text - 1]) });
   });
@@ -1252,8 +1251,8 @@ function translatePrepared_(sid, onlyIds) {
   return done;
 }
 
-/** Translated into every one of the session's languages (and has a language)? */
-function preparedTranslated_(row, codes) {
+/** A question row translated into every one of these languages (and has a language)? */
+function translatedInto_(row, codes) {
   if (!row[COLS.lang - 1]) return false;
   const have = parseJson_(row[COLS.translations - 1]);
   return codes.every(function (c) { return have[c]; });
@@ -1271,10 +1270,10 @@ function translatePendingPrepared_() {
   const sids = {};
   questionValues_().slice(1).forEach(function (r) {
     const sid = String(r[COLS.session - 1]);
-    if (want[sid] && r[COLS.status - 1] === 'prepared' && !preparedTranslated_(r, want[sid])) sids[sid] = true;
+    if (want[sid] && r[COLS.status - 1] === 'prepared' && !translatedInto_(r, want[sid])) sids[sid] = true;
   });
   Object.keys(sids).forEach(function (sid) {
-    try { translatePrepared_(sid); } catch (err) { console.error('Prepared translation for ' + sid + ': ' + err); }
+    try { translateQuestions_(sid); } catch (err) { console.error('Prepared translation for ' + sid + ': ' + err); }
   });
 }
 
@@ -1601,6 +1600,13 @@ function requireSession_(sid) {
   const session = getSession_(sid);
   if (!session) throw new Error('Session not found.');
   if (!canModerate_(session, currentEmail_())) throw new Error('You are not a QA Facilitator for this session.');
+  return session;
+}
+
+/** requireSession_ for changes to the queue, which an ended session no longer takes. */
+function requireOpenSession_(sid) {
+  const session = requireSession_(sid);
+  if (session.status === 'ended') throw new Error('This session has ended.');
   return session;
 }
 
@@ -2387,9 +2393,8 @@ function boardData_(session) {
 }
 
 function setStatus(sid, ids, status) {
-  const session = requireSession_(sid);
+  const session = requireOpenSession_(sid);
   flushInbox_(sid);
-  if (session.status === 'ended') throw new Error('This session has ended.');
   if (['new', 'answered', 'dismissed'].indexOf(status) === -1) throw new Error('Unknown status.');
 
   const wanted = {};
@@ -2438,8 +2443,7 @@ function setBoardOpen(sid, open) {
  * can tap Me too. Nothing is shown to the audience until a moderator does this.
  */
 function setTopicShown(sid, topic, shown) {
-  const session = requireSession_(sid);
-  if (session.status === 'ended') throw new Error('This session has ended.');
+  const session = requireOpenSession_(sid);
   topic = String(topic || '');
   const exists = sessionRows_(sid).some(function (q) { return q.topic === topic && q.status !== 'dismissed'; });
   if (!exists) throw new Error('That topic has no questions.');
@@ -2456,8 +2460,7 @@ function setTopicShown(sid, topic, shown) {
  * grouping like any other question, timestamped when they were added.
  */
 function usePrepared(sid, ids) {
-  const session = requireSession_(sid);
-  if (session.status === 'ended') throw new Error('This session has ended.');
+  const session = requireOpenSession_(sid);
   if (!Array.isArray(ids) || !ids.length) throw new Error('Choose a prepared question to add.');
   const wanted = {};
   ids.forEach(function (id) { wanted[String(id)] = true; });
@@ -2490,9 +2493,8 @@ function usePrepared(sid, ids) {
  * is kept out of automatic grouping so it doesn't vanish from phones mid-vote.
  */
 function setQuestionShown(sid, questionId, shown) {
-  const session = requireSession_(sid);
+  const session = requireOpenSession_(sid);
   flushInbox_(sid);
-  if (session.status === 'ended') throw new Error('This session has ended.');
   questionId = String(questionId || '');
   const question = sessionRows_(sid).filter(function (q) { return q.id === questionId; })[0];
   if (!question || question.status === 'dismissed') throw new Error('That question is no longer in the queue.');
@@ -2527,7 +2529,7 @@ function showSingle_(session, question, shown) {
     });
   }
   // Phones show it in their language; if Gemini is down they show the English wording.
-  try { translatePrepared_(sid, [question.id]); } catch (err) { console.error('Translating a shown question: ' + err); }
+  try { translateQuestions_(sid, [question.id]); } catch (err) { console.error('Translating a shown question: ' + err); }
 }
 
 /**
@@ -2536,9 +2538,8 @@ function showSingle_(session, question, shown) {
  * session's "show on phones automatically" on, a topic is also approved for phones.
  */
 function setNowAnswering(sid, topic, questionId) {
-  const session = requireSession_(sid);
+  const session = requireOpenSession_(sid);
   if (questionId) flushInbox_(sid);
-  if (session.status === 'ended') throw new Error('This session has ended.');
   topic = topic ? String(topic).slice(0, 200) : '';
   questionId = questionId ? String(questionId) : '';
   let question = null;
@@ -2559,7 +2560,7 @@ function setNowAnswering(sid, topic, questionId) {
     showSingle_(session, question, true);
   } else if (question) {
     // The room screen and phones show it in each language, not just English.
-    try { translatePrepared_(sid, [question.id]); } catch (err) { console.error('Translating the question being answered: ' + err); }
+    try { translateQuestions_(sid, [question.id]); } catch (err) { console.error('Translating the question being answered: ' + err); }
   }
   invalidateTopics_(sid);
   const was = session.nowAnswering;
@@ -2582,9 +2583,8 @@ function setAutoShowOnPhones(sid, on) {
  * leaves their topic alone.
  */
 function groupQuestions(sid, ids, topic) {
-  const session = requireSession_(sid);
+  const session = requireOpenSession_(sid);
   flushInbox_(sid);
-  if (session.status === 'ended') throw new Error('This session has ended.');
   topic = cleanText_(topic, 80);
   if (!topic) throw new Error('Give the group a topic name.');
   if (!Array.isArray(ids) || !ids.length) throw new Error('Choose the questions to group.');
@@ -2646,8 +2646,7 @@ function setAutoGroup(sid, on) {
 
 /** Takes questions out of their topic. Automatic grouping leaves them alone afterwards. */
 function ungroupQuestions(sid, ids) {
-  const session = requireSession_(sid);
-  if (session.status === 'ended') throw new Error('This session has ended.');
+  const session = requireOpenSession_(sid);
   if (!Array.isArray(ids) || !ids.length) throw new Error('Choose the questions to ungroup.');
   const wanted = {};
   ids.forEach(function (id) { wanted[String(id)] = true; });
@@ -2851,7 +2850,7 @@ function saveSessionAs_(input, me, dryRun) {
     // the every-minute run tries again.
     const saved = getSession_(savedId);
     if (saved.translatePrepared !== false && preparedList.length) {
-      try { translatePrepared_(savedId); } catch (err) { console.error('Prepared translation for ' + savedId + ': ' + err); }
+      try { translateQuestions_(savedId); } catch (err) { console.error('Prepared translation for ' + savedId + ': ' + err); }
     }
   }
   return savedId;
@@ -4254,11 +4253,6 @@ function flushInbox_(sid) {
 }
 
 /** Questions still in the inbox for a session (not yet in the sheet). */
-function inboxCount_(sid) {
-  const prefix = INBOX_PREFIX + sid + '_';
-  return Object.keys(props_().getProperties()).filter(function (k) { return k.indexOf(prefix) === 0; }).length;
-}
-
 /**
  * Writes one value into the same column of many rows in a single call (a RangeList), instead
  * of one call per cell — "Dismiss all" on 20 questions was 20 round trips to Sheets.
