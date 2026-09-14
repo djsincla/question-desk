@@ -170,9 +170,11 @@ test('sessions that use the guest page hand out guest page links the wrapper und
   check(h.app.getRoomScreen(link.id).url, DIRECT + '?s=' + link.id + '&k=' + key, 'link-session QR code');
 
   // Unchanged: the add-in slide link (the add-in already embeds from outside Google) and staff links.
-  assert.equal(link.links.slide, DIRECT + '?view=present&s=' + link.id + '&r=' + h.app.getSession_(link.id).screenKey + '&layout=qr');
+  // The slide link goes through the guest page too; the add-in keeps it that way.
+  check(link.links.slide, DIRECT + '?view=present&s=' + link.id + '&r=' + h.app.getSession_(link.id).screenKey + '&layout=qr', 'PowerPoint slide');
+  assert.equal(RoomUrl.forSlide(link.links.slide), link.links.slide, 'add-in frames the slide through the guest page');
   assert.match(link.links.moderate, /^https:\/\/script\.google\.com\/a\/example\.org\/macros\/s\/.*\?view=moderate&s=/);
-  assert.equal(RoomUrl.forSlide(room.links.present), DIRECT + '?view=present&s=' + room.id + '&r=' + h.app.getSession_(room.id).screenKey + '&layout=qr', 'add-in accepts a guest page room link');
+  assert.equal(RoomUrl.forSlide(room.links.present), GUEST + '?d=AKfycbTESTDEPLOYMENT_id-123456789&view=present&s=' + room.id + '&r=' + h.app.getSession_(room.id).screenKey + '&layout=qr', 'add-in accepts a guest page room link, as a guest page link');
 
   // Emails use the guest page too.
   h.app.emailLinks(link.id, { to: 'guest@example.org', participant: true, present: true });
@@ -203,7 +205,7 @@ test('guest page with no address anywhere uses the built-in GitHub Pages copy', 
   const bare = createApp().install();
   bare.app.saveSession({ name: 'No default', access: 'link', guestPage: { room: true, slide: true, url: '' } });
   const s = bare.app.adminState().sessions[0];
-  assert.deepEqual(s.guestPage, { room: true, slide: true, url: '' });
+  assert.deepEqual(s.guestPage, { room: true, slide: true, panel: true, url: '' });
   assert.equal(bare.app.adminState().guestPageDefault, 'https://djsincla.github.io/question-desk/join/');
   assert.ok(s.links.participant.startsWith('https://djsincla.github.io/question-desk/join/?d='), s.links.participant);
 
@@ -246,22 +248,30 @@ test('room screen and PowerPoint slide each have their own guest page choice', (
   const viaGuest = (url) => url.startsWith(GUEST + '?d=');
   const viaDirect = (url) => url.startsWith(DIRECT + '?');
 
-  const slideOnly = make('Slide only', 'room', { room: false, slide: true });
-  assert.deepEqual(slideOnly.guestPage, { room: false, slide: true, url: '' });
+  const slideOnly = make('Slide only', 'room', { room: false, slide: true, panel: false });
+  assert.deepEqual(slideOnly.guestPage, { room: false, slide: true, panel: false, url: '' });
   assert.ok(viaGuest(h.app.getRoomScreen(slideOnly.id, 'qr').url), 'slide QR uses the guest page');
   assert.ok(viaDirect(h.app.getRoomScreen(slideOnly.id).url), 'room screen QR stays direct');
   assert.ok(viaDirect(h.app.getRoomScreen(slideOnly.id, 'full').url), 'full layout is the room screen');
   assert.ok(viaDirect(slideOnly.links.present), 'room screen link stays direct');
-  assert.ok(viaDirect(slideOnly.links.slide), 'the add-in always frames Question Desk directly');
+  assert.ok(viaGuest(slideOnly.links.slide), 'the slide link uses the guest page');
+  assert.ok(viaDirect(slideOnly.links.panel), 'panelist view stays direct');
 
-  const roomOnly = make('Room only', 'link', { room: true, slide: false });
+  const roomOnly = make('Room only', 'link', { room: true, slide: false, panel: false });
   assert.ok(viaGuest(h.app.getRoomScreen(roomOnly.id).url));
   assert.ok(viaDirect(h.app.getRoomScreen(roomOnly.id, 'qr').url));
   assert.ok(viaGuest(roomOnly.links.present));
   assert.ok(viaGuest(roomOnly.links.participant), 'shareable questions link: either choice turns it on');
+  assert.ok(viaDirect(roomOnly.links.slide));
+  assert.ok(viaDirect(roomOnly.links.panel), 'panelist view has its own choice now');
+
+  const panelOnly = make('Panel only', 'link', { room: false, slide: false, panel: true });
+  assert.ok(viaGuest(panelOnly.links.panel), 'panelist view uses the guest page');
+  assert.ok(viaDirect(panelOnly.links.present));
+  assert.ok(viaDirect(panelOnly.links.participant), 'panelist view alone does not change what phones open');
 
   const neither = make('Neither', 'link', { room: false, slide: false, url: 'https://partner.example/ask/' });
-  assert.deepEqual(neither.guestPage, { room: false, slide: false, url: '' }, 'no address kept when unused');
+  assert.deepEqual(neither.guestPage, { room: false, slide: false, panel: false, url: '' }, 'no address kept when unused');
   assert.ok(viaDirect(neither.links.participant));
   assert.ok(viaDirect(h.app.getRoomScreen(neither.id, 'qr').url));
 });
@@ -282,8 +292,8 @@ test('sessions saved before the split keep working: Guest page meant both, direc
   Object.values(ids).forEach((id) => h.app.setSessionActive(id, true));
 
   const byName = Object.fromEntries(h.app.adminState().sessions.map((s) => [s.name, s]));
-  assert.deepEqual(byName['Old wrapped'].guestPage, { room: true, slide: true, url: '' });
-  assert.deepEqual(byName['Old direct'].guestPage, { room: false, slide: false, url: '' });
+  assert.deepEqual(byName['Old wrapped'].guestPage, { room: true, slide: true, panel: true, url: '' });
+  assert.deepEqual(byName['Old direct'].guestPage, { room: false, slide: false, panel: false, url: '' });
   assert.ok(h.app.getRoomScreen(ids['Old wrapped']).url.startsWith(GUEST + '?d='));
   assert.ok(h.app.getRoomScreen(ids['Old wrapped'], 'qr').url.startsWith(GUEST + '?d='));
   assert.ok(!h.app.getRoomScreen(ids['Old direct'], 'qr').url.startsWith(GUEST));
@@ -315,4 +325,16 @@ test('the panelist view needs the room screen key and shows only what is being a
   // Through the guest page too.
   assert.equal(JoinUrl.target('?d=AKfycb' + 'x'.repeat(30) + '&view=panel&s=' + s.id + '&r=' + r),
     'https://script.google.com/macros/s/AKfycb' + 'x'.repeat(30) + '/exec?view=panel&s=' + s.id + '&r=' + r);
+});
+
+test('sessions from before the panelist view choice keep the panelist view with the room screen', () => {
+  const h = guestSetup();
+  h.app.saveSession({ name: 'Before', access: 'room' });
+  const id = h.app.adminState().sessions[0].id;
+  const raw = JSON.parse(h.props.getProperty('SESSION_' + id));
+  raw.guestPage = { room: true, slide: false, url: '' };   // as 2.4.4–2.17 stored it
+  h.props.setProperty('SESSION_' + id, JSON.stringify(raw));
+  const s = h.app.adminState().sessions[0];
+  assert.deepEqual(s.guestPage, { room: true, slide: false, panel: true, url: '' });
+  assert.ok(s.links.panel.startsWith(GUEST + '?d='));
 });

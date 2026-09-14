@@ -6,9 +6,10 @@
  *   https://script.google.com/macros/s/<id>/exec?...
  *   https://script.google.com/a/macros/<domain>/s/<id>/exec?...
  *   https://script.google.com/a/<domain>/macros/s/<id>/exec?...
- * and always returns the public /macros/s/ form, because PowerPoint's built-in
- * browser can't sign in to Google. Anything else is rejected, so the add-in
- * only ever frames a Question Desk room screen.
+ * and returns the public /macros/s/ form, because PowerPoint's built-in browser
+ * can't sign in to Google — or, for a guest page link, the same guest page (the
+ * session chose it for the slide). Anything else is rejected, so the add-in only
+ * ever frames a Question Desk room screen, directly or through a guest page.
  */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory();
@@ -28,7 +29,11 @@
       var d = guest && /(?:^|&)d=(AKfycb[A-Za-z0-9_-]{20,120})(?:&|$)/.exec(guest[1]);
       var sid = guest && /(?:^|&)s=([a-f0-9]{8})(?:&|$)/.exec(guest[1]);
       var key = guest && /(?:^|&)r=([a-f0-9]{16})(?:&|$)/.exec(guest[1]);
-      return d && sid && key ? { deployment: d[1], session: sid[1], key: key[1] } : null;
+      // The guest page's own address (e.g. https://djsincla.github.io/question-desk/join/),
+      // kept so the slide shows the room screen through it.
+      var base = text.split('?')[0];
+      if (!/^https:\/\/[a-z0-9.-]+(:\d+)?(\/[A-Za-z0-9._~%\/-]*)?$/i.test(base)) return null;
+      return d && sid && key ? { deployment: d[1], session: sid[1], key: key[1], guestPage: base } : null;
     }
     var params = {};
     (match[2] || '').split('&').forEach(function (pair) {
@@ -48,8 +53,11 @@
   function forSlide(input, full) {
     var parsed = parse(input);
     if (!parsed) return null;
-    return 'https://script.google.com/macros/s/' + parsed.deployment + '/exec?view=present&s=' +
-      parsed.session + '&r=' + parsed.key + (full ? '' : '&layout=qr');
+    var query = 'view=present&s=' + parsed.session + '&r=' + parsed.key + (full ? '' : '&layout=qr');
+    // A guest page link stays a guest page link: the presenting laptop may be signed into
+    // several Google accounts, and the guest page keeps Google from refusing the page.
+    if (parsed.guestPage) return parsed.guestPage + '?d=' + parsed.deployment + '&' + query;
+    return 'https://script.google.com/macros/s/' + parsed.deployment + '/exec?' + query;
   }
 
   return { parse: parse, forSlide: forSlide };

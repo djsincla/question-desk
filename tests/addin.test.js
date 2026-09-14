@@ -89,3 +89,14 @@ test('the add-in page only ever frames an address produced by RoomUrl', () => {
   const inline = page.match(/<script>([\s\S]*?)<\/script>/)[1];
   assert.doesNotThrow(() => new Function(inline));
 });
+
+test('a guest page slide link stays on its guest page, for presenting laptops signed into Google', () => {
+  const guest = 'https://djsincla.github.io/question-desk/join/?d=AKfycb' + 'x'.repeat(40) + '&view=present&s=1a2b3c4d&r=0123456789abcdef&layout=qr';
+  assert.equal(RoomUrl.forSlide(guest), guest);
+  assert.equal(RoomUrl.forSlide(guest, true), guest.replace('&layout=qr', ''));
+  const own = 'https://autismla.example/questions/?d=AKfycb' + 'x'.repeat(40) + '&view=present&s=1a2b3c4d&r=0123456789abcdef';
+  assert.equal(RoomUrl.forSlide(own), own + '&layout=qr');
+  // Not a guest page link: refused.
+  assert.equal(RoomUrl.forSlide('https://evil.example/"x"?d=AKfycb' + 'x'.repeat(40) + '&s=1a2b3c4d&r=0123456789abcdef'), null);
+  assert.equal(RoomUrl.forSlide('http://insecure.example/join/?d=AKfycb' + 'x'.repeat(40) + '&s=1a2b3c4d&r=0123456789abcdef'), null);
+});

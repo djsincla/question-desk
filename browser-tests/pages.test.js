@@ -235,20 +235,33 @@ test('chromium: admin page loads its tabs without script errors', async () => {
     await card.locator('button', { hasText: 'Add' }).click();
     await page.waitForFunction(() => /board@example\.org/.test(document.getElementById('summaryList').textContent), null, { timeout: 5000 });
 
-    // Guest page: two checkboxes (room screen, slide); the address box shows when either is ticked.
+    // Guest page: a checkbox per link (room screen, PowerPoint slide, panelist view); the
+    // address box shows when any is ticked, and each tick changes its own link.
     await page.click('[data-tab="sessions"]');
-    await page.locator('.session').first().locator('button', { hasText: 'Edit' }).click();
+    const editCard = page.locator('.session').first();
+    const sessionName = (await editCard.locator('h3').first().evaluate((h) => h.firstChild.textContent)).trim();
+    await editCard.locator('button', { hasText: 'Edit' }).click();
     await page.waitForSelector('#sessionForm:not([hidden])');
     assert.equal(await page.locator('#sessionForm input[type=radio][name=guestMode]').count(), 0);
     const urlBox = page.locator('#f-guest-url-box');
-    if (await page.isChecked('#f-guest-room')) await page.uncheck('#f-guest-room');
-    if (await page.isChecked('#f-guest-slide')) await page.uncheck('#f-guest-slide');
+    for (const id of ['#f-guest-room', '#f-guest-slide', '#f-guest-panel']) if (await page.isChecked(id)) await page.uncheck(id);
     assert.equal(await urlBox.isVisible(), false);
+    for (const id of ['#f-guest-room', '#f-guest-slide', '#f-guest-panel']) {
+      await page.check(id);
+      assert.equal(await urlBox.isVisible(), true, id + ' shows the address box');
+      await page.uncheck(id);
+    }
+
+    // Tick only PowerPoint slide and save: the slide link (and only it) goes through the guest page.
     await page.check('#f-guest-slide');
-    assert.equal(await urlBox.isVisible(), true);
-    await page.uncheck('#f-guest-slide');
-    await page.check('#f-guest-room');
-    assert.equal(await urlBox.isVisible(), true);
+    await page.click('#saveSession');
+    await page.waitForSelector('#sessionForm', { state: 'hidden' });
+    const saved = page.locator('.session', { has: page.locator('h3', { hasText: sessionName }) }).first();
+    await saved.locator('button', { hasText: /^Links$/ }).click();
+    const linkFor = async (label) => saved.locator('.linkrow', { has: page.locator('b', { hasText: new RegExp('^' + label + '$') }) }).locator('input').inputValue();
+    assert.match(await linkFor('PowerPoint slide'), /^https:\/\/djsincla\.github\.io\/question-desk\/join\/\?d=.*&layout=qr$/, 'slide link uses the guest page');
+    assert.match(await linkFor('Room screen'), /^https:\/\/script\.google\.com\//, 'room screen stays direct');
+    assert.match(await linkFor('Panelist view'), /^https:\/\/script\.google\.com\//, 'panelist view stays direct');
     assert.deepEqual(errors, []);
   } finally {
     await context.close();

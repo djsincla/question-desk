@@ -355,11 +355,13 @@
       <label class="choice"><input type="checkbox" id="f-guest-room">
         <span>Room screen<small>The room screen link, and the QR code on the room screen.</small></span></label>
       <label class="choice"><input type="checkbox" id="f-guest-slide">
-        <span>PowerPoint slide<small>The QR code on the slide. The slide itself always shows Question Desk directly.</small></span></label>
+        <span>PowerPoint slide<small>The PowerPoint slide link, and the QR code on the slide.</small></span></label>
+      <label class="choice"><input type="checkbox" id="f-guest-panel">
+        <span>Panelist view<small>The panelist view link, for the panel's tablet or laptop.</small></span></label>
       <label class="field" id="f-guest-url-box" hidden style="margin:6px 0 0 24px">
         <span>Guest page address for this session (optional)</span>
         <input type="url" id="f-guest-url" placeholder="Uses the address on the Branding tab">
-        <div class="hint">Leave blank to use the organization's guest page. Fill in to use another site, such as a partner's. A shareable questions link uses the guest page when either box is ticked.</div>
+        <div class="hint">Leave blank to use the organization's guest page. Fill in to use another site, such as a partner's. A shareable questions link uses the guest page when Room screen or PowerPoint slide is ticked.</div>
       </label>
     </fieldset>
 
@@ -1153,7 +1155,8 @@
     if (s.brand && s.brand.orgName) meta.push('branded for ' + s.brand.orgName);
     if (s.summaryPending && !s.summarySent) meta.push('summary email not sent yet (' + s.summaryPending.error + ') — retrying every 30 minutes, or use Email summary');
     var gp = s.guestPage || {};
-    if (gp.room || gp.slide) meta.push('guest page for ' + (gp.room && gp.slide ? 'room screen and slide' : gp.room ? 'room screen' : 'slide'));
+    var gpUses = [gp.room ? 'room screen' : '', gp.slide ? 'slide' : '', gp.panel ? 'panelist view' : ''].filter(Boolean);
+    if (gpUses.length) meta.push('guest page for ' + gpUses.join(', '));
     if (s.summarySent) meta.push('summary emailed ' + fmtDate(s.summarySent));
     info.appendChild(el('div', 'meta', meta.join(' · ')));
     head.appendChild(info);
@@ -1453,8 +1456,9 @@
     var guest = s.guestPage || {};
     $('f-guest-room').checked = !!guest.room;
     $('f-guest-slide').checked = !!guest.slide;
+    $('f-guest-panel').checked = !!guest.panel;
     $('f-guest-url').value = guest.url || '';
-    $('f-guest-url-box').hidden = !(guest.room || guest.slide);
+    $('f-guest-url-box').hidden = !(guest.room || guest.slide || guest.panel);
     $('f-guest-url').placeholder = 'Uses ' + (state.guestPageUrl || state.guestPageDefault);
     var summary = s.summary && s.summary.mode === 'custom' ? s.summary : null;
     radio('summaryMode', summary ? 'custom' : 'default');
@@ -1531,9 +1535,9 @@
   }
 
   $('f-accent').addEventListener('input', function () { $('f-accent-on').checked = true; });
-  ['f-guest-room', 'f-guest-slide'].forEach(function (id) {
+  ['f-guest-room', 'f-guest-slide', 'f-guest-panel'].forEach(function (id) {
     $(id).addEventListener('change', function () {
-      $('f-guest-url-box').hidden = !($('f-guest-room').checked || $('f-guest-slide').checked);
+      $('f-guest-url-box').hidden = !($('f-guest-room').checked || $('f-guest-slide').checked || $('f-guest-panel').checked);
     });
   });
   var summaryRadios = document.querySelectorAll('input[name=summaryMode]');
@@ -1861,7 +1865,7 @@
       // would break "Add to queue" on an open queue and could revive one just added there.
       prepared: $('f-prepared').value !== loadedPrepared ? $('f-prepared').value : undefined,
       translatePrepared: $('f-translate-prepared').checked,
-      guestPage: { room: $('f-guest-room').checked, slide: $('f-guest-slide').checked, url: $('f-guest-url').value },
+      guestPage: { room: $('f-guest-room').checked, slide: $('f-guest-slide').checked, panel: $('f-guest-panel').checked, url: $('f-guest-url').value },
       summary: radio('summaryMode') === 'custom'
         ? { mode: 'custom', facilitators: $('f-summary-facilitators').checked, extra: $('f-summary-extra').value }
         : { mode: 'default' },

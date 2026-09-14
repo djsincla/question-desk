@@ -4,6 +4,21 @@ All notable changes to Question Desk. Versions follow [Semantic Versioning](http
 Each release is tagged `vX.Y.Z` and published as a GitHub release by `scripts/ship.sh`,
 which reads the notes for that version from this file.
 
+## [2.18.0] - 2026-09-13
+
+### Fixed
+- **Ticking "PowerPoint slide" under Use the guest page for didn't change the slide link.**
+  It only changed the QR code shown on the slide, so the link stayed on Google's address —
+  and a presenting laptop signed into a Google account could still get "Sorry, unable to
+  open the file". The slide link now uses the guest page when ticked, and the PowerPoint
+  add-in shows the slide through that guest page instead of switching back to Google's
+  address. Paste the new **PowerPoint slide** link into slides that should use it.
+
+### Added
+- **Panelist view** checkbox under **Use the guest page for**: its link can use the guest
+  page on its own. Sessions saved before keep the panelist view with the room screen's
+  setting.
+
 ## [2.17.0] - 2026-09-13
 
 ### Changed
@@ -596,6 +611,7 @@ Fixes from a full code review.
 - "Merge into one question" for reading a topic aloud.
 - Participant page in English, Korean and Spanish.
 
+[2.18.0]: https://github.com/djsincla/question-desk/releases/tag/v2.18.0
 [2.17.0]: https://github.com/djsincla/question-desk/releases/tag/v2.17.0
 [2.16.0]: https://github.com/djsincla/question-desk/releases/tag/v2.16.0
 [2.15.0]: https://github.com/djsincla/question-desk/releases/tag/v2.15.0

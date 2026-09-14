@@ -17,7 +17,7 @@
 
 /** Bump with every release; scripts/ship.sh tags git and publishes release notes from CHANGELOG.md. */
 const APP = {
-  version: '2.17.0',
+  version: '2.18.0',
   repo: 'https://github.com/djsincla/question-desk'
 };
 
@@ -540,6 +540,7 @@ const SESSION_CSV = [
   ['Custom summary: other addresses', 'summaryExtra'],
   ['Guest page for room screen (yes or no)', 'guestRoom'],
   ['Guest page for PowerPoint slide (yes or no)', 'guestSlide'],
+  ['Guest page for panelist view (yes or no)', 'guestPanel'],
   ['Guest page address', 'guestUrl'],
   ['Session organization name', 'brandOrgName'],
   ['Session accent color', 'brandAccent'],
@@ -571,7 +572,7 @@ function exportSessionsCsv() {
       summaryMode: summary ? 'custom' : 'default',
       summaryFacilitators: summary ? yesNo(summary.facilitators !== false) : '',
       summaryExtra: summary ? (summary.extra || []).join('; ') : '',
-      guestRoom: yesNo(guest.room), guestSlide: yesNo(guest.slide), guestUrl: guest.url,
+      guestRoom: yesNo(guest.room), guestSlide: yesNo(guest.slide), guestPanel: yesNo(guest.panel), guestUrl: guest.url,
       brandOrgName: own.orgName || '', brandAccent: own.accent || '',
       prepared: (prepared[s.id] || []).join('\n'), translatePrepared: yesNo(s.translatePrepared !== false), status: s.status
     };
@@ -728,11 +729,12 @@ function importSessionsCsv(text, options, dryRun) {
           ? { mode: 'custom', facilitators: csvYes_(get.summaryFacilitators, 'Include QA Facilitators', true), extra: parseEmails_(get.summaryExtra || '') }
           : { mode: 'default' };
       }
-      if (has('guestRoom') || has('guestSlide') || has('guestUrl')) {
+      if (has('guestRoom') || has('guestSlide') || has('guestPanel') || has('guestUrl')) {
         const g = guestChoice_(input.guestPage);
         input.guestPage = {
           room: csvYes_(get.guestRoom, 'Guest page for room screen', g.room),
           slide: csvYes_(get.guestSlide, 'Guest page for slide', g.slide),
+          panel: csvYes_(get.guestPanel, 'Guest page for panelist view', g.panel),
           url: has('guestUrl') ? get.guestUrl.trim() : g.url
         };
       }
@@ -1313,8 +1315,9 @@ function eventChecklist(eid) {
       checks.push({ label: 'Summary email', ok: !s.emailOnEnd ? null : recipients.length > 0,
         detail: !s.emailOnEnd ? 'Not emailed when it ends.' : recipients.length ? 'To ' + recipients.join(', ') : 'Turned on, but nobody would get it.' });
       const g = guestChoice_(s.guestPage);
-      checks.push({ label: 'Guest page', ok: g.room || g.slide ? true : null,
-        detail: g.room || g.slide ? 'For ' + (g.room && g.slide ? 'room screen and slide' : g.room ? 'room screen' : 'slide') : 'Off: browsers signed into several Google accounts may see "Sorry, unable to open the file".' });
+      const uses = [g.room ? 'room screen' : '', g.slide ? 'PowerPoint slide' : '', g.panel ? 'panelist view' : ''].filter(Boolean);
+      checks.push({ label: 'Guest page', ok: uses.length ? true : null,
+        detail: uses.length ? 'For ' + uses.join(', ') : 'Off: browsers signed into several Google accounts may see "Sorry, unable to open the file".' });
       checks.push({ label: 'Prepared questions', ok: true, detail: String(sessionRows_(s.id, true).filter(function (q) { return q.status === 'prepared'; }).length) });
     }
     return {
@@ -1559,9 +1562,10 @@ function sessionLinks_(session) {
     // Guest pages: public form, or through the session's guest page (see guestLink_).
     present: guestLink_(session, 'view=present&s=' + session.id + '&r=' + key, 'room'),
     moderate: base + '?view=moderate&s=' + session.id,
-    panel: guestLink_(session, 'view=panel&s=' + session.id + '&r=' + key, 'room'),
-    // For the PowerPoint add-in, always direct: the add-in already embeds from outside Google.
-    slide: participantBaseUrl_() + '?view=present&s=' + session.id + '&r=' + key + '&layout=qr',
+    panel: guestLink_(session, 'view=panel&s=' + session.id + '&r=' + key, 'panel'),
+    // The add-in accepts either form (it always frames Google directly inside PowerPoint);
+    // through the guest page, the same link also opens cleanly in any browser.
+    slide: guestLink_(session, 'view=present&s=' + session.id + '&r=' + key + '&layout=qr', 'slide'),
     participant: session.access === 'link'
       ? guestLink_(session, 's=' + session.id + '&k=' + session.linkKey, 'any')
       : null
@@ -1588,21 +1592,34 @@ function screenKeyValid_(session, key) {
  * The guest page is a two-file wrapper (docs/join) hosted on any website. It embeds the
  * Question Desk page, so browsers that block third-party cookies (Safari, Firefox) send
  * Google no sign-in, which avoids Google's multi-account "Sorry, unable to open the file".
- * Chosen per session for the room screen and the PowerPoint slide separately; `where` is
- * 'room', 'slide', or 'any' (a shareable questions link: either choice turns it on).
- * Returns '' when that place opens Question Desk directly.
+ * Chosen per session for each link; `where` is:
+ *   'room'  — the room screen link and the QR code on the room screen
+ *   'slide' — the PowerPoint slide link and the QR code on the slide
+ *   'panel' — the panelist view link
+ *   'any'   — the shareable questions link: on when the room screen or slide uses it
+ * Returns '' when that link opens Question Desk directly.
  */
 function guestPageFor_(session, where) {
   const g = guestChoice_(session && session.guestPage);
-  const on = where === 'room' ? g.room : where === 'slide' ? g.slide : (g.room || g.slide);
+  const on = where === 'room' ? g.room : where === 'slide' ? g.slide : where === 'panel' ? g.panel : (g.room || g.slide);
   return on ? (g.url || orgGuestPage_()) : '';
 }
 
-/** { room, slide, url } from a stored or submitted choice; before 2.4.4 it was { mode, url }. */
+/**
+ * { room, slide, panel, url } from a stored or submitted choice. Before 2.4.4 it was
+ * { mode: 'wrapper' } (everything); before 2.18 there was no panel choice and the panelist
+ * view followed the room screen's.
+ */
 function guestChoice_(input) {
   input = input || {};
-  const both = input.mode === 'wrapper';
-  return { room: both || input.room === true, slide: both || input.slide === true, url: String(input.url || '') };
+  const all = input.mode === 'wrapper';
+  const room = all || input.room === true;
+  return {
+    room: room,
+    slide: all || input.slide === true,
+    panel: all || (input.panel === undefined ? room : input.panel === true),
+    url: String(input.url || '')
+  };
 }
 
 /** This project's public copy of docs/join; works for any Question Desk deployment. */
@@ -2614,7 +2631,7 @@ function setPrepared_(sid, list) {
 function cleanGuestPageChoice_(input) {
   const g = guestChoice_(input);
   // Blank means the Branding tab's address (or the built-in one), looked up when links are made.
-  return { room: g.room, slide: g.slide, url: g.room || g.slide ? cleanGuestPageUrl_(g.url) : '' };
+  return { room: g.room, slide: g.slide, panel: g.panel, url: g.room || g.slide || g.panel ? cleanGuestPageUrl_(g.url) : '' };
 }
 
 function optionalTime_(value, label) {

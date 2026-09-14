@@ -327,13 +327,14 @@ anonymous visitor and can't show the error.
    - Don't use **Advanced → Question Desk Google address** for this. Leave it blank; it's only
      for Question Desk's own `https://script.google.com/macros/s/…/exec` address.
 3. **For each session:** Sessions → **Edit** → **Use the guest page for** → tick
-   **Room screen**, **PowerPoint slide**, or both → **Save session**. Each box controls the QR
-   code shown there. (A session can use a different guest page address, such as a partner's
+   **Room screen**, **PowerPoint slide** and/or **Panelist view** → **Save session**. Each box
+   switches that link — and for the room screen and slide, the QR code shown there — to the
+   guest page. (A session can use a different guest page address, such as a partner's
    website, in the field that appears. Blank uses the Branding address, or this project's
    copy if that is blank too.)
-4. **Use the new links.** Sessions → **Links** now shows guest page addresses for the room
-   screen and the questions link, and the room screen's QR code points through the guest
-   page. Re-copy any links you saved or emailed before, and reload open room screens.
+4. **Use the new links.** Sessions → **Links** now shows guest page addresses for the links
+   you ticked, and their QR codes point through the guest page. Paste the new **PowerPoint
+   slide** link into the add-in on your slides. Re-copy any links you saved or emailed before, and reload open room screens.
 5. **Test** in the browser that showed the error: open the room screen link and scan the QR
    code with a phone that showed it.
 
@@ -341,11 +342,10 @@ anonymous visitor and can't show the error.
 
 | Page | Opens through |
 |---|---|
-| QR code on the room screen | Guest page when **Room screen** is ticked |
-| Room screen link | Guest page when **Room screen** is ticked |
-| QR code on the PowerPoint slide | Guest page when **PowerPoint slide** is ticked |
-| Shareable questions link (and emailed links) | Guest page when either box is ticked |
-| PowerPoint slide itself (add-in) | Directly — the add-in already embeds from outside Google |
+| Room screen link, and the QR code on the room screen | Guest page when **Room screen** is ticked |
+| PowerPoint slide link (what the add-in shows), and the QR code on the slide | Guest page when **PowerPoint slide** is ticked — for presenting laptops signed into a Google account |
+| Panelist view link | Guest page when **Panelist view** is ticked |
+| Shareable questions link (and emailed links) | Guest page when **Room screen** or **PowerPoint slide** is ticked |
 | QA Facilitator queue, Admin page | Directly on Google — staff sign in with the organization account |
 
 **Which browsers the guest page fixes**

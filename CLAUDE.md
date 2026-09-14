@@ -26,9 +26,12 @@ Workspace account. See SETUP.md for install and deployment.
 - `CHANGELOG.md` — release notes; `ship.sh` publishes the section for `APP.version`
 - `docs/join/` — the guest page: frames guest pages from another site so Safari/Firefox send
   Google no cookies (Google's multi-account "unable to open the file"). `guestLink_()` builds
-  `<guest page>?d=<deployment>&<query>`. Sessions choose it separately for the room screen and
-  the slide (`guestPage: {room, slide, url}`, read via `guestChoice_()`, which also accepts the
-  pre-2.4.4 `{mode:'wrapper'}`); the slide's QR comes from `getRoomScreen(sid, 'qr')`. `join-url.js` only frames script.google.com guest
+  `<guest page>?d=<deployment>&<query>`. Sessions choose it per link
+  (`guestPage: {room, slide, panel, url}`, read via `guestChoice_()`, which also accepts the
+  pre-2.4.4 `{mode:'wrapper'}` and pre-2.18 `{room, slide}`, where the panelist view followed
+  room): room = room screen link + its QR; slide = the slide link itself + the slide's QR
+  (from `getRoomScreen(sid, 'qr')`); panel = panelist view link. Each tick must change its own
+  link — the 2.4.4–2.17 slide tick changed only the QR, which looked like it did nothing. `join-url.js` only frames script.google.com guest
   pages. Tested in-browser that data calls from other sites (ContentService doPost) are slow
   and fail ~half the time on Google's side — don't build guest pages on fetch(); frame instead.
 - `docs/addin/install/` — add-in installers (Mac `.sh`/`.command`, Windows `.ps1`/`.cmd`) and
@@ -37,7 +40,8 @@ Workspace account. See SETUP.md for install and deployment.
   Mac writes `wef/<add-in id>.manifest.xml`. CI runs both for real.
 - `docs/addin/` — *Question Desk QR* PowerPoint content add-in, served by GitHub Pages
   (`main` branch, `/docs`). `manifest.xml` `<Version>` tracks `APP.version`. The page only
-  frames addresses from `room-url.js` (public `/macros/s/` form, `&layout=qr`)
+  frames addresses from `room-url.js` (public `/macros/s/` form, or the session's guest page
+  when the slide link is a guest page link; `&layout=qr`)
 
 Pages get server data through a single template scriptlet, `var BOOT = <?!= boot ?>;`,
 filled by `page_()` with `<` and U+2028/2029 escaped. The only other scriptlet is

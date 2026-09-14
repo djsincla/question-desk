@@ -113,11 +113,13 @@ again. Existing boxes keep the size they were inserted at; drag their handles to
   phone on mobile data. PowerPoint's built-in browser differs between Windows and Mac.
 - The slide needs internet for the whole event; if the connection drops, the code stops
   rotating and new people can't join an in-room session.
-- The link is the public room screen address, so it never asks anyone to sign in.
+- The link never asks anyone to sign in. If the presenting laptop is signed into a Google
+  account and the slide shows "Sorry, unable to open the file", tick **Use the guest page
+  for → PowerPoint slide** on the session and paste the new **PowerPoint slide** link.
 
 ## How it works
 
 `index.html` is the add-in page. It keeps the pasted link in the presentation's settings
-and shows the room screen (`…/exec?view=present&s=<session>&layout=qr`) in a frame.
-`room-url.js` accepts only Question Desk session links and always converts them to the
-public `/macros/s/` address. Tests: `tests/addin.test.js`.
+and shows the room screen (`…/exec?view=present&s=<session>&r=<key>&layout=qr`) in a frame.
+`room-url.js` accepts only Question Desk session links: Google addresses become the public
+`/macros/s/` form, and guest page links stay on their guest page. Tests: `tests/addin.test.js`.
