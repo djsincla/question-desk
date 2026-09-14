@@ -38,9 +38,24 @@ function serverCalls(js) {
   return names;
 }
 
+const HARNESS = require('./harness').createApp().install();
+
 for (const page of PAGES) {
   const html = fs.readFileSync(path.join(ROOT, page), 'utf8');
-  const scripts = inlineScripts(html);
+  // The page's own scripts, and the shared script it gets from Scripts.html: same checks for both.
+  const shared = inlineScripts(HARNESS.app.scriptsFor_(page));
+  const scripts = inlineScripts(html).concat(shared);
+
+  test(page + ': its own script never redeclares a name from the shared script', () => {
+    const top = (js) => Array.from(js.matchAll(/^ {0,2}(?:var|function)\s+([A-Za-z_$][\w$]*)/gm), (m) => m[1]);
+    const sharedNames = new Set(shared.flatMap(top));
+    inlineScripts(html).flatMap(top).forEach((name) => {
+      assert.ok(!sharedNames.has(name), page + ' declares ' + name + ', which Scripts.html already defines for it');
+    });
+    if (html.indexOf('<?!= scripts ?>') !== -1) {
+      assert.ok(html.indexOf('<?!= scripts ?>') < html.indexOf('<script>'), page + ': the shared script comes before the page script');
+    }
+  });
 
   test(page + ': inline scripts parse', () => {
     assert.ok(scripts.length > 0);
@@ -87,7 +102,7 @@ for (const page of PAGES) {
 
   test(page + ': uses template boot data only through BOOT', () => {
     const scriptlets = html.match(/<\?[\s\S]*?\?>/g) || [];
-    scriptlets.forEach((s) => assert.ok(s === '<?!= boot ?>' || s === '<?!= styles ?>', page + ' has an unexpected scriptlet ' + s));
+    scriptlets.forEach((s) => assert.ok(['<?!= boot ?>', '<?!= styles ?>', '<?!= scripts ?>'].indexOf(s) !== -1, page + ' has an unexpected scriptlet ' + s));
     if (scriptlets.indexOf('<?!= boot ?>') !== -1) assert.match(html, /var BOOT = <\?!= boot \?>;/);
     // Styles come only from Styles.html, in the head.
     assert.ok(html.indexOf('<?!= styles ?>') !== -1 && html.indexOf('<?!= styles ?>') < html.indexOf('</head>'), page + ': styles are in the head');
@@ -171,14 +186,29 @@ test('manifest keeps anonymous web app access and the scopes the code needs', ()
   });
 });
 
-test('the room screen and the printable QR sheets draw the QR code with the same code', () => {
-  const block = (file) => {
-    const html = fs.readFileSync(path.join(ROOT, file), 'utf8');
-    const m = html.match(/\/\/ qr-art:start[^\n]*\n([\s\S]*?)\/\/ qr-art:end/);
-    assert.ok(m, file + ' has the qr-art block');
-    return m[1];
-  };
-  assert.equal(block('Sheet.html'), block('Present.html'), 'copy the qr-art block from Present.html to Sheet.html');
+test('shared script: one script block in Scripts.html, sections for real pages, each page gets only its own', () => {
+  const js = fs.readFileSync(path.join(ROOT, 'Scripts.html'), 'utf8').trim();
+  assert.match(js, /^<script>[\s\S]*<\/script>$/);
+  assert.equal((js.match(/<script>/g) || []).length, 1);
+  assert.doesNotMatch(js, /<\?|google\.script\.run|src=/, 'no scriptlets, server calls or external scripts');
+  assert.match(fs.readFileSync(path.join(ROOT, '.claspignore'), 'utf8'), /^!Scripts\.html$/m);
+  assert.match(SERVER, /template\.scripts = scriptsFor_\(file\);/);
+  const names = PAGES.map((p) => p.replace('.html', ''));
+  Array.from(js.matchAll(/\/\* =+ @pages ([A-Za-z ]+) \*\//g), (m) => m[1].split(' ')).flat()
+    .forEach((name) => assert.ok(names.indexOf(name) !== -1, 'section for an unknown page: ' + name));
+  // Each page that uses a helper gets it, and only the pages that use it.
+  const forPage = (p) => HARNESS.app.scriptsFor_(p);
+  assert.match(forPage('Present.html'), /function qrArt\(/);
+  assert.match(forPage('Sheet.html'), /function qrArt\(/);
+  assert.doesNotMatch(forPage('Admin.html'), /function qrArt\(/);
+  assert.match(forPage('Moderate.html'), /function ask\(/);
+  assert.match(forPage('Panel.html'), /function tellFrame\(/);
+  assert.equal(forPage('Ask.html'), '', 'the participant page needs none, so gets nothing');
   // Rounded corners only: every dark module is drawn, so the code scans like the square one.
-  assert.match(block('Present.html'), /if \(dark\(r, c\)\)/);
+  assert.match(forPage('Present.html'), /if \(dark\(r, c\)\)/);
+  // Any page that uses the shared script includes it.
+  PAGES.forEach((p) => {
+    const html = fs.readFileSync(path.join(ROOT, p), 'utf8');
+    assert.equal(html.indexOf('<?!= scripts ?>') !== -1, forPage(p) !== '', p + ' includes the shared script exactly when it has sections');
+  });
 });

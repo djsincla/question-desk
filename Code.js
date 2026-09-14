@@ -163,8 +163,10 @@ function doGet(e) {
 /** Renders a page with server data injected as a JSON literal (see BOOT in each file). */
 function page_(file, title, boot, session) {
   const template = HtmlService.createTemplateFromFile(file);
-  // Every page's styles live in Styles.html; inlined so pages stay one request.
+  // Every page's styles and shared script live in Styles.html and Scripts.html; inlined so
+  // pages stay one request.
   template.styles = stylesFor_(file);
+  template.scripts = scriptsFor_(file);
   boot.brand = brand_(session);
   if (UI_TEXT_FOR[file]) boot.text = UI_TEXT[UI_TEXT_FOR[file]];
   template.boot = JSON.stringify(boot)
@@ -190,15 +192,26 @@ function page_(file, title, boot, session) {
  * name (the shared section, then the page's own). A phone never downloads the Admin styles.
  */
 function stylesFor_(file) {
+  return '<style>\n' + sectionsFor_('Styles', 'style', file) + '</style>';
+}
+
+/** The shared <script> for one page, from Scripts.html's sections for it ('' if none). */
+function scriptsFor_(file) {
+  const js = sectionsFor_('Scripts', 'script', file);
+  return js ? '<script>\n' + js + '</script>' : '';
+}
+
+/** The sections of Styles.html or Scripts.html marked "@pages … <page> …", in file order. */
+function sectionsFor_(source, tag, file) {
   const page = String(file).replace(/\.html$/, '');
-  const css = HtmlService.createHtmlOutputFromFile('Styles').getContent();
-  const inner = css.slice(css.indexOf('<style>') + 7, css.lastIndexOf('</style>'));
+  const text = HtmlService.createHtmlOutputFromFile(source).getContent();
+  const inner = text.slice(text.indexOf('<' + tag + '>') + tag.length + 2, text.lastIndexOf('</' + tag + '>'));
   const parts = inner.split(/[ \t]*\/\* =+ @pages ([A-Za-z ]+) \*\/\n/);
   let out = '';
   for (let i = 1; i < parts.length; i += 2) {
     if (parts[i].split(' ').indexOf(page) !== -1) out += parts[i + 1];
   }
-  return '<style>\n' + out + '</style>';
+  return out;
 }
 
 /** Splash page at the bare app address. Staff see their live sessions; everyone else sees how to join. */

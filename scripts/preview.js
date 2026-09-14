@@ -216,6 +216,7 @@ function serve(port, options) {
     const html = fs.readFileSync(path.join(ROOT, page.file), 'utf8')
       .replace('<?!= boot ?>', page.boot)
       .replace('<?!= styles ?>', () => page.styles)
+      .replace('<?!= scripts ?>', () => page.scripts)
       .replace('<head>', '<head><title>' + page.title + '</title>' + shim(as, params));
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
     res.end(html);

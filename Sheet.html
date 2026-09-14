@@ -13,6 +13,7 @@
 <div id="pages"></div>
 <p class="skipped" id="skipped" hidden></p>
 
+<?!= scripts ?>
 <script>
   var BOOT = <?!= boot ?>;
   var brand = BOOT.brand || {};
@@ -21,80 +22,7 @@
   var langs = (BOOT.languages || ['en']).filter(function (c) { return TEXT[c]; });
   if (brand.accent) document.documentElement.style.setProperty('--action', brand.accent);
 
-  function el(tag, cls, text) {
-    var n = document.createElement(tag);
-    if (cls) n.className = cls;
-    if (text !== undefined) n.textContent = text;
-    return n;
-  }
 
-  // qr-art:start (same code in Present.html and Sheet.html; tests keep the two identical)
-  /**
-   * The QR pattern as one SVG with rounded dots: each module's outside corners are rounded,
-   * inside corners are filled in, so neighbours flow together; the three finder "eyes" are
-   * rounded squares. Only corners change, never which modules are dark, so it scans like
-   * the square version (the browser tests decode it).
-   */
-  function qrArt(model, label) {
-    var NS = 'http://www.w3.org/2000/svg';
-    var n = model.getModuleCount();
-    var k = 0.5;   // corner radius in modules: round ends on single dots
-    function dark(r, c) { return r >= 0 && c >= 0 && r < n && c < n && model.isDark(r, c); }
-    function eye(r, c) { return (r < 7 || r >= n - 7) && (c < 7 || c >= n - 7) && !(r >= n - 7 && c >= n - 7); }
-    function arc(rad, sweep, x, y) { return 'A' + rad + ' ' + rad + ' 0 0 ' + sweep + ' ' + x + ' ' + y; }
-    function box(x, y, w, h, rad) {
-      return 'M' + (x + rad) + ' ' + y + 'H' + (x + w - rad) + arc(rad, 1, x + w, y + rad) +
-        'V' + (y + h - rad) + arc(rad, 1, x + w - rad, y + h) + 'H' + (x + rad) + arc(rad, 1, x, y + h - rad) +
-        'V' + (y + rad) + arc(rad, 1, x + rad, y) + 'Z';
-    }
-    var d = '';
-    for (var r = 0; r < n; r++) {
-      for (var c = 0; c < n; c++) {
-        if (eye(r, c)) continue;
-        var up = dark(r - 1, c), down = dark(r + 1, c), left = dark(r, c - 1), right = dark(r, c + 1);
-        if (dark(r, c)) {
-          var tl = !up && !left ? k : 0, tr = !up && !right ? k : 0, br = !down && !right ? k : 0, bl = !down && !left ? k : 0;
-          d += 'M' + (c + tl) + ' ' + r + 'H' + (c + 1 - tr) + (tr ? arc(k, 1, c + 1, r + k) : '') +
-            'V' + (r + 1 - br) + (br ? arc(k, 1, c + 1 - k, r + 1) : '') +
-            'H' + (c + bl) + (bl ? arc(k, 1, c, r + 1 - k) : '') +
-            'V' + (r + tl) + (tl ? arc(k, 1, c + k, r) : '') + 'Z';
-        } else {
-          // A light module in an inside corner: fill the corner so the turn is smooth.
-          if (up && left && dark(r - 1, c - 1)) d += 'M' + c + ' ' + r + 'H' + (c + k) + arc(k, 0, c, r + k) + 'Z';
-          if (up && right && dark(r - 1, c + 1)) d += 'M' + (c + 1) + ' ' + r + 'V' + (r + k) + arc(k, 0, c + 1 - k, r) + 'Z';
-          if (down && right && dark(r + 1, c + 1)) d += 'M' + (c + 1) + ' ' + (r + 1) + 'H' + (c + 1 - k) + arc(k, 0, c + 1, r + 1 - k) + 'Z';
-          if (down && left && dark(r + 1, c - 1)) d += 'M' + c + ' ' + (r + 1) + 'V' + (r + 1 - k) + arc(k, 0, c + k, r + 1) + 'Z';
-        }
-      }
-    }
-    var eyes = '';
-    [[0, 0], [0, n - 7], [n - 7, 0]].forEach(function (at) {
-      var y = at[0], x = at[1];
-      // Outer ring (with its hole) and the centre, filled even-odd.
-      eyes += box(x, y, 7, 7, 2.6) + box(x + 1, y + 1, 5, 5, 1.7) + box(x + 2, y + 2, 3, 3, 1.1);
-    });
-    var svg = document.createElementNS(NS, 'svg');
-    // Two modules of white all round (the quiet zone), part of the drawing so it scales with it.
-    svg.setAttribute('viewBox', '-2 -2 ' + (n + 4) + ' ' + (n + 4));
-    svg.setAttribute('role', 'img');
-    svg.setAttribute('aria-label', label);
-    var bg = document.createElementNS(NS, 'rect');
-    bg.setAttribute('x', -2);
-    bg.setAttribute('y', -2);
-    bg.setAttribute('width', n + 4);
-    bg.setAttribute('height', n + 4);
-    bg.setAttribute('fill', '#fff');
-    svg.appendChild(bg);
-    [[d, 'nonzero'], [eyes, 'evenodd']].forEach(function (part) {
-      var path = document.createElementNS(NS, 'path');
-      path.setAttribute('d', part[0]);
-      path.setAttribute('fill', '#000');
-      path.setAttribute('fill-rule', part[1]);
-      svg.appendChild(path);
-    });
-    return svg;
-  }
-  // qr-art:end
 
   function qrSvg(url) {
     var scratch = document.createElement('div');

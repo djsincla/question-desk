@@ -80,6 +80,7 @@
   </form>
 </div>
 
+<?!= scripts ?>
 <script>
   var BOOT = <?!= boot ?>;
   var sid = BOOT.sid;
@@ -128,26 +129,6 @@
   var ended = false;
 
   // In-page confirmation instead of confirm(), which shows the sandbox's googleusercontent.com address.
-  var dialogDone = null;
-  function ask(title, body, okLabel, onOk) {
-    document.getElementById('dialogTitle').textContent = title;
-    document.getElementById('dialogBody').textContent = body;
-    document.getElementById('dialogOk').textContent = okLabel;
-    dialogDone = onOk;
-    document.getElementById('dialogCancel').hidden = false;
-    document.getElementById('dialog').hidden = false;
-    document.getElementById('dialogOk').focus();
-  }
-  function closeDialog() { document.getElementById('dialog').hidden = true; dialogDone = null; }
-  document.getElementById('dialogCancel').onclick = closeDialog;
-  document.getElementById('dialog').addEventListener('click', function (e) { if (e.target === this) closeDialog(); });
-  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeDialog(); });
-  document.getElementById('dialogForm').addEventListener('submit', function (e) {
-    e.preventDefault();
-    var done = dialogDone;
-    closeDialog();
-    if (done) done();
-  });
 
   // ------------------------------------------------------------ instant updates
   //
@@ -513,8 +494,8 @@
       dismissAll.textContent = 'Dismiss all ' + t.count + (t.count === 1 ? ' question' : ' questions');
       dismissAll.onclick = function () {
         more.open = false;
-        ask('Dismiss this topic?', 'All ' + t.count + (t.count === 1 ? ' question' : ' questions') + ' under "' + t.topic +
-          '" move to Dismissed at the bottom of the page and come off participants\' phones. You can restore them.', 'Dismiss all', function () {
+        ask({ title: 'Dismiss this topic?', body: 'All ' + t.count + (t.count === 1 ? ' question' : ' questions') + ' under "' + t.topic +
+          '" move to Dismissed at the bottom of the page and come off participants\' phones. You can restore them.', ok: 'Dismiss all', danger: true }, function () {
           act(t.questions.map(function (q) { return q.id; }), 'dismissed');
         });
       };
@@ -667,11 +648,6 @@
     return wrap;
   }
 
-  function el(tag, cls) {
-    var n = document.createElement(tag);
-    if (cls) n.className = cls;
-    return n;
-  }
 
   toggle.onclick = function () {
     if (!state) return;   // not loaded yet
@@ -877,8 +853,7 @@
   ];
 
   document.getElementById('keysHelp').onclick = function () {
-    ask('Keyboard shortcuts', SHORTCUTS.map(function (k) { return k[0] + '  —  ' + k[1]; }).join('\n'), 'Got it', function () {});
-    document.getElementById('dialogCancel').hidden = true;
+    ask({ title: 'Keyboard shortcuts', body: SHORTCUTS.map(function (k) { return k[0] + '  —  ' + k[1]; }).join('\n'), ok: 'Got it', danger: true, noCancel: true }, function () {});
   };
 
   document.addEventListener('keydown', function (e) {

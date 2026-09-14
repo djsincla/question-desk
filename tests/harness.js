@@ -304,6 +304,7 @@ function createApp(options) {
               file,
               boot: template.boot,
               styles: template.styles,
+              scripts: template.scripts,
               data: JSON.parse(template.boot),
               title: '',
               setTitle(t) { out.title = t; return out; },

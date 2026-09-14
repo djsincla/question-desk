@@ -24,13 +24,13 @@
   <span id="clock"></span>
 </div>
 
+<?!= scripts ?>
 <script>
   var BOOT = <?!= boot ?>;
   var brand = BOOT.brand || {};
   var since = null;
   var lastOk = Date.now();
 
-  function $(id) { return document.getElementById(id); }
 
   if (BOOT.theme === 'light') document.body.className = 'light';
   if (brand.accent) document.documentElement.style.setProperty('--action', brand.accent);
@@ -55,10 +55,7 @@
 
   function show(screen) {
     lastOk = Date.now();
-    // The guest page frames this view: tell it the view is alive (or outdated), so it can reload.
-    try {
-      if (window.top !== window) window.top.postMessage({ questionDesk: screen.version && BOOT.version && screen.version !== BOOT.version ? 'outdated' : 'ok' }, '*');
-    } catch (e) {}
+    tellFrame(frameState(screen));   // the guest page reloads a view that went quiet or is outdated
     $('session').textContent = screen.heading || '';
     var now = screen.nowAnswering;
     $('live').hidden = !now;

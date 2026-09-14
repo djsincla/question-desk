@@ -1,0 +1,154 @@
+<script>
+  /*
+   * Script shared by the Apps Script pages, in one file, like Styles.html. page_() inlines it
+   * where a page says "scripts" (before the page's own script), keeping only the sections
+   * marked for that page. Plain ES5, no dependencies. Names here are page-wide globals: don't
+   * reuse them in a page's own script.
+   */
+
+  /* ============================== @pages Admin Home Moderate Panel Sheet */
+  /** Short for document.getElementById. */
+  function $(id) { return document.getElementById(id); }
+
+  /** A new element with an optional class and text. */
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined) n.textContent = text;
+    return n;
+  }
+
+  /* ============================== @pages Admin Moderate */
+  /*
+   * The in-page confirm dialog (pages never use confirm(): in Google's sandbox it shows a
+   * googleusercontent.com address). Needs the #dialog markup; the type-to-confirm field
+   * (#dialogTypeWrap, #dialogTypeLabel, #dialogType) is optional.
+   * ask({ title, body, ok, danger, noCancel, typeToConfirm }, onOk(typed))
+   */
+  var dialogDone = null;
+  var dialogExpect = '';
+
+  function dialogText(v) { return String(v || '').replace(/\s+/g, ' ').trim().toLowerCase(); }
+
+  function ask(opts, onOk) {
+    $('dialogTitle').textContent = opts.title;
+    $('dialogBody').textContent = opts.body || '';
+    $('dialogOk').textContent = opts.ok || 'OK';
+    $('dialogOk').className = opts.danger ? 'danger-solid' : 'primary';
+    $('dialogCancel').hidden = !!opts.noCancel;
+    dialogExpect = $('dialogType') ? opts.typeToConfirm || '' : '';
+    if ($('dialogTypeWrap')) {
+      $('dialogTypeWrap').hidden = !dialogExpect;
+      $('dialogType').value = '';
+    }
+    if (dialogExpect) {
+      var label = $('dialogTypeLabel');
+      label.textContent = 'To confirm, type ';
+      label.appendChild(el('span', 'typed', dialogExpect));
+    }
+    $('dialogOk').disabled = !!dialogExpect;
+    dialogDone = onOk;
+    $('dialog').hidden = false;
+    (dialogExpect ? $('dialogType') : $('dialogOk')).focus();
+  }
+
+  function closeDialog() { $('dialog').hidden = true; dialogDone = null; }
+
+  if ($('dialogType')) {
+    $('dialogType').addEventListener('input', function () {
+      $('dialogOk').disabled = dialogText(this.value) !== dialogText(dialogExpect);
+    });
+  }
+  $('dialogCancel').onclick = closeDialog;
+  $('dialog').addEventListener('click', function (e) { if (e.target === this) closeDialog(); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeDialog(); });
+  $('dialogForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    if ($('dialogOk').disabled) return;
+    var done = dialogDone;
+    var typed = $('dialogType') ? $('dialogType').value : '';
+    closeDialog();
+    if (done) done(typed);
+  });
+
+  /* ============================== @pages Present Sheet */
+  /**
+   * The QR pattern as one SVG with rounded dots: each module's outside corners are rounded,
+   * inside corners are filled in, so neighbours flow together; the three finder "eyes" are
+   * rounded squares. Only corners change, never which modules are dark, so it scans like
+   * the square version (the browser tests decode it).
+   */
+  function qrArt(model, label) {
+    var NS = 'http://www.w3.org/2000/svg';
+    var n = model.getModuleCount();
+    var k = 0.5;   // corner radius in modules: round ends on single dots
+    function dark(r, c) { return r >= 0 && c >= 0 && r < n && c < n && model.isDark(r, c); }
+    function eye(r, c) { return (r < 7 || r >= n - 7) && (c < 7 || c >= n - 7) && !(r >= n - 7 && c >= n - 7); }
+    function arc(rad, sweep, x, y) { return 'A' + rad + ' ' + rad + ' 0 0 ' + sweep + ' ' + x + ' ' + y; }
+    function box(x, y, w, h, rad) {
+      return 'M' + (x + rad) + ' ' + y + 'H' + (x + w - rad) + arc(rad, 1, x + w, y + rad) +
+        'V' + (y + h - rad) + arc(rad, 1, x + w - rad, y + h) + 'H' + (x + rad) + arc(rad, 1, x, y + h - rad) +
+        'V' + (y + rad) + arc(rad, 1, x + rad, y) + 'Z';
+    }
+    var d = '';
+    for (var r = 0; r < n; r++) {
+      for (var c = 0; c < n; c++) {
+        if (eye(r, c)) continue;
+        var up = dark(r - 1, c), down = dark(r + 1, c), left = dark(r, c - 1), right = dark(r, c + 1);
+        if (dark(r, c)) {
+          var tl = !up && !left ? k : 0, tr = !up && !right ? k : 0, br = !down && !right ? k : 0, bl = !down && !left ? k : 0;
+          d += 'M' + (c + tl) + ' ' + r + 'H' + (c + 1 - tr) + (tr ? arc(k, 1, c + 1, r + k) : '') +
+            'V' + (r + 1 - br) + (br ? arc(k, 1, c + 1 - k, r + 1) : '') +
+            'H' + (c + bl) + (bl ? arc(k, 1, c, r + 1 - k) : '') +
+            'V' + (r + tl) + (tl ? arc(k, 1, c + k, r) : '') + 'Z';
+        } else {
+          // A light module in an inside corner: fill the corner so the turn is smooth.
+          if (up && left && dark(r - 1, c - 1)) d += 'M' + c + ' ' + r + 'H' + (c + k) + arc(k, 0, c, r + k) + 'Z';
+          if (up && right && dark(r - 1, c + 1)) d += 'M' + (c + 1) + ' ' + r + 'V' + (r + k) + arc(k, 0, c + 1 - k, r) + 'Z';
+          if (down && right && dark(r + 1, c + 1)) d += 'M' + (c + 1) + ' ' + (r + 1) + 'H' + (c + 1 - k) + arc(k, 0, c + 1, r + 1 - k) + 'Z';
+          if (down && left && dark(r + 1, c - 1)) d += 'M' + c + ' ' + (r + 1) + 'V' + (r + 1 - k) + arc(k, 0, c + k, r + 1) + 'Z';
+        }
+      }
+    }
+    var eyes = '';
+    [[0, 0], [0, n - 7], [n - 7, 0]].forEach(function (at) {
+      var y = at[0], x = at[1];
+      // Outer ring (with its hole) and the centre, filled even-odd.
+      eyes += box(x, y, 7, 7, 2.6) + box(x + 1, y + 1, 5, 5, 1.7) + box(x + 2, y + 2, 3, 3, 1.1);
+    });
+    var svg = document.createElementNS(NS, 'svg');
+    // Two modules of white all round (the quiet zone), part of the drawing so it scales with it.
+    svg.setAttribute('viewBox', '-2 -2 ' + (n + 4) + ' ' + (n + 4));
+    svg.setAttribute('role', 'img');
+    svg.setAttribute('aria-label', label);
+    var bg = document.createElementNS(NS, 'rect');
+    bg.setAttribute('x', -2);
+    bg.setAttribute('y', -2);
+    bg.setAttribute('width', n + 4);
+    bg.setAttribute('height', n + 4);
+    bg.setAttribute('fill', '#fff');
+    svg.appendChild(bg);
+    [[d, 'nonzero'], [eyes, 'evenodd']].forEach(function (part) {
+      var path = document.createElementNS(NS, 'path');
+      path.setAttribute('d', part[0]);
+      path.setAttribute('fill', '#000');
+      path.setAttribute('fill-rule', part[1]);
+      svg.appendChild(path);
+    });
+    return svg;
+  }
+
+  /* ============================== @pages Present Panel */
+  /*
+   * The PowerPoint add-in and the guest page frame the room screen and panelist view. Each
+   * update tells them the page is alive ('ok'), or that a newer Question Desk is live
+   * ('outdated'), so they can reload a screen that went quiet or is out of date.
+   */
+  function frameState(screen) {
+    return screen.version && BOOT.version && screen.version !== BOOT.version ? 'outdated' : 'ok';
+  }
+
+  function tellFrame(state) {
+    try { if (window.top !== window) window.top.postMessage({ questionDesk: state, version: BOOT.version || '' }, '*'); } catch (e) {}
+  }
+</script>

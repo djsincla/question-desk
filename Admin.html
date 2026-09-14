@@ -530,6 +530,7 @@
 
 <div class="toast" id="toast" hidden></div>
 
+<?!= scripts ?>
 <script>
   var BOOT = <?!= boot ?>;
   var state = null;
@@ -537,14 +538,7 @@
 
   // ------------------------------------------------------------ helpers
 
-  function $(id) { return document.getElementById(id); }
 
-  function el(tag, cls, text) {
-    var n = document.createElement(tag);
-    if (cls) n.className = cls;
-    if (text !== undefined) n.textContent = text;
-    return n;
-  }
 
   var toastTimer = null;
   function toast(message, isError) {
@@ -561,45 +555,6 @@
    * sandbox's googleusercontent.com address). With typeToConfirm, OK stays
    * disabled until that text is typed; the server checks it again.
    */
-  var dialogDone = null;
-  var dialogExpect = '';
-
-  function normalize(v) { return String(v || '').replace(/\s+/g, ' ').trim().toLowerCase(); }
-
-  function ask(opts, onOk) {
-    $('dialogTitle').textContent = opts.title;
-    $('dialogBody').textContent = opts.body || '';
-    $('dialogOk').textContent = opts.ok || 'OK';
-    $('dialogOk').className = opts.danger ? 'danger-solid' : 'primary';
-    dialogExpect = opts.typeToConfirm || '';
-    $('dialogTypeWrap').hidden = !dialogExpect;
-    $('dialogType').value = '';
-    if (dialogExpect) {
-      var label = $('dialogTypeLabel');
-      label.textContent = 'To confirm, type ';
-      label.appendChild(el('span', 'typed', dialogExpect));
-    }
-    $('dialogOk').disabled = !!dialogExpect;
-    dialogDone = onOk;
-    $('dialog').hidden = false;
-    (dialogExpect ? $('dialogType') : $('dialogOk')).focus();
-  }
-
-  function closeDialog() { $('dialog').hidden = true; dialogDone = null; }
-
-  $('dialogType').addEventListener('input', function () {
-    $('dialogOk').disabled = normalize(this.value) !== normalize(dialogExpect);
-  });
-  $('dialogCancel').onclick = closeDialog;
-  $('dialog').addEventListener('click', function (e) { if (e.target === this) closeDialog(); });
-  $('dialogForm').addEventListener('submit', function (e) {
-    e.preventDefault();
-    if ($('dialogOk').disabled) return;
-    var done = dialogDone;
-    var typed = $('dialogType').value;
-    closeDialog();
-    if (done) done(typed);
-  });
 
   /** Calls a server function; disables `button` while it runs. */
   var loadedPrepared = '';   // the prepared questions as the session form opened with them
