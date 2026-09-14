@@ -35,6 +35,9 @@
   .topic.live > .head { background: var(--action); color: var(--action-ink, #fff); }
   .topic.live > .head .count { color: inherit; opacity: 0.85; }
   .votes { font-weight: 600; color: var(--action); }
+  .merge-error { margin: 6px 0 0; color: var(--stop); font-size: 0.9rem; }
+  .merge-busy { margin: 6px 0 0; color: var(--muted); font-size: 0.9rem; }
+  .topic.live .merge-error, .topic.live .merge-busy { color: inherit; }
   .topic.live .votes { color: inherit; }
   header { border-top: 4px solid var(--action); padding-top: 12px; }
   .onphones { font-size: 0.75rem; border-radius: 999px; padding: 2px 8px; margin-left: 6px; background: #e5f2ef; color: var(--action); border: 1px solid #b9dcd5; font-weight: 400; vertical-align: 2px; }
@@ -303,6 +306,7 @@
   var saves = 0;        // bumps on every save, so a refresh that read the sheet before it is ignored
   var topicMeta = {};   // votes and phone approval per topic, to restore topics that emptied
   var merging = {};     // topic -> 'busy' or 'failed', kept across redraws
+  var mergeErrors = {}; // topic -> why the last merge failed
   var lastRaw = null;   // the last board drawn from the server, to skip identical refreshes
   var saveError = null; // { text, until }
 
@@ -629,13 +633,17 @@
       merge.disabled = merging[t.topic] === 'busy';   // survives the 5-second refresh, so no double Gemini call
       merge.onclick = function () {
         merging[t.topic] = 'busy';
+        delete mergeErrors[t.topic];
         merge.disabled = true;
         merge.textContent = 'Merging…';   // Gemini writes this, so it takes a few seconds
+        draw(state, true);                // shows that it's working
         google.script.run.withSuccessHandler(function (res) {
           if (res.ok) { delete merging[t.topic]; state.merged[t.topic] = res.question; draw(state, true); }
-          else { merging[t.topic] = 'failed'; draw(state, true); }
-        }).withFailureHandler(function () {
-          merging[t.topic] = 'failed'; draw(state, true);
+          else { merging[t.topic] = 'failed'; mergeErrors[t.topic] = res.error || 'Gemini\'s answer couldn\'t be used. Try again.'; draw(state, true); }
+        }).withFailureHandler(function (err) {
+          merging[t.topic] = 'failed';
+          mergeErrors[t.topic] = 'Couldn\'t reach Question Desk (' + ((err && err.message) || 'connection problem') + '). Try again.';
+          draw(state, true);
         }).mergeTopic(sid, t.topic);
       };
       acts.appendChild(merge);
@@ -663,6 +671,17 @@
       head.appendChild(acts);
     }
     wrap.appendChild(head);
+
+    if (!isLoose && merging[t.topic] === 'failed' && mergeErrors[t.topic]) {
+      var why = el('p', 'merge-error');
+      why.setAttribute('role', 'alert');
+      why.textContent = 'Merge failed: ' + mergeErrors[t.topic];
+      wrap.appendChild(why);
+    } else if (!isLoose && merging[t.topic] === 'busy') {
+      var busy = el('p', 'merge-busy');
+      busy.textContent = 'Gemini is writing one question for this topic. This can take up to half a minute.';
+      wrap.appendChild(busy);
+    }
 
     if (!isLoose && t.translations && t.translations.length) {
       wrap.appendChild(alsoShown(t.shown ? 'Phones show it as' : 'If shown, phones show it as', t.translations, 'also-labels'));

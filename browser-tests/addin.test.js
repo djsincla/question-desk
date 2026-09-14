@@ -42,6 +42,7 @@ async function openAddin(engine, link, google) {
     const rel = new URL(r.request().url()).pathname.endsWith('.js') ? 'join/join-url.js' : 'join/index.html';
     r.fulfill(file(rel, rel.endsWith('.js') ? 'text/javascript' : 'text/html'));
   });
+  await context.route('https://survey.example/**', (r) => r.fulfill({ status: 200, contentType: 'text/html', body: '<h1>Fall survey</h1>' }));
   await context.route('https://script.google.com/**', (r) => {
     googleLoads.push(r.request().url());
     const state = google();
@@ -60,6 +61,35 @@ async function openAddin(engine, link, google) {
 }
 
 for (const engine of ['chromium', 'webkit']) {
+  test(`${engine}: add-in shows any https web page, sandboxed, and explains links it can't show`, async () => {
+    const a = await openAddin(engine, 'https://survey.example/fall?ref=slide', () => 'ok');
+    try {
+      assert.equal(await a.frameSrc(), 'https://survey.example/fall?ref=slide');
+      const sandbox = await a.page.getAttribute('#screen', 'sandbox');
+      assert.match(sandbox, /allow-scripts/);
+      assert.doesNotMatch(sandbox, /top-navigation/);
+      const frame = a.page.frames().find((f) => f.url().startsWith('https://survey.example/'));
+      await frame.waitForSelector('h1');
+      assert.equal(await frame.textContent('h1'), 'Fall survey');
+      assert.match(await a.page.textContent('#note'), /doesn’t allow being shown/);
+      // Not a Question Desk screen: no fallback, and no reloads for being silent.
+      await a.page.clock.runFor(5 * 60000);
+      assert.equal(await a.frameSrc(), 'https://survey.example/fall?ref=slide');
+
+      // Change link: a plain http address is explained, not shown.
+      await a.page.click('#gear');
+      await a.page.fill('#link', 'http://survey.example/fall');
+      await a.page.click('#setup button[type=submit]');
+      assert.match(await a.page.textContent('#error'), /https:\/\//);
+      // And back to a Question Desk slide link: sandbox off, live QR handling on.
+      await a.page.fill('#link', GOOGLE);
+      await a.page.click('#setup button[type=submit]');
+      assert.equal(await a.frameSrc(), GOOGLE);
+      assert.equal(await a.page.getAttribute('#screen', 'sandbox'), null);
+      assert.deepEqual(a.errors, []);
+    } finally { await a.context.close(); }
+  });
+
   test(`${engine}: add-in falls back to Google's address when a custom guest page can't be framed`, async () => {
     const link = 'https://blocked.example/qa/?d=' + D + '&view=present&s=1a2b3c4d&r=0123456789abcdef';
     const a = await openAddin(engine, link, () => 'ok');

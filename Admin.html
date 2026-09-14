@@ -75,6 +75,8 @@
   legend { font-weight: 600; font-size: 0.9rem; padding: 0 6px; }
   .pill.test { background: #eef0fb; color: #3b4a9a; border-color: #cfd5f2; }
   table.checks { width: 100%; border-collapse: collapse; margin-top: 10px; }
+  #gemForm select, #gemForm input[type=text], #gemForm input[type=number] { width: 100%; }
+  button.linkish { border: 0; background: none; padding: 0; color: var(--action); text-decoration: underline; font: inherit; cursor: pointer; box-shadow: none; }
   table.checks td { padding: 8px 6px; border-bottom: 1px solid #eef1f3; vertical-align: top; }
   table.checks td:first-child { width: 1.5rem; font-weight: 700; }
   td.ok { color: var(--action); }
@@ -569,6 +571,47 @@
         <dt>Emails left today</dt><dd id="s-quota"></dd>
         <dt>Submissions sheet</dt><dd><a id="s-sheet" target="_blank" rel="noopener">Open</a></dd>
       </dl>
+    </div>
+    <div class="panel" id="geminiPanel">
+      <h2>Gemini</h2>
+      <p class="hint" style="margin-top:0">How Question Desk asks Gemini to group, merge and translate. Saved changes apply to the very next request — no redeploy. More thinking can group and translate messy or mixed-language questions better, but takes longer; less thinking answers faster.</p>
+      <form id="gemForm">
+        <label class="field"><span>Model</span>
+          <input type="text" id="gem-model" list="gem-models" autocomplete="off" spellcheck="false" required>
+          <datalist id="gem-models"></datalist>
+          <div class="hint">Google retires model names over time. <button type="button" class="linkish" id="gem-list">Show the models this API key can use</button><span id="gem-list-note"></span></div>
+        </label>
+        <div class="row">
+          <label class="field"><span>Thinking: grouping</span>
+            <select id="gem-think-grouping"></select>
+            <div class="hint">Every minute, in the background. Quality matters most here.</div>
+          </label>
+          <label class="field"><span>Thinking: merging</span>
+            <select id="gem-think-merging"></select>
+            <div class="hint">"Merge into one question": a facilitator is waiting.</div>
+          </label>
+          <label class="field"><span>Thinking: translating one question</span>
+            <select id="gem-think-translating"></select>
+            <div class="hint">Show on phones, Answer now on one question, prepared questions.</div>
+          </label>
+        </div>
+        <div class="row">
+          <label class="field"><span>Temperature</span>
+            <input type="number" id="gem-temperature" min="0" max="1" step="0.05" required>
+            <div class="hint">0–1. Lower keeps topics and translations consistent and literal; 0–0.3 suits Question Desk.</div>
+          </label>
+          <label class="field"><span>Questions per grouping request</span>
+            <input type="number" id="gem-batch" min="5" max="100" step="1" required>
+            <div class="hint">5–100. Smaller answers sooner; larger groups a busy room in fewer requests.</div>
+          </label>
+        </div>
+        <div class="actions">
+          <button type="submit" class="primary" id="gem-save">Save</button>
+          <button type="button" id="gem-test">Try these settings</button>
+          <button type="button" class="quiet" id="gem-reset">Reset to defaults</button>
+        </div>
+        <table class="checks" id="gem-results" hidden></table>
+      </form>
     </div>
     <div class="panel" id="opsPanel">
       <h2>Data and reports</h2>
@@ -2080,6 +2123,7 @@
 
   function renderBranding() {
     renderOps();
+    renderGemini();
     $('langMax').textContent = String(state.maxLanguages - 1);
     languageBoxes($('siteLangs'), state.siteLanguages, 'siteLang');
     $('b-org').value = state.brand.orgName;
@@ -2125,6 +2169,87 @@
       $('lt-cmd').textContent = lt.command;
     }
   }
+
+  // Gemini settings (Health tab).
+  var THINKING = [
+    ['default', 'Model default'], ['minimal', 'Minimal (fastest)'], ['low', 'Low'], ['medium', 'Medium'], ['high', 'High (slowest)']
+  ];
+  var GEM_TASKS = ['grouping', 'merging', 'translating'];
+  var gemDirty = false;   // don't overwrite what an admin is editing when the page refreshes
+
+  function renderGemini() {
+    if (!state.gemini || gemDirty) return;
+    $('gem-model').value = state.gemini.model;
+    GEM_TASKS.forEach(function (task) {
+      var select = $('gem-think-' + task);
+      if (!select.options.length) {
+        THINKING.forEach(function (t) {
+          var o = el('option', null, t[1] + (t[0] === state.geminiDefaults.thinking[task] ? ' — recommended' : ''));
+          o.value = t[0];
+          select.appendChild(o);
+        });
+      }
+      select.value = state.gemini.thinking[task];
+    });
+    $('gem-temperature').value = String(state.gemini.temperature);
+    $('gem-batch').value = String(state.gemini.batchSize);
+  }
+
+  function geminiInput() {
+    var thinking = {};
+    GEM_TASKS.forEach(function (task) { thinking[task] = $('gem-think-' + task).value; });
+    return { model: $('gem-model').value.trim(), thinking: thinking, temperature: Number($('gem-temperature').value), batchSize: Number($('gem-batch').value) };
+  }
+
+  $('gemForm').addEventListener('input', function () { gemDirty = true; });
+  $('gemForm').addEventListener('change', function () { gemDirty = true; });
+  $('gemForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    call('saveGeminiSettings', [geminiInput()], function (res) { gemDirty = false; render(res); toast('Gemini settings saved — used from the next request'); }, $('gem-save'));
+  });
+  $('gem-reset').onclick = function () {
+    ask({ title: 'Reset Gemini settings?', body: 'Back to ' + state.geminiDefaults.model + ', the recommended thinking levels, temperature ' + state.geminiDefaults.temperature + ' and ' + state.geminiDefaults.batchSize + ' questions per grouping request.', ok: 'Reset' }, function () {
+      call('saveGeminiSettings', [{ reset: true }], function (res) { gemDirty = false; render(res); toast('Gemini settings reset'); }, $('gem-reset'));
+    });
+  };
+  $('gem-test').onclick = function () {
+    var table = $('gem-results');
+    table.hidden = false;
+    table.innerHTML = '<tr><td></td><td>Asking Gemini with these settings…</td></tr>';
+    call('testGeminiSettings', [geminiInput()], function (res) {
+      table.innerHTML = '';
+      res.results.forEach(function (r) {
+        var tr = el('tr');
+        tr.appendChild(el('td', r.ok ? 'ok' : 'bad', r.ok ? '✓' : '✗'));
+        var td = el('td');
+        var label = r.task.charAt(0).toUpperCase() + r.task.slice(1) + ' · thinking ' + r.thinking;
+        td.appendChild(el('strong', null, label));
+        td.appendChild(el('div', 'hint', r.ok
+          ? (r.ms / 1000).toFixed(1) + ' seconds' + (r.retried ? ' — this model doesn’t accept that thinking level, so it ran without it' : '')
+          : r.error));
+        tr.appendChild(td);
+        table.appendChild(tr);
+      });
+      toast('Tried ' + res.model + ' — nothing saved yet');
+    }, this, function () { table.hidden = true; });
+  };
+  $('gem-list').onclick = function () {
+    $('gem-list-note').textContent = ' Loading…';
+    call('listGeminiModels', [], function (res) {
+      var list = $('gem-models');
+      list.innerHTML = '';
+      res.models.forEach(function (m) {
+        var o = el('option');
+        o.value = m.name;
+        if (m.label) o.label = m.label;
+        list.appendChild(o);
+      });
+      $('gem-list-note').textContent = res.ok
+        ? ' ' + res.models.length + ' models — click the Model box to pick one.'
+        : ' ' + res.error;
+      if (res.ok) $('gem-model').focus();
+    }, this, function () { $('gem-list-note').textContent = ''; });
+  };
 
   $('runHealth').onclick = function () {
     var table = $('checks');

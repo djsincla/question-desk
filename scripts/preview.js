@@ -79,6 +79,9 @@ function buildDemo(options) {
   options = options || {};
   const h = createApp({ owner: USERS.owner }).install({ moderators: ['maria@example.org', 'jin@example.org'], admins: ['alex@example.org'] });
   h.env.gemini = demoGemini;
+  h.env.geminiModels = { models: ['gemini-3.5-flash', 'gemini-3.5-flash-lite', 'gemini-3.5-pro'].map((name) => ({
+    name: 'models/' + name, displayName: name.replace(/-/g, ' '), supportedGenerationMethods: ['generateContent']
+  })) };
   // Start the demo just before now, so pages comparing against the real clock look normal.
   h.env.clock.now = (options.fixedTime || Date.now()) - 6 * 60 * 1000;
   h.app.saveBrand({

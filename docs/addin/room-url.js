@@ -8,8 +8,10 @@
  *   https://script.google.com/a/<domain>/macros/s/<id>/exec?...
  * and returns the public /macros/s/ form, because PowerPoint's built-in browser
  * can't sign in to Google — or, for a guest page link, the same guest page (the
- * session chose it for the slide). Anything else is rejected, so the add-in only
- * ever frames a Question Desk room screen, directly or through a guest page.
+ * session chose it for the slide).
+ *
+ * Any other https web page can be shown too (webPage): the add-in frames it as it is,
+ * sandboxed, with none of the Question Desk handling.
  */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory();
@@ -78,5 +80,27 @@
     return /^https:\/\/(script\.google\.com|[a-z0-9-]+\.googleusercontent\.com)$/.test(String(origin || ''));
   }
 
-  return { parse: parse, forSlide: forSlide, direct: direct, fromGoogle: fromGoogle };
+  /**
+   * Any other web page for the slide: an https address with a host, no user name or password
+   * in it, no spaces, within a sensible length. Returns it tidied, or null.
+   */
+  function webPage(input) {
+    var text = String(input || '').trim();
+    if (!text || text.length > 2000 || /\s/.test(text)) return null;
+    // No URL parser needed (older PowerPoint browsers): scheme, host, optional port, then anything.
+    var match = /^https:\/\/([a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)*)(:\d{1,5})?([\/?#].*)?$/i.exec(text);
+    if (!match) return null;
+    return 'https://' + match[1].toLowerCase() + (match[2] || '') + (match[3] || '/');
+  }
+
+  /** Why a link can't be shown, for the setup form. */
+  function problem(input) {
+    var text = String(input || '').trim();
+    if (!text) return 'Paste a link.';
+    if (/^http:\/\//i.test(text)) return 'That link starts with http://. PowerPoint only shows secure pages: use the https:// address.';
+    if (/^https:\/\/[^\/?#]*@/i.test(text)) return 'Links with a user name or password in them can’t be shown.';
+    return 'That isn’t a web address. Paste a link that starts with https://.';
+  }
+
+  return { parse: parse, forSlide: forSlide, direct: direct, fromGoogle: fromGoogle, webPage: webPage, problem: problem };
 });

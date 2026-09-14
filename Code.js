@@ -17,7 +17,7 @@
 
 /** Bump with every release; scripts/ship.sh tags git and publishes release notes from CHANGELOG.md. */
 const APP = {
-  version: '2.20.0',
+  version: '2.21.0',
   repo: 'https://github.com/djsincla/question-desk'
 };
 
@@ -813,6 +813,125 @@ function createEvent_(name, me) {
   });
 }
 
+// ---------------------------------------------------------------- Gemini settings
+
+const GEMINI_THINKING = ['default', 'minimal', 'low', 'medium', 'high'];
+const GEMINI_TASKS = ['grouping', 'merging', 'translating'];
+
+/**
+ * How Question Desk calls Gemini, from the Admin page (GEMINI property), read on every
+ * request so a change applies to the next one. thinking per task: 'default' sends nothing
+ * (the model decides); the rest set thinkingLevel. batchSize: questions per grouping request.
+ */
+function geminiSettings_() {
+  let saved = {};
+  try { saved = JSON.parse(props_().getProperty('GEMINI') || '{}') || {}; } catch (err) { saved = {}; }
+  const defaults = geminiDefaults_();
+  const thinking = {};
+  GEMINI_TASKS.forEach(function (task) {
+    const level = saved.thinking && saved.thinking[task];
+    thinking[task] = GEMINI_THINKING.indexOf(level) !== -1 ? level : defaults.thinking[task];
+  });
+  const temperature = Number(saved.temperature);
+  const batchSize = Number(saved.batchSize);
+  return {
+    model: validModel_(saved.model) ? saved.model : defaults.model,
+    thinking: thinking,
+    temperature: saved.temperature !== undefined && temperature >= 0 && temperature <= 1 ? temperature : defaults.temperature,
+    batchSize: batchSize >= 5 && batchSize <= 100 && Math.floor(batchSize) === batchSize ? batchSize : defaults.batchSize
+  };
+}
+
+function geminiDefaults_() {
+  return {
+    model: CONFIG.model,
+    // Grouping runs in the background every minute, where quality matters more than speed;
+    // merging and single translations have a facilitator waiting.
+    thinking: { grouping: 'default', merging: 'low', translating: 'low' },
+    temperature: 0.1,
+    batchSize: CONFIG.clusterBatchSize
+  };
+}
+
+function validModel_(name) {
+  return typeof name === 'string' && /^gemini-[a-z0-9][a-z0-9.-]{0,60}$/.test(name);
+}
+
+function cleanGeminiSettings_(input) {
+  input = input || {};
+  const model = String(input.model || '').trim().replace(/^models\//, '');
+  if (!validModel_(model)) throw new Error('Enter a Gemini model name, like ' + CONFIG.model + '.');
+  const thinking = {};
+  GEMINI_TASKS.forEach(function (task) {
+    const level = input.thinking && input.thinking[task];
+    if (GEMINI_THINKING.indexOf(level) === -1) throw new Error('Choose a thinking level for ' + task + '.');
+    thinking[task] = level;
+  });
+  const temperature = Number(input.temperature);
+  if (!(temperature >= 0 && temperature <= 1)) throw new Error('Temperature must be between 0 and 1.');
+  const batchSize = Number(input.batchSize);
+  if (!(batchSize >= 5 && batchSize <= 100) || Math.floor(batchSize) !== batchSize) throw new Error('Questions per grouping request must be a whole number from 5 to 100.');
+  return { model: model, thinking: thinking, temperature: Math.round(temperature * 100) / 100, batchSize: batchSize };
+}
+
+/** Saves the Gemini settings; the next request uses them. */
+function saveGeminiSettings(input) {
+  requireAdmin_();
+  const next = input && input.reset ? geminiDefaults_() : cleanGeminiSettings_(input);
+  props_().setProperty('GEMINI', JSON.stringify(next));
+  audit_(input && input.reset ? 'Gemini settings reset' : 'Gemini settings changed', null,
+    next.model + ' · thinking: grouping ' + next.thinking.grouping + ', merging ' + next.thinking.merging +
+    ', translating ' + next.thinking.translating + ' · temperature ' + next.temperature + ' · ' + next.batchSize + ' questions per request');
+  return adminState();
+}
+
+/**
+ * Tries settings before saving them: one small merge-sized request per task's thinking
+ * level, timed. Nothing is saved.
+ */
+function testGeminiSettings(input) {
+  requireAdmin_();
+  const settings = cleanGeminiSettings_(input);
+  const schema = { type: 'OBJECT', properties: { question: { type: 'STRING' } }, required: ['question'] };
+  const prompt = 'Write one question that covers these audience questions, under 20 words:\n' +
+    '- Will respite care hours be cut next year?\n- How are families consulted before respite hours change?';
+  const seen = {};
+  const results = [];
+  GEMINI_TASKS.forEach(function (task) {
+    const level = settings.thinking[task];
+    if (seen[level]) { results.push(Object.assign({}, seen[level], { task: task })); return; }
+    const started = Date.now();
+    const r = geminiRequest_(prompt, schema, { settings: settings, thinking: level });
+    const result = {
+      task: task, thinking: level, ok: r.ok && !!(r.data && r.data.question), ms: Date.now() - started,
+      retried: !!r.retriedWithoutThinking, error: r.ok ? '' : r.error
+    };
+    seen[level] = result;
+    results.push(result);
+  });
+  return { model: settings.model, results: results };
+}
+
+/** Gemini models this API key can use for generateContent, for the Admin page's list. */
+function listGeminiModels() {
+  requireAdmin_();
+  const key = props_().getProperty('GEMINI_API_KEY');
+  if (!key) return { ok: false, error: 'GEMINI_API_KEY is not set in Script Properties.', models: [] };
+  try {
+    const res = UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=200', {
+      method: 'get', headers: { 'x-goog-api-key': key }, muteHttpExceptions: true
+    });
+    if (res.getResponseCode() !== 200) return { ok: false, error: 'Gemini ' + res.getResponseCode(), models: [] };
+    const models = (JSON.parse(res.getContentText()).models || [])
+      .filter(function (m) { return (m.supportedGenerationMethods || []).indexOf('generateContent') !== -1; })
+      .map(function (m) { return { name: String(m.name || '').replace(/^models\//, ''), label: m.displayName || '' }; })
+      .filter(function (m) { return validModel_(m.name); });
+    return { ok: true, models: models };
+  } catch (err) {
+    return { ok: false, error: 'Could not reach Gemini: ' + err, models: [] };
+  }
+}
+
 // ---------------------------------------------------------------- operations
 
 const REMOVED_TEXT = function (months) { return '[wording removed after ' + months + ' months]'; };
@@ -1036,6 +1155,7 @@ function translatePrepared_(sid, onlyIds) {
   const session = getSession_(sid);
   // Only the session's own languages (its event's choice, or the site's).
   const codes = translationCodes_(session);
+  const batchSize = geminiSettings_().batchSize;
   const todo = [];
   const only = {};
   (onlyIds || []).forEach(function (id) { only[String(id)] = true; });
@@ -1047,7 +1167,7 @@ function translatePrepared_(sid, onlyIds) {
     if (!eligible(r)) return;
     if (preparedTranslated_(r, codes)) return;
     const id = String(r[COLS.id - 1]);
-    if (Number(cache.get('tries:' + id) || 0) < 3 && todo.length < CONFIG.clusterBatchSize) todo.push({ id: id, text: String(r[COLS.text - 1]) });
+    if (Number(cache.get('tries:' + id) || 0) < 3 && todo.length < batchSize) todo.push({ id: id, text: String(r[COLS.text - 1]) });
   });
   if (!todo.length) return 0;
   const lang = CONFIG.moderatorLanguage;
@@ -1087,7 +1207,7 @@ function translatePrepared_(sid, onlyIds) {
     schema.properties.assignments.items.properties.translations = labelSchema_('question', codes).items.properties.translations;
     schema.properties.assignments.items.required.push('translations');
   }
-  const response = geminiRequest_(prompt, schema);
+  const response = geminiRequest_(prompt, schema, { task: 'translating' });
   if (response.ok || response.answered) {
     todo.forEach(function (q) { cache.put('tries:' + q.id, String(Number(cache.get('tries:' + q.id) || 0) + 1), 21600); });
   }
@@ -2580,6 +2700,8 @@ function adminState() {
     detectedUrl: baseUrlDetected_(),
     appUrl: baseUrl_(),
     ops: opsSettings_(),
+    gemini: geminiSettings_(),
+    geminiDefaults: geminiDefaults_(),
     storage: storageUse_(),
     geminiKeySet: !!props_().getProperty('GEMINI_API_KEY'),
     sheetUrl: spreadsheet_().getUrl(),
@@ -3363,7 +3485,7 @@ function noteGroupingResult_(error) {
         ' runs in a row. QA Facilitators still see every question, ungrouped.</p>' +
         '<p><strong>Last error:</strong> ' + esc_(h.lastError) + '</p>' +
         '<p>Open the Admin page → Health and run a health check. A 404 usually means the Gemini model ' +
-        'name (' + esc_(CONFIG.model) + ') was retired; a 400 or 403 usually means the API key.</p>')) {
+        'name (' + esc_(geminiSettings_().model) + ') was retired; a 400 or 403 usually means the API key.</p>')) {
         h.alertedAt = now;
       }
     }
@@ -3403,8 +3525,8 @@ function runHealthCheck() {
     const started = Date.now();
     const r = geminiRequest_('Health check. Set ok to true.', {
       type: 'OBJECT', properties: { ok: { type: 'BOOLEAN' } }, required: ['ok']
-    });
-    add('Gemini model ' + CONFIG.model, r.ok, r.ok ? 'Responded in ' + (Date.now() - started) + ' ms' : r.error);
+    }, { task: 'grouping' });
+    add('Gemini model ' + geminiSettings_().model, r.ok, r.ok ? 'Responded in ' + (Date.now() - started) + ' ms' : r.error);
   }
 
   const trigger = ScriptApp.getProjectTriggers().some(function (t) {
@@ -3638,6 +3760,7 @@ function clusterSessionNow_(sid, force) {
   const pending = [];
   const existing = {};
   const fixedTopic = {};   // question id -> topic a facilitator chose
+  const batchSize = geminiSettings_().batchSize;
 
   for (let i = 1; i < values.length; i++) {
     if (String(values[i][COLS.session - 1]) !== sid) continue;
@@ -3656,7 +3779,7 @@ function clusterSessionNow_(sid, force) {
     if (topic) fixedTopic[qid] = String(topic);
     // A question Gemini has skipped or choked on 3 times stays for the facilitator, so it
     // can't hold up every question behind it.
-    if (pending.length < CONFIG.clusterBatchSize && Number(cache.get('tries:' + qid) || 0) < 3) {
+    if (pending.length < batchSize && Number(cache.get('tries:' + qid) || 0) < 3) {
       pending.push({ id: qid, text: String(values[i][COLS.text - 1]) });
     }
   }
@@ -3721,7 +3844,7 @@ function clusterSessionNow_(sid, force) {
   };
   if (codes.length) schema.properties.labels = labelSchema_('topic', codes);
 
-  const response = geminiRequest_(prompt, schema);
+  const response = geminiRequest_(prompt, schema, { task: 'grouping' });
   // Count a try only when Gemini actually answered. An outage, bad key or retired model
   // is not the questions' fault, and they must group once it's fixed.
   if (response.ok || response.answered) {
@@ -3803,7 +3926,7 @@ function mergeTopic(sid, topic) {
       return '- ' + source + (q.lang ? '  [asked in ' + q.lang + ']' : '');
     });
 
-  if (!rows.length) return { ok: false };
+  if (!rows.length) return { ok: false, error: 'This topic has no questions left to merge.' };
 
   const codes = translationCodes_(getSession_(sid));
   const names = codes.map(languageName_);
@@ -3830,8 +3953,11 @@ function mergeTopic(sid, topic) {
     schema.properties.translations = labelSchema_('question', codes).items.properties.translations;
   }
 
-  const response = geminiRequest_(prompt, schema);
-  if (!response.ok || !response.data || !response.data.question) return { ok: false };
+  const response = geminiRequest_(prompt, schema, { task: 'merging' });
+  if (!response.ok || !response.data || !response.data.question) {
+    console.error('Merge failed for "' + topic + '": ' + (response.error || 'no question in the reply'));
+    return { ok: false, error: mergeProblem_(response) };
+  }
 
   const update = {};
   update[topic] = {
@@ -3844,15 +3970,42 @@ function mergeTopic(sid, topic) {
   return { ok: true, question: response.data.question };
 }
 
-/** Returns { ok, data } or { ok: false, status, error } with a readable cause. */
-function geminiRequest_(prompt, schema) {
+/** What to tell a facilitator when a merge fails (details go to the execution log). */
+function mergeProblem_(response) {
+  if (/GEMINI_API_KEY/.test(response.error || '')) return 'Gemini isn\'t set up: an admin needs to add the API key.';
+  if (response.status === 429) return 'Gemini is busy or out of quota. Try again in a minute.';
+  if (response.status === 404) return 'The Gemini model is no longer available. An admin needs to update Question Desk.';
+  if (response.status >= 500 || /Could not reach/.test(response.error || '')) return 'Gemini didn\'t answer. Try again in a moment.';
+  if (response.status) return 'Gemini refused the request (' + response.status + '). An admin can run the health check on the Admin page.';
+  return 'Gemini\'s answer couldn\'t be used. Try again.';
+}
+
+/**
+ * Returns { ok, data } or { ok: false, status, error } with a readable cause.
+ * opts.task ('grouping', 'merging', 'translating') picks the thinking level from the Admin
+ * page's Gemini settings (geminiSettings_, read now, so changes apply immediately);
+ * opts.settings / opts.thinking override them (testing settings before saving). If the model
+ * refuses the thinking level, the request is sent again without it, so a setting a model
+ * doesn't support slows nothing down for long and never stops grouping.
+ */
+function geminiRequest_(prompt, schema, opts) {
+  opts = opts || {};
   const key = props_().getProperty('GEMINI_API_KEY');
   if (!key) return { ok: false, error: 'GEMINI_API_KEY is not set in Script Properties.' };
+  const settings = opts.settings || geminiSettings_();
+  const level = opts.thinking || (opts.task ? settings.thinking[opts.task] : 'default');
+  const thinkingLevel = level && level !== 'default' ? level : '';
+  let retried = false;
 
-  let response;
-  try {
-    response = UrlFetchApp.fetch(
-      'https://generativelanguage.googleapis.com/v1beta/models/' + CONFIG.model + ':generateContent',
+  const send = function (withThinking) {
+    const generationConfig = {
+      temperature: settings.temperature,
+      responseMimeType: 'application/json',
+      responseSchema: schema
+    };
+    if (withThinking) generationConfig.thinkingConfig = { thinkingLevel: withThinking };
+    return UrlFetchApp.fetch(
+      'https://generativelanguage.googleapis.com/v1beta/models/' + settings.model + ':generateContent',
       {
         method: 'post',
         contentType: 'application/json',
@@ -3860,14 +4013,20 @@ function geminiRequest_(prompt, schema) {
         muteHttpExceptions: true,
         payload: JSON.stringify({
           contents: [{ role: 'user', parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.1,
-            responseMimeType: 'application/json',
-            responseSchema: schema
-          }
+          generationConfig: generationConfig
         })
       }
     );
+  };
+
+  let response;
+  try {
+    response = send(thinkingLevel);
+    if (thinkingLevel && response.getResponseCode() === 400 && /think/i.test(String(response.getContentText() || ''))) {
+      console.error('Gemini refused thinkingLevel ' + thinkingLevel + '; retrying without it: ' + String(response.getContentText()).slice(0, 200));
+      retried = true;
+      response = send('');
+    }
   } catch (err) {
     return { ok: false, error: 'Could not reach Gemini: ' + err };
   }
@@ -3876,7 +4035,7 @@ function geminiRequest_(prompt, schema) {
   if (code !== 200) {
     const text = String(response.getContentText() || '');
     console.error('Gemini ' + code + ': ' + text);
-    const hint = code === 404 ? ' — model ' + CONFIG.model + ' not found; it may have been retired. Update CONFIG.model.'
+    const hint = code === 404 ? ' — model ' + settings.model + ' not found; it may have been retired. Choose another model under Admin → Health → Gemini.'
       : code === 429 ? ' — rate limited or out of quota.'
       : code === 400 || code === 401 || code === 403 ? ' — the API key was rejected or the request is invalid.'
       : '';
@@ -3885,7 +4044,9 @@ function geminiRequest_(prompt, schema) {
 
   try {
     const body = JSON.parse(response.getContentText());
-    return { ok: true, data: JSON.parse(body.candidates[0].content.parts[0].text) };
+    // The answer is the text parts that aren't thoughts (a thinking model can add other parts).
+    const parts = (body.candidates[0].content.parts || []).filter(function (part) { return part.text && !part.thought; });
+    return { ok: true, retriedWithoutThinking: retried, data: JSON.parse(parts.map(function (part) { return part.text; }).join('')) };
   } catch (err) {
     console.error('Could not parse Gemini response: ' + err);
     // Gemini answered but the reply was blocked or cut off: the questions themselves may be why.

@@ -419,5 +419,11 @@ check (Admin → Health & testing), then `setUp()` in the Apps Script editor.
    the summary email arrives. Delete rehearsal sessions afterwards.
 
 Worth knowing: `gemini-3.5-flash` is current as of now, but Google retires model IDs
-on a schedule. If clustering silently stops working months from now, check the
-execution log for a 404 and update `CONFIG.model`.
+on a schedule. If clustering silently stops working months from now, run the health check:
+a 404 means the model was retired. Pick another under **Admin → Health → Gemini** (**Show the
+models this API key can use** lists them) and save; it applies to the next request.
+
+**Gemini settings** (Admin → Health → Gemini): the model, how much Gemini thinks for grouping,
+merging and translating one question, temperature, and questions per grouping request.
+**Try these settings** times a small request with each thinking level before you save. If
+merging feels slow, lower its thinking; if topics come out mixed up, raise grouping's.

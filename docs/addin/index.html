@@ -40,21 +40,22 @@
 <body>
 
 <!-- aria-label, not title: a title shows as a hover tooltip on the slide. -->
-<iframe id="screen" aria-label="Question Desk room screen" hidden></iframe>
+<iframe id="screen" aria-label="Page shown on this slide" hidden></iframe>
 
 <form id="setup" hidden>
   <h1>Question Desk QR code</h1>
   <p>Shows a session's live QR code on this slide. It keeps changing during the slideshow, just like the room screen.</p>
-  <label>Session link
-    <input type="url" id="link" placeholder="https://script.google.com/…/exec?view=present&s=…" autocomplete="off" spellcheck="false" required>
+  <label>Link
+    <input type="url" id="link" placeholder="https://…" autocomplete="off" spellcheck="false" required>
   </label>
-  <p>Copy it from the Question Desk Admin page: <strong>Sessions → Links → PowerPoint slide</strong> (the room screen link works too). Links copied before version 2.6.0 need copying again.</p>
+  <p>For a session's QR code, copy it from the Question Desk Admin page: <strong>Sessions → Links → PowerPoint slide</strong> (the room screen link works too).</p>
+  <p>Any other secure (https://) web page works too, for example a survey or your website. Some sites don't allow being shown inside a slide; those stay blank.</p>
   <p class="error" id="error" role="alert" hidden></p>
   <button type="submit">Show on slide</button>
   <button type="button" class="quiet" id="cancel" hidden>Cancel</button>
 </form>
 
-<button type="button" id="gear" hidden title="Change the session shown on this slide">Change session</button>
+<button type="button" id="gear" hidden title="Change the link shown on this slide">Change link</button>
 <p id="note" hidden></p>
 
 <script>
@@ -92,12 +93,24 @@
   }
 
   // What the frame shows, and whether the room screen inside has been heard from.
-  var shown = { url: '', fallback: '', loadedAt: 0, heardAt: 0, reloadedAt: 0 };
+  // page: true for any other web page (no Question Desk handling).
+  var shown = { url: '', fallback: '', page: false, loadedAt: 0, heardAt: 0, reloadedAt: 0 };
+
+  // Other web pages run sandboxed: they can't take over the add-in's own page (navigate it
+  // away, or open dialogs over the slide), but ordinary pages, forms and videos still work.
+  var PAGE_SANDBOX = 'allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-presentation';
 
   /** A fresh frame each time: reloads reliably, and adds nothing to the web view's history. */
   function frameUrl(url) {
     var old = $('screen');
     var frame = old.cloneNode(false);
+    if (shown.page) {
+      frame.setAttribute('sandbox', PAGE_SANDBOX);
+      frame.setAttribute('allow', 'autoplay; fullscreen; encrypted-media; picture-in-picture');
+    } else {
+      frame.removeAttribute('sandbox');
+      frame.removeAttribute('allow');
+    }
     frame.setAttribute('src', url);
     frame.hidden = false;
     old.parentNode.replaceChild(frame, old);
@@ -108,13 +121,24 @@
 
   function showScreen() {
     var url = RoomUrl.forSlide(saved.link);
-    if (!url) { showSetup(); return; }
+    var page = url ? null : RoomUrl.webPage(saved.link);
+    if (!url && !page) { showSetup(); return; }
     $('setup').hidden = true;
-    var direct = RoomUrl.direct(saved.link);
-    if (shown.url !== url && shown.url !== direct) {
-      shown.fallback = url !== direct ? direct : '';
-      $('note').textContent = '';
-      frameUrl(url);
+    if (page) {
+      if (shown.url !== page) {
+        shown.page = true;
+        shown.fallback = '';
+        $('note').textContent = 'If this stays blank, that site doesn’t allow being shown inside a slide.';
+        frameUrl(page);
+      }
+    } else {
+      var direct = RoomUrl.direct(saved.link);
+      if (shown.page || (shown.url !== url && shown.url !== direct)) {
+        shown.page = false;
+        shown.fallback = url !== direct ? direct : '';
+        $('note').textContent = '';
+        frameUrl(url);
+      }
     }
     $('screen').hidden = false;
     updateGear();
@@ -122,7 +146,7 @@
 
   function showSetup() {
     $('link').value = saved.link;
-    $('cancel').hidden = !RoomUrl.forSlide(saved.link);
+    $('cancel').hidden = !(RoomUrl.forSlide(saved.link) || RoomUrl.webPage(saved.link));
     $('error').hidden = true;
     $('setup').hidden = false;
     updateGear();
@@ -130,7 +154,7 @@
 
   // The room screen (a Google page, possibly inside a guest page) reports each update.
   window.addEventListener('message', function (e) {
-    if (!RoomUrl.fromGoogle(e.origin) || !e.data || typeof e.data.questionDesk !== 'string') return;
+    if (shown.page || !RoomUrl.fromGoogle(e.origin) || !e.data || typeof e.data.questionDesk !== 'string') return;
     shown.heardAt = Date.now();
     // Question Desk was updated since this screen loaded: reload for the new version (at most
     // every 10 minutes, in case Google serves the old version for a while).
@@ -141,7 +165,8 @@
   });
 
   setInterval(function () {
-    if (!shown.url || !$('setup').hidden) return;
+    // Other web pages are left alone: they don't report in.
+    if (!shown.url || shown.page || !$('setup').hidden) return;
     var now = Date.now();
     if (!shown.heardAt && shown.fallback && now - shown.loadedAt > GUEST_WAIT_MS) {
       // The guest page never showed the room screen, e.g. its site refuses to be framed.
@@ -156,7 +181,7 @@
     if (now - Math.max(shown.heardAt, shown.loadedAt) > SILENT_MS) frameUrl(shown.url);
   }, 2000);
 
-  // The "Change session" button (and any note) shows while editing, never during the slideshow.
+  // The "Change link" button (and any note) shows while editing, never during the slideshow.
   var view = 'edit';
   function updateGear() {
     var editing = view !== 'read' && $('setup').hidden;
@@ -181,8 +206,8 @@
   $('setup').addEventListener('submit', function (e) {
     e.preventDefault();
     var link = $('link').value.trim();
-    if (!RoomUrl.forSlide(link)) {
-      $('error').textContent = 'That is not a Question Desk session link. Copy "PowerPoint slide" or "Room screen" from Sessions → Links on the Admin page.';
+    if (!RoomUrl.forSlide(link) && !RoomUrl.webPage(link)) {
+      $('error').textContent = RoomUrl.problem(link);
       $('error').hidden = false;
       return;
     }
@@ -193,7 +218,7 @@
 
   function start() {
     load();
-    if (RoomUrl.forSlide(saved.link)) showScreen(); else showSetup();
+    if (RoomUrl.forSlide(saved.link) || RoomUrl.webPage(saved.link)) showScreen(); else showSetup();
   }
 
   if (window.Office && Office.onReady) {

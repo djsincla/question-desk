@@ -47,6 +47,8 @@ Workspace account. See SETUP.md for install and deployment.
   `RoomUrl.fromGoogle()` origins, reloads a frame silent for 3 minutes or reporting
   `outdated` (once per 10 minutes), and falls back from a guest page to `RoomUrl.direct()`
   when nothing reports within 20 s — many sites (autismla.org) send `X-Frame-Options`.
+  Since 2.21 any other https page (`RoomUrl.webPage()`) can be shown too: framed with
+  `sandbox` (`PAGE_SANDBOX`, no top navigation or modals), no fallback or reloads.
 
 Pages get server data through a single template scriptlet, `var BOOT = <?!= boot ?>;`,
 filled by `page_()` with `<` and U+2028/2029 escaped. The only other scriptlet is
@@ -256,8 +258,12 @@ instruction in any prompt edits.
   nowhere near binding at this scale.
 - Publishing a web app to "Anyone" may be blocked by Workspace admin policy. Confirm
   before investing further.
-- `CONFIG.model` is `gemini-3.5-flash`. Google retires model IDs on a schedule; a
-  silent clustering failure months from now is probably a 404 in the execution log.
+- `CONFIG.model` is `gemini-3.5-flash`, the default. Admins can change the model, thinking
+  per task (`grouping`, `merging`, `translating`: `default` sends no `thinkingConfig`, others
+  set `thinkingLevel`), temperature and grouping batch size under Admin → Health → Gemini
+  (`GEMINI` property, `geminiSettings_()`, read on every `geminiRequest_(prompt, schema,
+  {task})`). A 400 mentioning thinking is retried without `thinkingConfig`. Google retires
+  model IDs on a schedule; a clustering failure months from now is probably a 404.
 - Links in QR codes and emails come from `ScriptApp.getService().getUrl()` unless an
   admin sets the app address (`PUBLIC_URL`) on the Branding tab. With several
   deployments that detected URL may not be the live one; set it if links misbehave.

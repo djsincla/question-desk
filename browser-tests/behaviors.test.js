@@ -461,3 +461,56 @@ test('chromium: an ungrouped question goes on phones with its own button, and ph
     await row.locator('button', { hasText: 'Show on phones' }).waitFor({ timeout: 1000 });
   });
 });
+
+test('chromium: a merge says it is working, and says why when Gemini fails, then works on retry', async () => {
+  await withDemo('chromium', (ctx) => '/?view=moderate&s=' + ctx.live.id + '&as=mod', { viewport: { width: 1280, height: 900 } }, async ({ page, ctx }) => {
+    await page.waitForSelector('.topic [data-key="merge"]');
+    const topic = page.locator('.topic', { has: page.locator('[data-key="merge"]', { hasText: 'Merge into one question' }) }).first();
+    const name = await topic.getAttribute('data-topic');
+    const demo = ctx.h.env.gemini;
+    ctx.h.env.gemini = () => ({ status: 429, text: 'quota exceeded' });
+    await topic.locator('[data-key="merge"]').click();
+    const block = page.locator('.topic[data-topic="' + name + '"]');
+    await block.locator('.merge-error', { hasText: 'Gemini is busy or out of quota' }).waitFor({ timeout: 5000 });
+    assert.match(await block.locator('[data-key="merge"]').textContent(), /Merge failed — retry/);
+
+    ctx.h.env.gemini = demo;
+    // Watch for the "working" note: the demo's Gemini answers too fast to catch it afterwards.
+    await page.evaluate(() => {
+      window.sawBusy = false;
+      new MutationObserver(() => { if (document.querySelector('.merge-busy')) window.sawBusy = true; }).observe(document.body, { childList: true, subtree: true });
+    });
+    await block.locator('[data-key="merge"]').click();
+    await block.locator('.merged').waitFor({ timeout: 8000 });
+    assert.equal(await page.evaluate(() => window.sawBusy), true, 'said it was working');
+    assert.equal(await block.locator('.merge-error').count(), 0);
+  });
+});
+
+test('chromium: Gemini settings on the Health tab save, try out, and list models', async () => {
+  await withDemo('chromium', '/?view=admin&as=owner', { viewport: { width: 1280, height: 1000 } }, async ({ page, ctx }) => {
+    await page.waitForSelector('.event');
+    await page.click('[data-tab="health"]');
+    await page.waitForSelector('#geminiPanel');
+    assert.equal(await page.inputValue('#gem-model'), ctx.h.app.CONFIG.model);
+    assert.equal(await page.inputValue('#gem-think-merging'), 'low');
+
+    await page.selectOption('#gem-think-grouping', 'high');
+    await page.fill('#gem-batch', '15');
+    await page.click('#gem-test');
+    await page.waitForFunction(() => document.querySelectorAll('#gem-results tr').length === 3 && /seconds/.test(document.getElementById('gem-results').textContent), null, { timeout: 5000 });
+    ctx.h.env.activeUser = USERS.owner;
+    assert.equal(ctx.h.app.adminState().gemini.thinking.grouping, 'default', 'trying saves nothing');
+
+    await page.click('#gem-save');
+    await page.waitForFunction(() => /Gemini settings saved/.test(document.body.textContent), null, { timeout: 5000 });
+    ctx.h.env.activeUser = USERS.owner;
+    const saved = ctx.h.app.adminState().gemini;
+    assert.equal(saved.thinking.grouping, 'high');
+    assert.equal(saved.batchSize, 15);
+
+    await page.click('#gem-list');
+    await page.waitForFunction(() => document.querySelectorAll('#gem-models option').length === 3, null, { timeout: 5000 });
+    assert.match(await page.textContent('#gem-list-note'), /3 models/);
+  });
+});

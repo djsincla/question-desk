@@ -257,8 +257,18 @@ function createApp(options) {
     },
     UrlFetchApp: {
       fetch: (url, opts) => {
+        if (opts.method === 'get') {
+          // The model list (Admin → Gemini): env.geminiModels, or a status to fail with.
+          const list = env.geminiModels || { models: [] };
+          if (list.status) return { getResponseCode: () => list.status, getContentText: () => '' };
+          return { getResponseCode: () => 200, getContentText: () => JSON.stringify(list) };
+        }
         const body = JSON.parse(opts.payload);
-        const call = { url, prompt: body.contents[0].parts[0].text, schema: body.generationConfig.responseSchema };
+        const call = {
+          url, prompt: body.contents[0].parts[0].text, schema: body.generationConfig.responseSchema,
+          thinking: body.generationConfig.thinkingConfig || null, temperature: body.generationConfig.temperature,
+          model: (url.match(/models\/([^:]+):generateContent/) || [])[1]
+        };
         env.geminiCalls.push(call);
         const result = env.gemini(call);
         if (result && result.status) {

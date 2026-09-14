@@ -88,12 +88,17 @@ test('the add-in page only ever frames an address produced by RoomUrl', () => {
   assert.deepEqual(srcSets, ['url']);
   // frameUrl(url) is the only place a frame gets an address; every caller passes a RoomUrl result.
   const framed = Array.from(page.matchAll(/frameUrl\(([\w.]+)\)/g), (m) => m[1]);
-  assert.deepEqual([...new Set(framed)].sort(), ['fallback', 'shown.url', 'url']);
+  assert.deepEqual([...new Set(framed)].sort(), ['fallback', 'page', 'shown.url', 'url']);
+  assert.match(page, /var page = url \? null : RoomUrl\.webPage\(saved\.link\);/);
+  // Other web pages are sandboxed: they can't navigate the add-in away or open dialogs.
+  assert.match(page, /if \(shown\.page\) \{\s*frame\.setAttribute\('sandbox', PAGE_SANDBOX\);/);
+  const sandbox = page.match(/var PAGE_SANDBOX = '([^']+)'/)[1].split(' ');
+  assert.ok(!sandbox.some((t) => /top-navigation|modals/.test(t)), 'no top navigation or modal dialogs: ' + sandbox);
   assert.match(page, /var url = RoomUrl\.forSlide\(saved\.link\);/);
   assert.match(page, /var direct = RoomUrl\.direct\(saved\.link\);/);
   assert.match(page, /shown\.fallback = url !== direct \? direct : '';/);
   assert.match(page, /var fallback = shown\.fallback;/);
-  assert.match(page, /if \(!RoomUrl\.fromGoogle\(e\.origin\)/, 'only Google pages can make the add-in reload');
+  assert.match(page, /if \(shown\.page \|\| !RoomUrl\.fromGoogle\(e\.origin\)/, 'only Google pages showing a Question Desk screen can make the add-in reload');
   assert.doesNotMatch(page, /innerHTML/);
   const inline = page.match(/<script>([\s\S]*?)<\/script>/)[1];
   assert.doesNotThrow(() => new Function(inline));
@@ -149,4 +154,24 @@ test('room screens and panelist views know their version, so a frame can reload 
   assert.equal(h.app.doGet({ parameter: { view: 'panel', s: s.id, r } }).data.version, version);
   h.anonymous();
   assert.equal(h.app.getRoomScreen(s.id, 'qr', r).version, version);
+});
+
+test('any other https web page can be shown on a slide; nothing else can', () => {
+  [
+    ['https://example.org', 'https://example.org/'],
+    ['  https://www.autismla.example/events?when=fall#rsvp ', 'https://www.autismla.example/events?when=fall#rsvp'],
+    ['https://docs.google.com/forms/d/e/abc/viewform?embedded=true', 'https://docs.google.com/forms/d/e/abc/viewform?embedded=true'],
+    ['https://Survey.Example.org:8443/q', 'https://survey.example.org:8443/q']
+  ].forEach(([input, out]) => assert.equal(RoomUrl.webPage(input), out, input));
+  [
+    '', 'example.org', 'http://example.org', 'javascript:alert(1)', 'data:text/html,<b>x</b>', 'file:///etc/passwd',
+    'https://user:secret@example.org/', 'https://example.org\\@evil.example', 'https://exa mple.org', 'https://-bad.example/',
+    'https://' + 'a'.repeat(2000) + '.org'
+  ].forEach((input) => {
+    assert.equal(RoomUrl.webPage(input), null, input);
+    assert.ok(RoomUrl.problem(input).length > 5, 'explains why: ' + input);
+  });
+  assert.match(RoomUrl.problem('http://example.org'), /https:\/\//);
+  // Question Desk links still get the live QR handling, not the plain web page.
+  assert.ok(RoomUrl.forSlide(PUBLIC + '?view=present&s=1a2b3c4d&r=0123456789abcdef'));
 });

@@ -8,8 +8,9 @@ slide instead of a separate screen. Works in PowerPoint for Windows, Mac and the
   GitHub Pages site.
 - The session link is saved inside the presentation, so the slide works on any computer
   that has the add-in installed.
-- The slide shows a QR-only view by default. A checkbox shows the full room screen
-  (heading, instructions and *Now answering*) instead.
+- The slide shows a big QR code with "Scan to ask a question" beside it.
+- Any other secure (https://) web page can go on a slide too — a survey, a form, your
+  website. Some sites refuse to be shown inside a slide and stay blank.
 
 Manifest: <https://djsincla.github.io/question-desk/addin/manifest.xml>
 
@@ -104,8 +105,13 @@ again. Existing boxes keep the size they were inserted at; drag their handles to
    **Show on slide**.
 3. The box fills a standard widescreen slide when inserted; drag its handles to resize it
    (for example, to leave room for your own title). Start the slideshow: the code updates on its own.
-4. To change the session, click **Change session** in the top corner while editing.
+4. To change it, click **Change link** in the top corner while editing.
    It never shows during the slideshow.
+
+**Other web pages:** paste any link starting with `https://` instead. It shows as it is,
+with none of the Question Desk handling. Many sites (autismla.org among them) don't allow
+being shown inside another page; the slide stays blank for those, and a note says so while
+editing. `http://` links can't be shown: PowerPoint only shows secure pages.
 
 ## Before an event
 
@@ -121,5 +127,9 @@ again. Existing boxes keep the size they were inserted at; drag their handles to
 
 `index.html` is the add-in page. It keeps the pasted link in the presentation's settings
 and shows the room screen (`…/exec?view=present&s=<session>&r=<key>&layout=qr`) in a frame.
-`room-url.js` accepts only Question Desk session links: Google addresses become the public
-`/macros/s/` form, and guest page links stay on their guest page. Tests: `tests/addin.test.js`.
+`room-url.js` recognizes Question Desk session links: Google addresses become the public
+`/macros/s/` form, and guest page links stay on their guest page, falling back to Google's
+address if the guest page doesn't load within 20 seconds. The room screen reports each update
+to the add-in, which reloads a screen that has gone quiet for three minutes. Any other
+`https://` page is shown in a sandboxed frame (it can't navigate the add-in away or open
+dialogs). Tests: `tests/addin.test.js`, `browser-tests/addin.test.js`.

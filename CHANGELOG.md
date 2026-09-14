@@ -4,6 +4,27 @@ All notable changes to Question Desk. Versions follow [Semantic Versioning](http
 Each release is tagged `vX.Y.Z` and published as a GitHub release by `scripts/ship.sh`,
 which reads the notes for that version from this file.
 
+## [2.21.0] - 2026-09-14
+
+### Added
+- **Gemini settings on the Admin page** (Health → Gemini): the model (with a list of the
+  models your API key can use), how much Gemini thinks for grouping, for merging, and for
+  translating one question, the temperature, and how many questions go in each grouping
+  request. Saved changes apply to the very next request. **Try these settings** times a
+  small request at each thinking level before you save; a level a model doesn't accept is
+  reported and skipped rather than failing.
+- **Any web page on a PowerPoint slide.** The add-in accepts any `https://` link, not just
+  Question Desk links: a survey, a form, your website. It's shown as it is, in a sandboxed
+  frame. Question Desk links still get the live QR code. Sites that refuse to be shown
+  inside another page stay blank, and a note says so while editing.
+
+### Changed
+- **Merging is faster.** Merge into one question asks Gemini to think less by default
+  (a facilitator is waiting); so do Show on phones and Answer now on a single question.
+- **A failed merge says why** under the topic (Gemini busy or out of quota, not answering,
+  a retired model, a missing key), and the queue says Gemini is working while it merges.
+  It used to just say "Merge failed — retry".
+
 ## [2.20.0] - 2026-09-13
 
 ### Changed
@@ -656,6 +677,7 @@ Fixes from a full code review.
 - "Merge into one question" for reading a topic aloud.
 - Participant page in English, Korean and Spanish.
 
+[2.21.0]: https://github.com/djsincla/question-desk/releases/tag/v2.21.0
 [2.20.0]: https://github.com/djsincla/question-desk/releases/tag/v2.20.0
 [2.19.0]: https://github.com/djsincla/question-desk/releases/tag/v2.19.0
 [2.18.0]: https://github.com/djsincla/question-desk/releases/tag/v2.18.0

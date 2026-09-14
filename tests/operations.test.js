@@ -83,7 +83,7 @@ test('health check explains a retired model, a missing key, and a missing trigge
   const h = createApp().install();
   h.env.gemini = () => ({ status: 404, text: 'models/gemini-3.5-flash is not found' });
   let checks = h.app.runHealthCheck().checks;
-  assert.match(checks.find((c) => /Gemini model/.test(c.name)).detail, /not found; it may have been retired\. Update CONFIG\.model/);
+  assert.match(checks.find((c) => /Gemini model/.test(c.name)).detail, /not found; it may have been retired\. Choose another model under Admin → Health → Gemini/);
 
   h.env.triggers = [];
   h.props.deleteProperty('GEMINI_API_KEY');

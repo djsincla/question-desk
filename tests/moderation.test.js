@@ -242,3 +242,33 @@ test('the queue board is shared from the cache and always fresh after a change',
   h.as(MOD);
   assert.equal(h.app.getBoard(a.id).topics[0].votes, 1, 'Me too counts are always fresh');
 });
+
+test('merging asks Gemini to think less, retries without that if refused, and says why a merge failed', () => {
+  const { h, a } = setup();
+  h.ask(a, h.join(a), 'Parking is a problem');
+  h.app.clusterAll_();
+  h.as(MOD);
+  assert.equal(h.env.geminiCalls[0].thinking, null, 'grouping keeps the default thinking');
+
+  h.env.geminiCalls.length = 0;
+  h.env.gemini = () => ({ question: 'What is being done about parking?' });
+  assert.equal(h.app.mergeTopic(a.id, 'About parking').ok, true);
+  assert.deepEqual(h.env.geminiCalls[0].thinking, { thinkingLevel: 'low' }, 'a facilitator is waiting: think less');
+
+  // A model that doesn't accept the setting: sent again without it, and the merge still works.
+  h.env.geminiCalls.length = 0;
+  h.env.gemini = (call) => call.thinking
+    ? { status: 400, text: '{"error":{"message":"Invalid JSON payload: thinking_level is not supported for this model"}}' }
+    : { question: 'Rewritten.' };
+  assert.equal(h.app.mergeTopic(a.id, 'About parking').ok, true);
+  assert.deepEqual(h.env.geminiCalls.map((c) => !!c.thinking), [true, false]);
+
+  // Failures say why, in words a facilitator can act on.
+  h.env.gemini = () => ({ status: 429, text: 'quota' });
+  assert.deepEqual(h.app.mergeTopic(a.id, 'About parking'), { ok: false, error: 'Gemini is busy or out of quota. Try again in a minute.' });
+  h.env.gemini = () => ({ status: 503, text: 'unavailable' });
+  assert.match(h.app.mergeTopic(a.id, 'About parking').error, /didn't answer/);
+  h.env.gemini = () => ({ nothing: true });
+  assert.match(h.app.mergeTopic(a.id, 'About parking').error, /couldn't be used/);
+  assert.match(h.app.mergeTopic(a.id, 'No such topic').error, /no questions/);
+});
