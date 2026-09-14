@@ -33,12 +33,33 @@
         '<p>Scan the code on the screen in the room again, or ask the organizer for the link.</p></div>');
       return;
     }
-    var frame = document.createElement('iframe');
-    frame.setAttribute('title', 'Question Desk');
-    frame.setAttribute('src', url);
-    // Let the embedded page use the keyboard and open links in the whole window.
-    frame.setAttribute('allow', 'clipboard-write');
-    document.body.appendChild(frame);
+    var frame = null, loadedAt = 0, heardAt = 0, reloadedAt = 0;
+    function show() {
+      var fresh = document.createElement('iframe');
+      fresh.setAttribute('title', 'Question Desk');
+      fresh.setAttribute('src', url);
+      // Let the embedded page use the keyboard and open links in the whole window.
+      fresh.setAttribute('allow', 'clipboard-write');
+      if (frame) document.body.replaceChild(fresh, frame); else document.body.appendChild(fresh);
+      frame = fresh;
+      loadedAt = Date.now();
+      heardAt = 0;
+    }
+    show();
+
+    // A room screen or panelist view left open for hours: reload it when it stops reporting
+    // updates (laptop slept, wifi dropped) or reports that Question Desk has a newer version.
+    // Inside another page (the PowerPoint add-in), updates go to that page, which does this itself.
+    if (!/[?&]view=(present|panel)&/.test(url) || window.top !== window) return;
+    window.addEventListener('message', function (e) {
+      if (!/^https:\/\/(script\.google\.com|[a-z0-9-]+\.googleusercontent\.com)$/.test(e.origin)) return;
+      if (!e.data || typeof e.data.questionDesk !== 'string') return;
+      heardAt = Date.now();
+      if (e.data.questionDesk === 'outdated' && Date.now() - reloadedAt > 10 * 60000) { reloadedAt = Date.now(); show(); }
+    });
+    setInterval(function () {
+      if (Date.now() - Math.max(heardAt, loadedAt) > 3 * 60000) show();
+    }, 5000);
   })();
 </script>
 </body>

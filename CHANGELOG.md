@@ -4,6 +4,43 @@ All notable changes to Question Desk. Versions follow [Semantic Versioning](http
 Each release is tagged `vX.Y.Z` and published as a GitHub release by `scripts/ship.sh`,
 which reads the notes for that version from this file.
 
+## [2.20.0] - 2026-09-13
+
+### Changed
+- **The PowerPoint slide is just a big QR code.** The slide always shows the QR-only view:
+  the code as tall as the slide's box, "Scan to ask a question" in the session's languages
+  beside it, and no logo, heading or banner. The add-in's "Show the full room screen" option
+  is gone (it was cramped and hard to read in a slide's box); slides that used it switch to
+  the QR code on their own.
+- **Rounder, friendlier QR codes** on the room screen, the slide and the printable QR sheets:
+  round dots that flow into each other and rounded corner squares. Only the corners changed,
+  so the code scans as before (the browser tests decode it at every screen size).
+- **The room screen can no longer overlap.** The logo, the heading and instructions beside
+  the code, and the Now answering banner each get their own row, and the text shrinks until
+  everything fits, however long the heading, how many languages, or how small the box.
+
+### Added
+- **Show on phones for questions that aren't in a topic.** A quiet session may never be
+  grouped, so an ungrouped question now has the same Show on phones button as a topic
+  (and the P shortcut): phones see it in their language and can tap Me too, and the queue
+  shows the count. "Show on phones when answering" applies to it too. A question on phones
+  is left out of automatic grouping so it doesn't vanish mid-vote; grouping it by hand puts
+  its topic on phones with its Me too taps. The summary email counts them.
+- **The add-in falls back to Google's address when a guest page won't load.** Many websites,
+  autismla.org among them, refuse to be shown inside another page. If a custom guest page
+  hasn't shown the room screen within 20 seconds, the slide uses Google's address instead
+  (PowerPoint's built-in browser isn't signed into Google, so that works) and says so while
+  editing.
+- **Long-open slides and guest page room screens recover on their own.** A room screen that
+  hasn't updated for three minutes (a sleeping laptop, dropped wifi) is reloaded, and so is
+  one left open across a Question Desk update.
+
+### Fixed
+- A room screen whose link was replaced kept showing its last code, dimmed, saying the
+  connection was lost. It now says the link is out of date.
+- The guest page refused participant links in Chinese, Vietnamese, Tagalog and Armenian
+  (`&lang=`).
+
 ## [2.19.0] - 2026-09-13
 
 ### Changed
@@ -619,6 +656,7 @@ Fixes from a full code review.
 - "Merge into one question" for reading a topic aloud.
 - Participant page in English, Korean and Spanish.
 
+[2.20.0]: https://github.com/djsincla/question-desk/releases/tag/v2.20.0
 [2.19.0]: https://github.com/djsincla/question-desk/releases/tag/v2.19.0
 [2.18.0]: https://github.com/djsincla/question-desk/releases/tag/v2.18.0
 [2.17.0]: https://github.com/djsincla/question-desk/releases/tag/v2.17.0

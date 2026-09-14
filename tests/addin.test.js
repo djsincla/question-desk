@@ -22,7 +22,9 @@ test('any form of a session link becomes the public, QR-only slide address', () 
   ];
   forms.forEach((link) => {
     assert.equal(RoomUrl.forSlide(link), PUBLIC + '?view=present&s=1a2b3c4d&r=0123456789abcdef&layout=qr', link);
-    assert.equal(RoomUrl.forSlide(link, true), PUBLIC + '?view=present&s=1a2b3c4d&r=0123456789abcdef', link);
+    // Always QR only: the full room screen was cramped and hard to read in a slide's box.
+    assert.equal(RoomUrl.forSlide(link, true), PUBLIC + '?view=present&s=1a2b3c4d&r=0123456789abcdef&layout=qr', link);
+    assert.equal(RoomUrl.direct(link), RoomUrl.forSlide(link), link);
   });
 });
 
@@ -82,9 +84,16 @@ test('the add-in page only ever frames an address produced by RoomUrl', () => {
   const page = read('docs/addin/index.html');
   const scripts = Array.from(page.matchAll(/<script src="([^"]+)"/g), (m) => m[1]);
   assert.deepEqual(scripts, ['https://appsforoffice.microsoft.com/lib/1/hosted/office.js', 'room-url.js']);
-  const srcSets = Array.from(page.matchAll(/setAttribute\('src', (\w+)\)/g), (m) => m[1]);
+  const srcSets = Array.from(page.matchAll(/setAttribute\('src', ([\w.]+)\)/g), (m) => m[1]);
   assert.deepEqual(srcSets, ['url']);
-  assert.match(page, /var url = RoomUrl\.forSlide\(saved\.link, saved\.full\);/);
+  // frameUrl(url) is the only place a frame gets an address; every caller passes a RoomUrl result.
+  const framed = Array.from(page.matchAll(/frameUrl\(([\w.]+)\)/g), (m) => m[1]);
+  assert.deepEqual([...new Set(framed)].sort(), ['fallback', 'shown.url', 'url']);
+  assert.match(page, /var url = RoomUrl\.forSlide\(saved\.link\);/);
+  assert.match(page, /var direct = RoomUrl\.direct\(saved\.link\);/);
+  assert.match(page, /shown\.fallback = url !== direct \? direct : '';/);
+  assert.match(page, /var fallback = shown\.fallback;/);
+  assert.match(page, /if \(!RoomUrl\.fromGoogle\(e\.origin\)/, 'only Google pages can make the add-in reload');
   assert.doesNotMatch(page, /innerHTML/);
   const inline = page.match(/<script>([\s\S]*?)<\/script>/)[1];
   assert.doesNotThrow(() => new Function(inline));
@@ -93,10 +102,51 @@ test('the add-in page only ever frames an address produced by RoomUrl', () => {
 test('a guest page slide link stays on its guest page, for presenting laptops signed into Google', () => {
   const guest = 'https://djsincla.github.io/question-desk/join/?d=AKfycb' + 'x'.repeat(40) + '&view=present&s=1a2b3c4d&r=0123456789abcdef&layout=qr';
   assert.equal(RoomUrl.forSlide(guest), guest);
-  assert.equal(RoomUrl.forSlide(guest, true), guest.replace('&layout=qr', ''));
+  assert.equal(RoomUrl.direct(guest), 'https://script.google.com/macros/s/AKfycb' + 'x'.repeat(40) + '/exec?view=present&s=1a2b3c4d&r=0123456789abcdef&layout=qr',
+    'the fallback when the guest page will not load in PowerPoint');
   const own = 'https://autismla.example/questions/?d=AKfycb' + 'x'.repeat(40) + '&view=present&s=1a2b3c4d&r=0123456789abcdef';
   assert.equal(RoomUrl.forSlide(own), own + '&layout=qr');
   // Not a guest page link: refused.
   assert.equal(RoomUrl.forSlide('https://evil.example/"x"?d=AKfycb' + 'x'.repeat(40) + '&s=1a2b3c4d&r=0123456789abcdef'), null);
   assert.equal(RoomUrl.forSlide('http://insecure.example/join/?d=AKfycb' + 'x'.repeat(40) + '&s=1a2b3c4d&r=0123456789abcdef'), null);
+});
+
+test('custom guest page addresses the add-in accepts, in any parameter order', () => {
+  const D = 'AKfycb' + 'x'.repeat(40);
+  const tail = 'view=present&s=1a2b3c4d&r=0123456789abcdef&layout=qr';
+  [
+    'https://www.autismla.example/qa/',
+    'https://autismla.example/question-desk/join/index.html',
+    'https://autismla.example/qa',
+    'https://events.autismla.example:8443/ask/',
+    'https://autismla.example/join-us_2026/~page%20one/'
+  ].forEach((base) => {
+    assert.equal(RoomUrl.forSlide(base + '?d=' + D + '&' + tail), base + '?d=' + D + '&' + tail, base);
+    // Room screen link (no layout), parameters reordered, pasted from Outlook, with tracking junk.
+    const messy = base + '?s=1a2b3c4d&amp;utm_source=newsletter&amp;r=0123456789abcdef&amp;view=present&amp;d=' + D + '#section';
+    assert.equal(RoomUrl.forSlide(messy), base + '?d=' + D + '&' + tail, messy);
+    assert.equal(RoomUrl.direct(messy), 'https://script.google.com/macros/s/' + D + '/exec?' + tail);
+  });
+  // A guest page link is only as good as its parts.
+  assert.equal(RoomUrl.forSlide('https://autismla.example/qa/?d=' + D + '&view=present&s=1a2b3c4d'), null, 'no room screen key');
+  assert.equal(RoomUrl.forSlide('https://autismla.example/qa/?d=nope&view=present&s=1a2b3c4d&r=0123456789abcdef'), null, 'bad deployment');
+  assert.equal(RoomUrl.forSlide('https://autismla.example/q a/?d=' + D + '&' + tail), null, 'space in the address');
+});
+
+test('only Google-served Question Desk pages can make the add-in reload', () => {
+  assert.equal(RoomUrl.fromGoogle('https://n-abc123def-0lu-script.googleusercontent.com'), true);
+  assert.equal(RoomUrl.fromGoogle('https://script.google.com'), true);
+  ['https://evil.example', 'https://script.google.com.evil.example', 'https://x.googleusercontent.com.evil.example',
+    'http://script.google.com', 'null', '', undefined].forEach((origin) => assert.equal(RoomUrl.fromGoogle(origin), false, String(origin)));
+});
+
+test('room screens and panelist views know their version, so a frame can reload an outdated one', () => {
+  const h = createApp().install();
+  const s = h.session({ name: 'Versions', access: 'room', active: true });
+  const r = h.screenKey(s);
+  const version = h.app.APP.version;
+  assert.equal(h.app.doGet({ parameter: { view: 'present', s: s.id, r, layout: 'qr' } }).data.version, version);
+  assert.equal(h.app.doGet({ parameter: { view: 'panel', s: s.id, r } }).data.version, version);
+  h.anonymous();
+  assert.equal(h.app.getRoomScreen(s.id, 'qr', r).version, version);
 });

@@ -140,3 +140,15 @@ test('manifest keeps anonymous web app access and the scopes the code needs', ()
     if (SERVER.indexOf(usage) !== -1) assert.ok(manifest.oauthScopes.includes(needs[usage]), usage + ' needs ' + needs[usage]);
   });
 });
+
+test('the room screen and the printable QR sheets draw the QR code with the same code', () => {
+  const block = (file) => {
+    const html = fs.readFileSync(path.join(ROOT, file), 'utf8');
+    const m = html.match(/\/\/ qr-art:start[^\n]*\n([\s\S]*?)\/\/ qr-art:end/);
+    assert.ok(m, file + ' has the qr-art block');
+    return m[1];
+  };
+  assert.equal(block('Sheet.html'), block('Present.html'), 'copy the qr-art block from Present.html to Sheet.html');
+  // Rounded corners only: every dark module is drawn, so the code scans like the square one.
+  assert.match(block('Present.html'), /if \(dark\(r, c\)\)/);
+});

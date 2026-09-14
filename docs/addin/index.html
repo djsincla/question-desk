@@ -24,11 +24,13 @@
   p { margin: 0 0 10px; color: #5c6874; }
   label { display: block; margin: 10px 0; }
   input[type=url] { width: 100%; font: inherit; padding: 7px 9px; border: 1px solid #d9dee3; border-radius: 4px; }
-  .choice { display: flex; gap: 8px; align-items: flex-start; }
-  .choice input { margin-top: 3px; }
   button { font: inherit; padding: 7px 14px; border-radius: 4px; border: 1px solid #1b5e5a; background: #1b5e5a; color: #fff; cursor: pointer; }
   button.quiet { background: #fff; color: #5c6874; border-color: #d9dee3; }
   .error { color: #8c2f22; }
+  #note {
+    position: fixed; left: 6px; bottom: 6px; right: 6px; z-index: 2; margin: 0;
+    padding: 3px 8px; font-size: 12px; border-radius: 4px; background: rgba(255,255,255,0.92); color: #16202b;
+  }
   #gear {
     position: fixed; top: 6px; right: 6px; z-index: 2;
     padding: 3px 8px; font-size: 12px; background: rgba(255,255,255,0.9); color: #16202b; border-color: #d9dee3;
@@ -47,26 +49,29 @@
     <input type="url" id="link" placeholder="https://script.google.com/…/exec?view=present&s=…" autocomplete="off" spellcheck="false" required>
   </label>
   <p>Copy it from the Question Desk Admin page: <strong>Sessions → Links → PowerPoint slide</strong> (the room screen link works too). Links copied before version 2.6.0 need copying again.</p>
-  <label class="choice"><input type="checkbox" id="full"><span>Show the full room screen (heading, instructions and "Now answering") instead of the QR code only</span></label>
   <p class="error" id="error" role="alert" hidden></p>
   <button type="submit">Show on slide</button>
   <button type="button" class="quiet" id="cancel" hidden>Cancel</button>
 </form>
 
 <button type="button" id="gear" hidden title="Change the session shown on this slide">Change session</button>
+<p id="note" hidden></p>
 
 <script>
   var KEY = 'questionDeskRoom';
-  var FULL_KEY = 'questionDeskFull';
   var office = false;       // true when running inside PowerPoint
-  var saved = { link: '', full: false };
+  var saved = { link: '' };
+
+  // How long a guest page gets to show the room screen before the slide uses Google's own
+  // address instead, and how long a screen may go silent before it is reloaded.
+  var GUEST_WAIT_MS = 20000;
+  var SILENT_MS = 3 * 60000;
 
   function $(id) { return document.getElementById(id); }
 
   function load() {
     if (office) {
       saved.link = Office.context.document.settings.get(KEY) || '';
-      saved.full = !!Office.context.document.settings.get(FULL_KEY);
     } else {
       // Outside PowerPoint (e.g. testing in a browser): ?room= or this browser's storage.
       var fromQuery = new URLSearchParams(location.search).get('room');
@@ -74,8 +79,8 @@
     }
   }
 
-  function save(link, full, done) {
-    saved = { link: link, full: full };
+  function save(link, done) {
+    saved = { link: link };
     if (!office) {
       try { localStorage.setItem(KEY, link); } catch (e) {}
       done();
@@ -83,33 +88,80 @@
     }
     // Stored in the presentation itself, so the slide works on any computer with the add-in.
     Office.context.document.settings.set(KEY, link);
-    Office.context.document.settings.set(FULL_KEY, full);
     Office.context.document.settings.saveAsync(function () { done(); });
   }
 
+  // What the frame shows, and whether the room screen inside has been heard from.
+  var shown = { url: '', fallback: '', loadedAt: 0, heardAt: 0, reloadedAt: 0 };
+
+  /** A fresh frame each time: reloads reliably, and adds nothing to the web view's history. */
+  function frameUrl(url) {
+    var old = $('screen');
+    var frame = old.cloneNode(false);
+    frame.setAttribute('src', url);
+    frame.hidden = false;
+    old.parentNode.replaceChild(frame, old);
+    shown.url = url;
+    shown.loadedAt = Date.now();
+    shown.heardAt = 0;
+  }
+
   function showScreen() {
-    var url = RoomUrl.forSlide(saved.link, saved.full);
+    var url = RoomUrl.forSlide(saved.link);
     if (!url) { showSetup(); return; }
     $('setup').hidden = true;
-    var frame = $('screen');
-    if (frame.getAttribute('src') !== url) frame.setAttribute('src', url);
-    frame.hidden = false;
+    var direct = RoomUrl.direct(saved.link);
+    if (shown.url !== url && shown.url !== direct) {
+      shown.fallback = url !== direct ? direct : '';
+      $('note').textContent = '';
+      frameUrl(url);
+    }
+    $('screen').hidden = false;
     updateGear();
   }
 
   function showSetup() {
     $('link').value = saved.link;
-    $('full').checked = saved.full;
-    $('cancel').hidden = !RoomUrl.forSlide(saved.link, false);
+    $('cancel').hidden = !RoomUrl.forSlide(saved.link);
     $('error').hidden = true;
     $('setup').hidden = false;
-    $('gear').hidden = true;
+    updateGear();
   }
 
-  // The "Change session" button shows while editing, never during the slideshow.
+  // The room screen (a Google page, possibly inside a guest page) reports each update.
+  window.addEventListener('message', function (e) {
+    if (!RoomUrl.fromGoogle(e.origin) || !e.data || typeof e.data.questionDesk !== 'string') return;
+    shown.heardAt = Date.now();
+    // Question Desk was updated since this screen loaded: reload for the new version (at most
+    // every 10 minutes, in case Google serves the old version for a while).
+    if (e.data.questionDesk === 'outdated' && Date.now() - shown.reloadedAt > 10 * 60000) {
+      shown.reloadedAt = Date.now();
+      frameUrl(shown.url);
+    }
+  });
+
+  setInterval(function () {
+    if (!shown.url || !$('setup').hidden) return;
+    var now = Date.now();
+    if (!shown.heardAt && shown.fallback && now - shown.loadedAt > GUEST_WAIT_MS) {
+      // The guest page never showed the room screen, e.g. its site refuses to be framed.
+      var fallback = shown.fallback;
+      shown.fallback = '';
+      $('note').textContent = 'The guest page didn’t load in PowerPoint, so this slide uses the Google address.';
+      frameUrl(fallback);
+      updateGear();
+      return;
+    }
+    // Asleep laptop, dropped wifi, a hung page: a screen silent for minutes gets reloaded.
+    if (now - Math.max(shown.heardAt, shown.loadedAt) > SILENT_MS) frameUrl(shown.url);
+  }, 2000);
+
+  // The "Change session" button (and any note) shows while editing, never during the slideshow.
   var view = 'edit';
   function updateGear() {
-    $('gear').hidden = view === 'read' || !$('setup').hidden;
+    var editing = view !== 'read' && $('setup').hidden;
+    $('gear').hidden = !editing;
+    $('note').hidden = !editing || !$('note').textContent;
   }
 
   function watchView() {
@@ -129,19 +181,19 @@
   $('setup').addEventListener('submit', function (e) {
     e.preventDefault();
     var link = $('link').value.trim();
-    if (!RoomUrl.forSlide(link, false)) {
+    if (!RoomUrl.forSlide(link)) {
       $('error').textContent = 'That is not a Question Desk session link. Copy "PowerPoint slide" or "Room screen" from Sessions → Links on the Admin page.';
       $('error').hidden = false;
       return;
     }
-    save(link, $('full').checked, showScreen);
+    save(link, showScreen);
   });
   $('cancel').onclick = showScreen;
   $('gear').onclick = showSetup;
 
   function start() {
     load();
-    if (RoomUrl.forSlide(saved.link, saved.full)) showScreen(); else showSetup();
+    if (RoomUrl.forSlide(saved.link)) showScreen(); else showSetup();
   }
 
   if (window.Office && Office.onReady) {

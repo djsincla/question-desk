@@ -11,10 +11,13 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { webkit, chromium, devices } = require('playwright');
+const { PNG } = require('pngjs');
+const jsQR = require('jsqr');
 const { serve, USERS } = require('../scripts/preview');
 
 const ENGINES = [['webkit', webkit], ['chromium', chromium]];
-const ROOM_SIZES = [[1600, 900], [1280, 720], [1024, 768], [960, 540], [640, 560], [760, 760], [600, 700], [540, 900], [480, 360]];
+// Down to a small box on a slide being edited (400x225), where the room screen used to overlap.
+const ROOM_SIZES = [[1920, 1080], [1600, 900], [1280, 720], [1024, 768], [960, 540], [640, 560], [760, 760], [600, 700], [540, 900], [640, 360], [480, 360], [480, 270], [400, 225]];
 
 let ctx;
 let base;
@@ -51,9 +54,14 @@ function roomLayout(page) {
       return style.display !== 'none' && style.visibility !== 'hidden' && r.width > 1 && r.height > 1 ? r : null;
     };
     const parts = {};
-    ['.brand', '.words', '#code', '#waiting', '.now', '.footer', '.clock', '.caption'].forEach((sel) => {
-      const r = visible(document.querySelector(sel));
-      if (r) parts[sel] = { x: r.left, y: r.top, w: r.width, h: r.height };
+    // Each line of the instructions on its own: the box around them can fit while a line
+    // inside spills under the "Now answering" banner.
+    const nodes = [];
+    ['.brand', '#code', '#waiting', '.now', '.footer', '.status', '.clock', '.caption'].forEach((sel) => nodes.push([sel, document.querySelector(sel)]));
+    Array.from(document.querySelectorAll('.words > *')).forEach((el, i) => nodes.push(['.words > ' + el.tagName.toLowerCase() + ':' + i, el]));
+    nodes.forEach(([name, el]) => {
+      const r = visible(el);
+      if (r) parts[name] = { x: r.left, y: r.top, w: r.width, h: r.height };
     });
     const qrGraphics = Array.from(document.querySelectorAll('#code svg, #code img, #code canvas')).filter((el) => visible(el)).length;
     return { parts, qrGraphics, vw: innerWidth, vh: innerHeight, clock: document.getElementById('clock').textContent };
@@ -80,6 +88,11 @@ for (const [engineName] of ENGINES) {
           // Stock WebKit hides one correctly, so guard the structure: one SVG, nothing else.
           const structure = await page.evaluate(() => Array.from(document.getElementById('code').children).map((el) => el.tagName.toLowerCase()));
           assert.deepEqual(structure, ['svg'], 'QR box holds a single SVG');
+          // The rounded QR drawing must still scan: decode what's on screen.
+          const png = PNG.sync.read(await page.locator('#code').screenshot());
+          const decoded = jsQR(new Uint8ClampedArray(png.data), png.width, png.height);
+          assert.ok(decoded, 'QR code decodes at ' + png.width + 'px');
+          assert.match(decoded.data, new RegExp('^https://script\\.google\\.com/macros/s/[^/]+/exec\\?s=' + ctx.live.id + '&t=[a-f0-9]{12}$'));
           const qr = L.parts['#code'];
           assert.ok(qr.x >= 0 && qr.y >= 0 && qr.x + qr.w <= L.vw + 1 && qr.y + qr.h <= L.vh + 1,
             'QR code fully on screen: ' + JSON.stringify(qr));
@@ -103,6 +116,37 @@ for (const [engineName] of ENGINES) {
       });
     }
   }
+
+  test(`${engineName}: room screen shrinks a long heading to fit, logo and banner included`, async () => {
+    const url = '/?view=present&s=' + ctx.live.id + '&r=' + ctx.h.screenKey(ctx.live);
+    for (const [w, h] of [[1280, 720], [960, 540], [480, 270], [760, 760]]) {
+      const { page, context, errors } = await open(engineName, url, { viewport: { width: w, height: h } });
+      try {
+        await page.waitForSelector('#code svg', { state: 'attached', timeout: 15000 });
+        await page.waitForSelector('#now:not([hidden])', { timeout: 15000 });
+        const scale = await page.evaluate(() => {
+          document.getElementById('heading').textContent = 'Questions for the Fall Family Conference panel on school services, respite care, housing and adult transition planning';
+          document.getElementById('nowMerged').textContent = 'Will respite care hours be cut next year, and how will families be consulted before hours are assigned, reduced or changed in any way?';
+          fit();
+          return document.body.style.getPropertyValue('--fit');
+        });
+        const L = await roomLayout(page);
+        const names = Object.keys(L.parts);
+        names.forEach((name) => {
+          const r = L.parts[name];
+          assert.ok(r.x >= -1 && r.y >= -1 && r.x + r.w <= L.vw + 1 && r.y + r.h <= L.vh + 1, `${w}x${h}: ${name} is cut off (fit ${scale})`);
+        });
+        for (let i = 0; i < names.length; i++) {
+          for (let j = i + 1; j < names.length; j++) {
+            assert.ok(!overlaps(L.parts[names[i]], L.parts[names[j]]), `${w}x${h}: ${names[i]} overlaps ${names[j]} (fit ${scale})`);
+          }
+        }
+        assert.deepEqual(errors, []);
+      } finally {
+        await context.close();
+      }
+    }
+  });
 
   test(`${engineName}: room screen clock ticks and shows when the code last updated`, async () => {
     const { page, context } = await open(engineName, '/?view=present&s=' + ctx.live.id + '&r=' + ctx.h.screenKey(ctx.live), { viewport: { width: 1280, height: 720 } });

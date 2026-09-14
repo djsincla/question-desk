@@ -717,6 +717,11 @@
         text.appendChild(chip);
       }
       text.appendChild(document.createTextNode(translated ? q.translation : q.text));
+      if (isLoose && q.votes) {
+        var qv = el('span', 'votes');
+        qv.textContent = ' · +' + q.votes + ' me too';
+        text.appendChild(qv);
+      }
 
       if (translated && showOriginals) {
         var orig = el('span', 'original');
@@ -751,10 +756,26 @@
           state.nowAnswering = null;
           state.nowAnsweringQuestion = isLiveQuestion ? null : q.id;
           state.nowAnsweringSince = isLiveQuestion ? null : Date.now();
+          if (!isLiveQuestion && state.autoShowOnPhones) q.shown = true;
           draw(state, true);
           send('setNowAnswering', [sid, null, isLiveQuestion ? null : q.id]);
         };
         acts2.appendChild(liveOne);
+
+        // Same as a topic's: a quiet session may never be grouped, and people still want Me too.
+        var phonesOne = el('button', 'small toggle');
+        phonesOne.type = 'button';
+        phonesOne.setAttribute('aria-pressed', q.shown ? 'true' : 'false');
+        phonesOne.textContent = q.shown ? 'On phones ✓' : 'Show on phones';
+        phonesOne.title = q.shown
+          ? 'Participants can see this question and tap Me too. Click to hide it from phones.'
+          : 'Let participants see this question (translated into their language) and tap Me too';
+        phonesOne.onclick = function () {
+          q.shown = !q.shown;
+          draw(state, true);
+          send('setQuestionShown', [sid, q.id, q.shown]);
+        };
+        acts2.appendChild(phonesOne);
       }
       var mark = el('button', 'small');
       mark.type = 'button';
@@ -978,7 +999,7 @@
     ['J or ↓', 'Next question'], ['K or ↑', 'Previous question'],
     ['X', 'Tick the question (then Group as…, Ungroup, Answered or Dismiss)'],
     ['A', 'Answered (or Reopen)'], ['D', 'Dismiss'],
-    ['N', 'Answer now / Stop answering for its topic'], ['P', 'Show on or hide from phones'],
+    ['N', 'Answer now / Stop answering for its topic'], ['P', 'Show on or hide from phones (a question not in a topic, or else its topic)'],
     ['M', 'Merge the topic into one question'], ['G', 'Group now'],
     ['O', 'Show original wording'], ['Esc', 'Clear the selection'], ['?', 'This list']
   ];
@@ -1020,7 +1041,9 @@
       var box = pickRow && pickRow.querySelector('input.pick');
       if (box) box.click(); else moveSelection(1);
     }
-    else if (key === 'p') press('topic', function (b) { return /phones/i.test(b.textContent); });
+    else if (key === 'p') {
+      if (!press('row', function (b) { return /phones/i.test(b.textContent); })) press('topic', function (b) { return /phones/i.test(b.textContent); });
+    }
     else if (key === 'm') press('topic', function (b) { return b.getAttribute('data-key') === 'merge'; });
     else if (key === 'g') document.getElementById('cluster').click();
     else if (key === 'o') document.getElementById('originals').click();

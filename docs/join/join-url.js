@@ -19,7 +19,7 @@
     r: /^[a-f0-9]{16}$/,
     view: /^(present|panel)$/,
     layout: /^qr$/,
-    lang: /^(en|ko|es)$/
+    lang: /^(en|ko|es|zh|vi|tl|hy)$/
   };
 
   function parseQuery(search) {

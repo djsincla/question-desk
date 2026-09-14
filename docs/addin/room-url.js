@@ -49,16 +49,34 @@
     return { deployment: match[1], session: params.s, key: params.r };
   }
 
-  /** Room screen address for a slide: QR only unless full is true. */
-  function forSlide(input, full) {
+  /** Room screen address for a slide: always the QR-only layout (a big code, no logo). */
+  function forSlide(input) {
     var parsed = parse(input);
     if (!parsed) return null;
-    var query = 'view=present&s=' + parsed.session + '&r=' + parsed.key + (full ? '' : '&layout=qr');
     // A guest page link stays a guest page link: the presenting laptop may be signed into
     // several Google accounts, and the guest page keeps Google from refusing the page.
-    if (parsed.guestPage) return parsed.guestPage + '?d=' + parsed.deployment + '&' + query;
-    return 'https://script.google.com/macros/s/' + parsed.deployment + '/exec?' + query;
+    if (parsed.guestPage) return parsed.guestPage + '?d=' + parsed.deployment + '&' + slideQuery(parsed);
+    return direct(input);
   }
 
-  return { parse: parse, forSlide: forSlide };
+  /**
+   * The same slide straight from Google, without the guest page. The add-in falls back to it
+   * when a guest page never loads: many sites (autismla.org among them) refuse to be shown
+   * inside another page, and PowerPoint's own browser isn't signed into Google anyway.
+   */
+  function direct(input) {
+    var parsed = parse(input);
+    return parsed ? 'https://script.google.com/macros/s/' + parsed.deployment + '/exec?' + slideQuery(parsed) : null;
+  }
+
+  function slideQuery(parsed) {
+    return 'view=present&s=' + parsed.session + '&r=' + parsed.key + '&layout=qr';
+  }
+
+  /** Only Question Desk's own pages (served from Google) may tell the add-in to reload. */
+  function fromGoogle(origin) {
+    return /^https:\/\/(script\.google\.com|[a-z0-9-]+\.googleusercontent\.com)$/.test(String(origin || ''));
+  }
+
+  return { parse: parse, forSlide: forSlide, direct: direct, fromGoogle: fromGoogle };
 });

@@ -17,7 +17,7 @@
 
 /** Bump with every release; scripts/ship.sh tags git and publishes release notes from CHANGELOG.md. */
 const APP = {
-  version: '2.19.0',
+  version: '2.20.0',
   repo: 'https://github.com/djsincla/question-desk'
 };
 
@@ -122,7 +122,7 @@ function doGet(e) {
       // layout=qr is the compact QR-only view used by the PowerPoint add-in (docs/addin).
       return page_('Present.html', screen.name, {
         sid: screen.id, key: screenKeyFor_(screen), theme: screen.theme, layout: p.layout === 'qr' ? 'qr' : 'full',
-        languages: languagesFor_(screen)
+        languages: languagesFor_(screen), version: APP.version
       }, screen);
     }
     if (screen) return notice_('oldScreenLink');
@@ -135,7 +135,7 @@ function doGet(e) {
   if (view === 'panel') {
     const panel = getSession_(sid);
     if (panel && (screenKeyValid_(panel, p.r) || canModerate_(panel, currentEmail_()))) {
-      return page_('Panel.html', panel.name + ' — panel', { sid: panel.id, key: screenKeyFor_(panel), theme: panel.theme }, panel);
+      return page_('Panel.html', panel.name + ' — panel', { sid: panel.id, key: screenKeyFor_(panel), theme: panel.theme, version: APP.version }, panel);
     }
     if (panel) return notice_('oldScreenLink');
     if (!currentEmail_()) return notice_('noSession');
@@ -1028,16 +1028,23 @@ function sendWeeklyReportNow() {
 /**
  * Detects the language of a session's prepared questions and translates them, without
  * grouping (that happens once a facilitator adds one to the queue). Returns how many
- * were translated.
+ * were translated. With `onlyIds`, translates those questions instead, whatever their
+ * status: a single question shown on phones or answered on its own.
  */
-function translatePrepared_(sid) {
+function translatePrepared_(sid, onlyIds) {
   const cache = CacheService.getScriptCache();
   const session = getSession_(sid);
   // Only the session's own languages (its event's choice, or the site's).
   const codes = translationCodes_(session);
   const todo = [];
+  const only = {};
+  (onlyIds || []).forEach(function (id) { only[String(id)] = true; });
+  const eligible = function (r) {
+    if (String(r[COLS.session - 1]) !== sid) return false;
+    return onlyIds ? only[String(r[COLS.id - 1])] && r[COLS.status - 1] !== 'dismissed' : r[COLS.status - 1] === 'prepared';
+  };
   questionValues_().slice(1).forEach(function (r) {
-    if (String(r[COLS.session - 1]) !== sid || r[COLS.status - 1] !== 'prepared') return;
+    if (!eligible(r)) return;
     if (preparedTranslated_(r, codes)) return;
     const id = String(r[COLS.id - 1]);
     if (Number(cache.get('tries:' + id) || 0) < 3 && todo.length < CONFIG.clusterBatchSize) todo.push({ id: id, text: String(r[COLS.text - 1]) });
@@ -1045,7 +1052,7 @@ function translatePrepared_(sid) {
   if (!todo.length) return 0;
   const lang = CONFIG.moderatorLanguage;
   const prompt = [
-    'These are questions an organizer prepared for a live meeting, in mixed languages.',
+    'These are questions for a live meeting, in mixed languages.',
     'For each one: identify the language it is written in, and translate it into ' + lang + '.',
     codes.length ? 'Also translate it into ' + codes.map(languageName_).join(' and ') + ' for participants\' phones and the room screen.' : '',
     'Translate faithfully: keep the tone, keep criticism as sharp as it was written, and do',
@@ -1093,7 +1100,7 @@ function translatePrepared_(sid) {
     const values = sheet.getDataRange().getValues();
     const rowById = {};
     for (let i = 1; i < values.length; i++) {
-      if (wanted[String(values[i][COLS.id - 1])] && values[i][COLS.status - 1] === 'prepared') rowById[String(values[i][COLS.id - 1])] = i + 1;
+      if (wanted[String(values[i][COLS.id - 1])] && eligible(values[i])) rowById[String(values[i][COLS.id - 1])] = i + 1;
     }
     response.data.assignments.forEach(function (a) {
       const row = rowById[String(a.id)];
@@ -1958,8 +1965,15 @@ function invalidateTopics_(sid) {
 function publicTopics_(session) {
   const records = topicRecords_(session.id);
   const groups = {};
+  const singles = [];
+  const shownQuestions = session.shownQuestions || [];
   sessionRows_(session.id).forEach(function (q) {
-    if (!q.topic || q.status === 'dismissed') return;
+    if (q.status === 'dismissed') return;
+    // A question that isn't in a topic, shown on phones by a facilitator: its own entry.
+    if (!q.topic) {
+      if (shownQuestions.indexOf(q.id) !== -1 && q.status !== 'answered') singles.push(q);
+      return;
+    }
     if (!records[q.topic] || !records[q.topic].shown) return;
     const g = groups[q.topic] = groups[q.topic] || { questions: 0, answered: 0 };
     g.questions++;
@@ -1975,8 +1989,20 @@ function publicTopics_(session) {
         questions: groups[topic].questions,
         answered: groups[topic].answered === groups[topic].questions
       };
-    })
+    }).concat(singles.map(function (q) {
+      return {
+        topic: singleKey_(q.id),
+        labels: displayLabels_(q.translation || q.text, q.translations, session),
+        questions: 1,
+        answered: false
+      };
+    }))
   };
+}
+
+/** Me too key for a single question shown on phones (topic names never look like this). */
+function singleKey_(questionId) {
+  return 'q:' + questionId;
 }
 
 /** Label in each of the session's languages, falling back to the moderator-language label. */
@@ -2082,7 +2108,8 @@ function getRoomScreen(sid, layout, key) {
     brand: brand,
     nowAnswering: session.nowAnswering ? nowAnsweringView_(session, topicRecords_(sid)) : null,
     url: null,
-    refreshInSeconds: 5
+    refreshInSeconds: 5,
+    version: APP.version   // a long-open screen in a frame reloads when this changes
   };
   if (session.status !== 'active') return screen;
 
@@ -2120,6 +2147,11 @@ function getBoard(sid) {
   });
   const health = health_();
   const loose = data.unsorted;
+  const shownQuestions = session.shownQuestions || [];
+  loose.forEach(function (q) {
+    q.shown = shownQuestions.indexOf(q.id) !== -1;
+    q.votes = votes[singleKey_(q.id)] || 0;
+  });
 
   return {
     session: {
@@ -2315,7 +2347,53 @@ function usePrepared(sid, ids) {
   return getBoard(sid);
 }
 
-/** Shows a topic on the room screen and participants' phones; null clears it. */
+/**
+ * Shows (or hides) one question that isn't in a topic on participants' phones, where people
+ * can tap Me too — the same as Show on phones for a topic, since a quiet session may never
+ * be grouped. Its wording is translated into the session's languages first. A shown question
+ * is kept out of automatic grouping so it doesn't vanish from phones mid-vote.
+ */
+function setQuestionShown(sid, questionId, shown) {
+  const session = requireSession_(sid);
+  flushInbox_(sid);
+  if (session.status === 'ended') throw new Error('This session has ended.');
+  questionId = String(questionId || '');
+  const question = sessionRows_(sid).filter(function (q) { return q.id === questionId; })[0];
+  if (!question || question.status === 'dismissed') throw new Error('That question is no longer in the queue.');
+  if (question.topic && shown) throw new Error('That question is in a topic now: show the topic on phones instead.');
+  showSingle_(session, question, !!shown);
+  invalidateTopics_(sid);
+  audit_(shown ? 'Question shown on phones' : 'Question hidden from phones', session, '"' + (question.translation || question.text).slice(0, 120) + '"');
+  return getBoard(sid);
+}
+
+/** Adds or removes a single question from the session's phone list (see setQuestionShown). */
+function showSingle_(session, question, shown) {
+  const sid = session.id;
+  updateSession_(sid, function (s) {
+    const list = (s.shownQuestions || []).filter(function (id) { return id !== question.id; });
+    if (shown) list.push(question.id);
+    // Session settings are one 9KB property: keep the newest few dozen.
+    s.shownQuestions = list.slice(-40);
+  });
+  if (!shown) return;
+  if (!question.topic) {
+    withLock_(function () {
+      const sheet = questionSheet_();
+      const values = sheet.getDataRange().getValues();
+      const rows = [];
+      for (let i = 1; i < values.length; i++) {
+        if (String(values[i][COLS.session - 1]) === sid && String(values[i][COLS.id - 1]) === question.id &&
+            values[i][COLS.grouping - 1] !== 'ungrouped') rows.push(i + 1);
+      }
+      setCells_(sheet, COLS.grouping, rows, 'ungrouped');
+      questionsChanged_();
+    });
+  }
+  // Phones show it in their language; if Gemini is down they show the English wording.
+  try { translatePrepared_(sid, [question.id]); } catch (err) { console.error('Translating a shown question: ' + err); }
+}
+
 /**
  * Shows a topic — or one question that isn't grouped (or is picked out of its topic) — on
  * the room screen and phones as the one being answered; both empty clears it. With the
@@ -2340,6 +2418,12 @@ function setNowAnswering(sid, topic, questionId) {
     const update = {};
     update[topic] = { shown: true };
     upsertTopics_(sid, update, true);
+  }
+  if (question && !question.topic && session.autoShowOnPhones) {
+    showSingle_(session, question, true);
+  } else if (question) {
+    // The room screen and phones show it in each language, not just English.
+    try { translatePrepared_(sid, [question.id]); } catch (err) { console.error('Translating the question being answered: ' + err); }
   }
   invalidateTopics_(sid);
   const was = session.nowAnswering;
@@ -2387,6 +2471,24 @@ function groupQuestions(sid, ids, topic) {
     questionsChanged_();
   });
   if (!moved) throw new Error('Those questions are no longer in the queue.');
+  // Single questions that were on phones: their topic goes on phones, with their Me too taps.
+  const carried = (session.shownQuestions || []).filter(function (id) { return wanted[id]; });
+  if (carried.length) {
+    withLock_(function () {
+      const votes = votesFor_(sid);
+      carried.forEach(function (id) {
+        votes[topic] = (votes[topic] || 0) + (votes[singleKey_(id)] || 0);
+        delete votes[singleKey_(id)];
+      });
+      props_().setProperty('VOTES_' + sid, JSON.stringify(votes));
+    });
+    updateSession_(sid, function (s) {
+      s.shownQuestions = (s.shownQuestions || []).filter(function (id) { return !wanted[id]; });
+    });
+    const update = {};
+    update[topic] = { shown: true };
+    upsertTopics_(sid, update, true);
+  }
   invalidateTopics_(sid);
   audit_('Grouped by hand', session, moved + (moved === 1 ? ' question' : ' questions') + ' into "' + topic + '"');
   return getBoard(sid);
@@ -3198,7 +3300,8 @@ function summaryContent_(session, brand) {
       } else {
         item = esc_(q.translation) + small + 'Original (' + esc_(q.lang || 'unknown language') + '): ' + esc_(q.text) + '</span>';
       }
-      return '<li style="margin-bottom:8px">' + tick + item + '</li>';
+      const single = !q.topic && votes[singleKey_(q.id)] ? small + votes[singleKey_(q.id)] + ' me too · shown on phones</span>' : '';
+      return '<li style="margin-bottom:8px">' + tick + item + single + '</li>';
     }).join('') + '</ul>';
   });
 
@@ -3208,7 +3311,8 @@ function summaryContent_(session, brand) {
   const csvRows = rows.map(function (q) {
     const translation = q.translation || (sameLanguage_(q) ? q.text : '(not translated)');
     return [q.id, fmt(q.submitted), q.status, q.topic, q.lang, q.text, translation, merged(q.topic),
-            votes[q.topic] || 0, records[q.topic] && records[q.topic].shown ? 'yes' : 'no'];
+            q.topic ? votes[q.topic] || 0 : votes[singleKey_(q.id)] || 0,
+            (q.topic ? records[q.topic] && records[q.topic].shown : (session.shownQuestions || []).indexOf(q.id) !== -1) ? 'yes' : 'no'];
   });
   return { body: body, header: header, rows: csvRows, questions: kept.length, topics: order.length };
 }

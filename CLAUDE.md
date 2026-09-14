@@ -41,7 +41,12 @@ Workspace account. See SETUP.md for install and deployment.
 - `docs/addin/` — *Question Desk QR* PowerPoint content add-in, served by GitHub Pages
   (`main` branch, `/docs`). `manifest.xml` `<Version>` tracks `APP.version`. The page only
   frames addresses from `room-url.js` (public `/macros/s/` form, or the session's guest page
-  when the slide link is a guest page link; `&layout=qr`)
+  when the slide link is a guest page link; always `&layout=qr` since 2.20). Room screens and
+  panelist views `postMessage` `{questionDesk: 'ok'|'outdated'|'refused'}` to `window.top` on
+  each update; the add-in (and a top-level guest page) accepts them only from
+  `RoomUrl.fromGoogle()` origins, reloads a frame silent for 3 minutes or reporting
+  `outdated` (once per 10 minutes), and falls back from a guest page to `RoomUrl.direct()`
+  when nothing reports within 20 s — many sites (autismla.org) send `X-Frame-Options`.
 
 Pages get server data through a single template scriptlet, `var BOOT = <?!= boot ?>;`,
 filled by `page_()` with `<` and U+2028/2029 escaped. The only other scriptlet is
@@ -174,7 +179,12 @@ does not carry the query string. That exact bug shipped once (v2): every QR scan
 
 ## Me too, Now answering, schedule, health, load test
 
-- Participants never see anyone's question text, and see a topic label only after a
+- Single questions not in a topic can be shown on phones too (`setQuestionShown`,
+  `session.shownQuestions`, Me too key `singleKey_(id)` = `q:<id>`); showing marks the row
+  `ungrouped` and translates it (`translatePrepared_(sid, ids)`); `groupQuestions` carries
+  its approval and votes to the topic.
+- Participants never see anyone's question text unless a facilitator shows or answers that
+  question, and see a topic label only after a
   moderator approves it (`setTopicShown`, `Topics` column G = `yes`). `getTopics()`
   returns approved Gemini topic labels translated into `CONFIG.displayLanguages`; translations come back in the same
   grouping call (`labels` in the schema) and are stored in `Topics` column E. The
@@ -310,9 +320,15 @@ instruction in any prompt edits.
   then save; polls don't overwrite while a save is in flight. Server reads go through the
   per-execution cache (`questionValues_`, `topicValues_`); writes must call
   `questionsChanged_()` / `topicsChanged_()`. `tests/harness.js` resets it per call.
-- Present.html's CSS order matters: base rules, then the clock, then the
-  `@media (max-aspect-ratio: 5/4)` stacked layout last. The QR code is one SVG built from
-  qrcode.js's model — never let the library draw its canvas/img pair into the page.
+- Present.html's CSS order matters: the wide grid layout (brand/footer, words + code, Now
+  answering, status + clock rows), then the `@media (max-aspect-ratio: 5/4)` stacked layout,
+  then the `qr-only` slide rules last. Nothing is `position: fixed` except the band and the
+  slide's clock. `fit()` lowers the `--fit` font multiplier until no part overlaps or leaves
+  the screen; call it after anything changes content or layout. The QR code is one SVG
+  drawn by `qrArt()` from qrcode.js's model (rounded corners only, 2-module quiet zone in
+  the viewBox) — never let the library draw its canvas/img pair into the page. The
+  `qr-art` block is copied verbatim into Sheet.html; a test keeps them identical, and the
+  browser tests decode the on-screen code with jsQR.
 - Releases: bump `APP.version` in `Code.js` (semver) and add a dated `CHANGELOG.md`
   section. `scripts/ship.sh "what changed"` then runs the secret scan and tests, pushes,
   creates an Apps Script version, redeploys the same live URL, tags `v<APP.version>`,

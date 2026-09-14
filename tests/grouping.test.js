@@ -147,3 +147,108 @@ test('answering one question of a live topic keeps the topic up while others are
   assert.equal(h.app.setStatus(s.id, [t.questions[0].id], 'answered').nowAnswering, t.topic);
   assert.equal(h.app.setStatus(s.id, [t.questions[1].id], 'dismissed').nowAnswering, null);
 });
+
+test('a question that is not in a topic can go on phones for Me too, translated, like a topic', () => {
+  const { h, s } = setup();
+  const d = h.join(s);
+  h.ask(s, d, 'Is there parking nearby?');
+  const qid = ids(h, s)['Is there parking nearby?'];
+  h.as(MOD);
+  let board = h.app.getBoard(s.id);
+  assert.equal(board.unsorted[0].shown, false);
+  board = h.app.setQuestionShown(s.id, qid, true);
+  assert.equal(board.unsorted[0].shown, true);
+  assert.ok(h.env.geminiCalls.length >= 1, 'translated for phones');
+
+  h.anonymous();
+  let phone = h.app.getTopics(s.id, d.deviceId);
+  assert.equal(phone.topics.length, 1);
+  const entry = phone.topics[0];
+  assert.equal(entry.topic, 'q:' + qid);
+  assert.equal(entry.labels.en, 'Is there parking nearby?');
+  assert.ok(entry.labels.ko && entry.labels.es, 'labels in the session languages');
+  const other = h.join(s);
+  assert.equal(h.app.meToo(s.id, other.deviceId, entry.topic).ok, true);
+  assert.equal(h.app.getTopics(s.id, other.deviceId).topics[0].count, 2);
+
+  // Automatic grouping leaves it alone, so it doesn't vanish from phones mid-vote.
+  h.ask(s, h.join(s), 'Where do we park?');
+  h.app.clusterAll_();
+  h.as(MOD);
+  board = h.app.getBoard(s.id);
+  const single = board.unsorted.find((q) => q.id === qid);
+  assert.ok(single, 'still on its own');
+  assert.equal(single.votes, 1);
+
+  // Hidden again: off phones.
+  h.app.setQuestionShown(s.id, qid, false);
+  h.anonymous();
+  assert.equal(h.app.getTopics(s.id, d.deviceId).topics.some((t) => t.topic === 'q:' + qid), false);
+
+  // Answered: off phones, like a fully answered topic.
+  h.as(MOD);
+  h.app.setQuestionShown(s.id, qid, true);
+  h.app.setStatus(s.id, [qid], 'answered');
+  h.anonymous();
+  assert.equal(h.app.getTopics(s.id, d.deviceId).topics.some((t) => t.topic === 'q:' + qid), false);
+});
+
+test('Answer now on a single question shows it on phones when the switch is on; grouping it carries its Me too', () => {
+  const { h, s } = setup();
+  const d = h.join(s);
+  h.ask(s, d, 'Can we get the slides?');
+  const qid = ids(h, s)['Can we get the slides?'];
+  h.as(MOD);
+  h.app.setNowAnswering(s.id, null, qid);
+  h.anonymous();
+  assert.equal(h.app.getTopics(s.id, d.deviceId).topics.length, 0, 'switch off: not on phones');
+
+  h.as(MOD);
+  h.app.setAutoShowOnPhones(s.id, true);
+  h.app.setNowAnswering(s.id, null, qid);
+  assert.equal(h.app.getBoard(s.id).unsorted[0].shown, true);
+  h.anonymous();
+  const key = h.app.getTopics(s.id, d.deviceId).topics[0].topic;
+  assert.equal(key, 'q:' + qid);
+  h.app.meToo(s.id, h.join(s).deviceId, key);
+  h.app.meToo(s.id, h.join(s).deviceId, key);
+
+  // Grouped by hand: the topic goes on phones and keeps the two Me too taps.
+  h.as(MOD);
+  const board = h.app.groupQuestions(s.id, [qid], 'Slides and handouts');
+  const topic = board.topics.find((t) => t.topic === 'Slides and handouts');
+  assert.equal(topic.shown, true);
+  assert.equal(topic.votes, 2);
+  h.anonymous();
+  const phone = h.app.getTopics(s.id, d.deviceId).topics;
+  assert.deepEqual(phone.map((t) => t.topic), ['Slides and handouts']);
+  assert.equal(phone[0].count, 3);
+});
+
+test('showing a single question on phones is for its session\'s QA Facilitators only, and not for dismissed questions', () => {
+  const { h, s } = setup();
+  h.ask(s, h.join(s), 'Dismiss me');
+  const qid = ids(h, s)['Dismiss me'];
+  h.anonymous();
+  assert.throws(() => h.app.setQuestionShown(s.id, qid, true));
+  h.as('someone@example.org');
+  assert.throws(() => h.app.setQuestionShown(s.id, qid, true));
+  h.as(MOD);
+  h.app.setStatus(s.id, [qid], 'dismissed');
+  assert.throws(() => h.app.setQuestionShown(s.id, qid, true), /no longer in the queue/);
+});
+
+test('the summary counts Me too on single questions shown on phones', () => {
+  const { h, s } = setup();
+  h.ask(s, h.join(s), 'Is lunch provided?');
+  const qid = ids(h, s)['Is lunch provided?'];
+  h.as(MOD);
+  h.app.setQuestionShown(s.id, qid, true);
+  h.anonymous();
+  h.app.meToo(s.id, h.join(s).deviceId, 'q:' + qid);
+  const content = h.app.summaryContent_(h.app.getSession_(s.id), h.app.brand_(h.app.getSession_(s.id)));
+  assert.match(content.body, /1 me too · shown on phones/);
+  const row = content.rows.find((r) => r[0] === qid);
+  assert.equal(row[8], 1);
+  assert.equal(row[9], 'yes');
+});

@@ -431,3 +431,33 @@ test('chromium: tick questions, group them by hand, ungroup, and answer an ungro
     assert.equal(ctx.h.app.getSession_(ctx.live.id).autoGroup, false);
   });
 });
+
+test('chromium: an ungrouped question goes on phones with its own button, and phones can tap Me too', async () => {
+  await withDemo('chromium', (ctx) => {
+    const h = ctx.h;
+    h.env.activeUser = '';
+    h.ask(ctx.live, h.join(ctx.live), 'Will there be childcare at the next meeting?');
+    return '/?view=moderate&s=' + ctx.live.id + '&as=mod';
+  }, { viewport: { width: 1280, height: 900 } }, async ({ page, ctx }) => {
+    const row = page.locator('li[data-id]', { hasText: 'childcare at the next meeting' });
+    await row.waitFor();
+    const qid = await row.getAttribute('data-id');
+    await row.locator('button', { hasText: 'Show on phones' }).click();
+    await row.locator('button', { hasText: 'On phones ✓' }).waitFor({ timeout: 1000 });   // before the server answers
+    await page.waitForTimeout(1500);
+    ctx.h.env.activeUser = '';
+    const phone = ctx.h.join(ctx.live);
+    const entry = ctx.h.app.getTopics(ctx.live.id, phone.deviceId).topics.find((t) => t.topic === 'q:' + qid);
+    assert.ok(entry, 'on phones');
+    assert.equal(ctx.h.app.meToo(ctx.live.id, phone.deviceId, entry.topic).ok, true);
+    // The queue shows the Me too count on the question after its next refresh.
+    await row.locator('.votes', { hasText: '+1 me too' }).waitFor({ timeout: 12000 });
+
+    // P toggles it from the keyboard too.
+    const selected = () => page.evaluate(() => { const li = document.querySelector('li.selected'); return li && li.getAttribute('data-id'); });
+    for (let i = 0; i < 40 && (await selected()) !== qid; i++) await page.keyboard.press('j');
+    assert.equal(await page.getAttribute('li.selected', 'data-id'), qid, 'J reaches the question');
+    await page.keyboard.press('p');
+    await row.locator('button', { hasText: 'Show on phones' }).waitFor({ timeout: 1000 });
+  });
+});

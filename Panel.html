@@ -83,6 +83,10 @@
 
   function show(screen) {
     lastOk = Date.now();
+    // The guest page frames this view: tell it the view is alive (or outdated), so it can reload.
+    try {
+      if (window.top !== window) window.top.postMessage({ questionDesk: screen.version && BOOT.version && screen.version !== BOOT.version ? 'outdated' : 'ok' }, '*');
+    } catch (e) {}
     $('session').textContent = screen.heading || '';
     var now = screen.nowAnswering;
     $('live').hidden = !now;
