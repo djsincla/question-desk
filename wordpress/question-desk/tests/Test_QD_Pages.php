@@ -37,6 +37,27 @@ class Test_QD_Pages extends WP_UnitTestCase {
 		$this->assertStringContainsString( 'qr-only', $present );
 	}
 
+	public function test_the_landing_page_offers_staff_their_own_sessions() {
+		update_option( 'admin_email', 'owner@example.org' );
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator', 'user_email' => 'owner@example.org' ) ) );
+		self::factory()->user->create( array( 'role' => 'qd_facilitator', 'user_email' => 'mod@example.org' ) );
+		$mine = QD_Sessions::save_as( array( 'name' => 'Morning panel', 'moderators' => array( 'mod@example.org' ) ), 'owner@example.org', false );
+		$ends = QD_Sessions::save_as( array( 'name' => 'Finished panel', 'moderators' => array( 'mod@example.org' ) ), 'owner@example.org', false );
+		QD_Sessions::end( $ends, 'Finished panel' );
+		QD_Sessions::save_as( array( 'name' => 'Someone else\'s' ), 'owner@example.org', false );
+
+		wp_set_current_user( get_user_by( 'email', 'mod@example.org' )->ID );
+		QD_Store::reset_cache();
+		$html = QD_Pages::render( 'Home.html', 'Question Desk', array(
+			'staff'    => true,
+			'sessions' => QD_Router::staff_sessions( 'mod@example.org' ),
+		) );
+		preg_match( '/var BOOT = (\{.*?\});\n/s', $html, $m );
+		$sessions = json_decode( $m[1], true )['sessions'];
+		$this->assertSame( array( 'Morning panel' ), wp_list_pluck( $sessions, 'name' ), 'ended and unassigned sessions stay out' );
+		$this->assertStringContainsString( 'view=moderate&s=' . $mine, $sessions[0]['moderate'] );
+	}
+
 	public function test_page_files_are_the_shared_ones() {
 		$this->expectException( QD_Error::class );
 		QD_App::page_file( '../wp-config.php' );

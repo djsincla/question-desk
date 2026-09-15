@@ -126,6 +126,10 @@ class QD_Install {
 		if ( ! get_role( 'qd_facilitator' ) ) {
 			add_role( 'qd_facilitator', 'QA Facilitator', array( 'read' => true, 'qd_facilitate' => true ) );
 		}
+		// Manages Question Desk without being a WordPress administrator.
+		if ( ! get_role( 'qd_admin' ) ) {
+			add_role( 'qd_admin', 'Question Desk Admin', array( 'read' => true, 'qd_manage' => true, 'qd_facilitate' => true, 'upload_files' => true ) );
+		}
 		$admin = get_role( 'administrator' );
 		if ( $admin ) {
 			$admin->add_cap( 'qd_manage' );

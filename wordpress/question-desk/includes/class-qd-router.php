@@ -69,14 +69,33 @@ class QD_Router {
 		$brand  = QD_Brand::site();
 		$title  = $brand['orgName'] ? $brand['orgName'] . ' — Question Desk' : 'Question Desk';
 		QD_Pages::send( 'Home.html', $title, array(
-			'languages' => array_values( (array) get_option( 'qd_languages', QD_App::config( 'defaultLanguages' ) ) ),
+			'languages' => QD_Settings::site_languages(),
 			'version'   => QD_VERSION,
 			'signedIn'  => $user->exists(),
 			'staff'     => $staff,
 			'adminUrl'  => $admin ? admin_url( 'admin.php?page=question-desk' ) : '',
 			'domain'    => '',
 			'signInUrl' => wp_login_url( self::base_url() ),
-			'sessions'  => array(),
+			'sessions'  => $staff ? self::staff_sessions( QD_People::current_email() ) : array(),
 		) );
+	}
+
+	/** The open sessions a staff member can work on, with their links (home_()). */
+	public static function staff_sessions( $email ) {
+		$out = array();
+		foreach ( QD_People::sessions_for( $email ) as $s ) {
+			if ( 'ended' === ( $s['status'] ?? '' ) || ! empty( $s['loadTest'] ) ) {
+				continue;
+			}
+			$links = QD_Sessions::links( $s );
+			$out[] = array(
+				'name'      => (string) $s['name'],
+				'eventName' => QD_Store::event_name( $s ),
+				'status'    => (string) $s['status'],
+				'present'   => $links['present'],
+				'moderate'  => $links['moderate'],
+			);
+		}
+		return $out;
 	}
 }

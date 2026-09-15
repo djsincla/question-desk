@@ -21,7 +21,9 @@ function build() {
   fs.mkdirSync(path.join(PLUGIN, 'pages'), { recursive: true });
   PAGES.forEach((file) => fs.copyFileSync(path.join(ROOT, file), path.join(PLUGIN, 'pages', file)));
   const app = createApp().app;
-  const data = { uiText: app.UI_TEXT, uiTextFor: app.UI_TEXT_FOR, config: app.CONFIG, appVersion: app.APP.version };
+  // sessionCsv: the sessions CSV columns ([header, field]), so both versions read and write the same files.
+  const data = { uiText: app.UI_TEXT, uiTextFor: app.UI_TEXT_FOR, config: app.CONFIG, appVersion: app.APP.version,
+    sessionCsv: app.SESSION_CSV, csvTimeFormat: app.CSV_TIME_FORMAT };
   fs.mkdirSync(path.join(PLUGIN, 'data'), { recursive: true });
   fs.writeFileSync(path.join(PLUGIN, 'data', 'app.json'), JSON.stringify(data, null, 1) + '\n');
   return { pages: PAGES.length };

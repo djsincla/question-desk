@@ -16,6 +16,7 @@ foreach ( wp_load_alloptions() as $option => $value ) {
 	}
 }
 remove_role( 'qd_facilitator' );
+remove_role( 'qd_admin' );
 $admin = get_role( 'administrator' );
 if ( $admin ) {
 	$admin->remove_cap( 'qd_manage' );

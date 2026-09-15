@@ -12,14 +12,16 @@ Needs Docker Desktop running and `npm ci` done.
 | `npm run wp:start` | Builds the shared pages and data into the plugin, starts WordPress at http://localhost:8888 (admin / password) and a test site at :8889 |
 | `npm run wp:test` | PHPUnit inside WordPress (`wordpress/question-desk/tests`) |
 | `npm run wp:browsers` | The plugin in WebKit and Chromium (`wordpress/browser-tests`); skips if WordPress isn't running |
+| Admin page | http://localhost:8888/wp-admin/admin.php?page=question-desk (sign in as admin / password) |
 | `npx wp-env stop` | Stops WordPress |
 
 First run only: `npx wp-env run cli wp rewrite structure '/%postname%/'` so `/questions/` works
 (otherwise use `/?qd_page=1`).
 
 `wordpress/build.js` copies the page files from the repo root into `question-desk/pages/` and
-writes `question-desk/data/app.json` (UI_TEXT, CONFIG). Both are build output (git-ignored):
-edit the pages at the root, as for the Apps Script version.
+writes `question-desk/data/app.json` (UI_TEXT, CONFIG, and the sessions CSV columns and time
+format, so the CSV is the same file in both versions). Both are build output (git-ignored):
+edit the pages and `Code.js` at the root, as for the Apps Script version.
 
 ## Status
 
@@ -27,7 +29,12 @@ edit the pages at the root, as for the Apps Script version.
   `/questions/` routing, page rendering (BOOT, style and script sections, text), the REST
   dispatcher with access levels, `qd-run.js` (google.script.run), PHPUnit (11 tests), browser
   test in WebKit and Chromium, CI workflow (`.github/workflows/wordpress.yml`).
-- [ ] Phase 1 — settings, people, events and sessions
+- [x] **Phase 1 — settings, people, events and sessions.** Admin.html inside wp-admin, drawing
+  from WordPress data: branding and logos (Media Library), site and event languages, events,
+  sessions (validation, schedule, links and room screen keys, order, activate, end, delete,
+  duplicate, archive and restore), people as WordPress roles, and the activity log behind them.
+  25 Admin functions answer for real; the 16 from later phases say so. 50 PHPUnit tests, and a
+  browser test that saves and deletes a session through the REST transport in both engines.
 - [ ] Phase 2 — participants
 - [ ] Phase 3 — room screen, slide, panelist view, QR sheets
 - [ ] Phase 4 — queue
@@ -41,7 +48,7 @@ edit the pages at the root, as for the Apps Script version.
 | Where it runs | Any standard WordPress (PHP 8.1+, MySQL 5.7+/MariaDB 10.4+). Developed and tested locally with `@wordpress/env` (Docker). |
 | Scope | Full parity with the Apps Script app. |
 | Apps Script app | Kept. `main` stays the live app; the plugin lives on this branch. |
-| Staff sign-in | WordPress users. Administrators manage everything; a new **QA Facilitator** role runs queues. No Google-domain restriction. |
+| Staff sign-in | WordPress users. Site administrators manage everything; a **Question Desk Admin** role (`qd_admin`) manages it without being a site administrator, and a **QA Facilitator** role (`qd_facilitator`) runs the queues it is assigned to. No Google-domain restriction. |
 
 ## What changes and what doesn't
 
