@@ -147,7 +147,7 @@ function doGet(e) {
     const session = getSession_(sid);
     if (!session) return notice_('pick', view);
     if (!canModerate_(session, email)) return notice_('denied');
-    return page_('Moderate.html', session.name + ' — queue', { sid: session.id }, session);
+    return page_('Moderate.html', 'QA - ' + session.name, { sid: session.id }, session);
   }
 
   if (view === 'ask' && !p.s) return home_();

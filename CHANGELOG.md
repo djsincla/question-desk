@@ -16,6 +16,10 @@ which reads the notes for that version from this file.
   - After several quick clicks, the queue drew whichever save answered last, which could
     predate an earlier click. It now reads the queue again once they've all saved.
 
+### Changed
+- The QA Facilitator queue's browser tab is named "QA - " and the session name, so several
+  open queues are easy to tell apart.
+
 ## [2.22.2] - 2026-09-14
 
 ### Fixed

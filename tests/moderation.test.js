@@ -308,3 +308,9 @@ test('a board read before a change can never be cached after it (dismissed quest
   h.anonymous();
   assert.equal(h.app.getTopics(a.id, phone.deviceId).topics.length, 0, 'hidden stays hidden on phones');
 });
+
+test('the QA Facilitator queue\'s browser tab is named "QA - " and the session name', () => {
+  const { h, a } = setup();
+  h.as(MOD);
+  assert.equal(h.app.doGet({ parameter: { view: 'moderate', s: a.id } }).title, 'QA - ' + a.name);
+});
