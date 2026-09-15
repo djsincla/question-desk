@@ -121,13 +121,24 @@ test('while Gemini is down, the queue sorts ungrouped questions by a shared word
   assert.equal(h.questions().rows.slice(1).filter((r) => r[5]).length, 0, 'nothing written: real grouping takes over later');
 });
 
-test('backup groups also appear when questions have waited a few minutes, even without failures', () => {
+test('backup groups appear only while automatic grouping is on and failing, never just for waiting', () => {
   const h = createApp().install({ moderators: [MOD] });
   const s = h.session({ name: 'Slow', access: 'link', active: true, moderators: [MOD] });
   h.ask(s, h.join(s), 'Parking near the hall');
   h.ask(s, h.join(s), 'Parking at night');
   h.as(MOD);
-  assert.equal(h.app.getBoard(s.id).looseGroups, null, 'fresh questions: just wait for grouping');
-  h.advance(4 * 60);
+  h.advance(10 * 60);
+  assert.equal(h.app.getBoard(s.id).looseGroups, null, 'waiting alone: a flat list, no word-based guesses');
+
+  // Grouping failing: sorted by a shared word until it recovers.
+  h.env.gemini = () => ({ status: 503, text: 'unavailable' });
+  h.app.clusterAll_();
+  h.advance(60);
+  h.app.clusterAll_();
+  h.as(MOD);
   assert.deepEqual(h.app.getBoard(s.id).looseGroups.map((g) => g.label), ['parking']);
+
+  // Switched off: the queue says nothing about grouping, failing or not.
+  h.app.setAutoGroup(s.id, false);
+  assert.equal(h.app.getBoard(s.id).looseGroups, null);
 });

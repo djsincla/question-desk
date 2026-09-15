@@ -845,6 +845,31 @@
     edit.type = 'button';
     edit.onclick = function () { openEventForm(ev); };
     acts.appendChild(edit);
+    // One email per QA Facilitator, with the links for each of their sessions in this event.
+    var open = sessions.filter(function (x) { return x.status !== 'ended'; });
+    var people = [];
+    open.forEach(function (x) {
+      (x.moderators || []).concat(ev.moderators || []).forEach(function (e) { if (people.indexOf(e) === -1) people.push(e); });
+    });
+    var mailFacilitators = el('button', null, 'Email QA Facilitators');
+    mailFacilitators.type = 'button';
+    mailFacilitators.disabled = !people.length;
+    mailFacilitators.title = people.length
+      ? 'Each QA Facilitator gets one email with the room screen and queue links for their sessions: ' + people.join(', ')
+      : 'No QA Facilitators assigned to this event or its sessions';
+    mailFacilitators.onclick = function () {
+      ask({
+        title: 'Email QA Facilitators their links?',
+        body: people.length + (people.length === 1 ? ' QA Facilitator gets' : ' QA Facilitators each get') + ' one email with the room screen and queue links for their ' +
+          'sessions in ' + ev.name + ' (' + open.length + (open.length === 1 ? ' session' : ' sessions') + ' that haven\'t ended): ' + people.join(', ') + '.',
+        ok: 'Send'
+      }, function () {
+        call('emailEventFacilitators', [ev.id], function (res) {
+          toast('Sent ' + res.facilitators + (res.facilitators === 1 ? ' email' : ' emails') + ' covering ' + res.sessions + (res.sessions === 1 ? ' session' : ' sessions'));
+        }, mailFacilitators);
+      });
+    };
+    acts.appendChild(mailFacilitators);
     var more = el('details', 'more');
     var moreLabel = el('summary', null, 'More ▾');
     moreLabel.setAttribute('aria-label', 'More actions for ' + ev.name);

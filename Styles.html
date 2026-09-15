@@ -625,6 +625,11 @@
   .empty { color: var(--muted); padding: 40px 0; text-align: center; }
   .bar { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; }
   button.small { padding: 4px 10px; font-size: 0.88rem; }
+  /* Question rows read as text first: Answer now is the one solid button, the rest are quiet. */
+  li .acts button.small.quiet { padding: 4px 8px; }
+  li .acts button.small.quiet.toggle { min-width: 6.4em; text-align: center; }   /* "Phones" and "Phones ✓" take the same room, so rows line up */
+  li .acts button.small.quiet.toggle[aria-pressed="true"] { color: var(--action); font-weight: 600; background: var(--action-soft); }
+  .group-late { margin: 0; padding: 8px 18px; font-size: 0.85rem; color: var(--muted); border-bottom: 1px solid var(--rule); }
   li { transition: background-color 0.12s var(--ease); }
   li:hover { background: var(--paper); }
 

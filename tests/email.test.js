@@ -268,3 +268,34 @@ test('original wording is never overwritten by grouping, approval, answering or 
   const texts = h.questions().rows.slice(1).map((r) => r[3]).sort();
   assert.deepEqual(texts, ['Asked original wording here', 'Prepared original wording here?']);
 });
+
+test('an event emails each of its QA Facilitators one message with links for their own sessions', () => {
+  const h = createApp().install({ moderators: ['ana@example.org', 'ben@example.org', 'cal@example.org'] });
+  const eid = h.app.saveEvent({ name: 'Fall Conference', moderators: ['cal@example.org'] }).savedEventId;
+  const one = h.session({ name: 'Morning panel', eventId: eid, moderators: ['ana@example.org', 'ben@example.org'] });
+  const two = h.session({ name: 'Afternoon panel', eventId: eid, moderators: ['ana@example.org'] });
+  const done = h.session({ name: 'Old panel', eventId: eid, moderators: ['ben@example.org'] });
+  h.app.endSession(done.id, 'Old panel');
+  h.env.outbox.length = 0;
+
+  const res = h.app.emailEventFacilitators(eid);
+  assert.deepEqual(res, { facilitators: 3, sessions: 2 });
+  const to = (who) => h.env.outbox.filter((m) => m.to === who);
+  assert.equal(h.env.outbox.length, 3, 'one email each');
+  const ana = to('ana@example.org')[0].htmlBody;
+  assert.match(ana, /Morning panel/);
+  assert.match(ana, /Afternoon panel/);
+  assert.match(ana, new RegExp('view=moderate&amp;s=' + two.id));
+  assert.match(ana, new RegExp('view=present&amp;s=' + one.id));
+  const ben = to('ben@example.org')[0].htmlBody;
+  assert.match(ben, /Morning panel/);
+  assert.doesNotMatch(ben, /Afternoon panel|Old panel/, 'only their own sessions, not ended ones');
+  const cal = to('cal@example.org')[0].htmlBody;
+  assert.match(cal, /Morning panel/, 'event-level QA Facilitators get every session');
+  assert.match(cal, /Afternoon panel/);
+  assert.equal(to('cal@example.org')[0].subject, 'Fall Conference — your Question Desk sessions');
+  assert.ok(h.app.getActivity().entries.some((e) => /Session links emailed to QA Facilitators/.test(e.action)));
+
+  h.as('ana@example.org');
+  assert.throws(() => h.app.emailEventFacilitators(eid), /Only administrators/);
+});

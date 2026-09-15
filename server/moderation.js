@@ -104,8 +104,9 @@ function getBoard(sid) {
     // When grouping is failing (or questions have waited a while), sort the ungrouped ones by
     // a shared word so a facilitator isn't left with a flat list.
     groupingDown: (health.failures || 0) >= 2 ? (health.lastError || 'Grouping is failing') : '',
-    looseGroups: loose.length >= 2 && ((health.failures || 0) >= 2 ||
-      loose.some(function (q) { return q.status !== 'answered' && Date.now() - q.submitted > 3 * 60 * 1000; }))
+    // Only while automatic grouping is on and actually failing: with it off, or merely slow, the
+    // queue doesn't talk about grouping (a flat list reads better than word-based guesses).
+    looseGroups: loose.length >= 2 && session.autoGroup !== false && (health.failures || 0) >= 2
       ? keywordGroups_(loose) : null,
     open: session.open !== false,
     nowAnswering: session.nowAnswering && session.nowAnswering.topic ? session.nowAnswering.topic : null,

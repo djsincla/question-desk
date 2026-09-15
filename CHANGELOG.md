@@ -4,6 +4,22 @@ All notable changes to Question Desk. Versions follow [Semantic Versioning](http
 Each release is tagged `vX.Y.Z` and published as a GitHub release by `scripts/ship.sh`,
 which reads the notes for that version from this file.
 
+## [2.24.0] - 2026-09-14
+
+### Added
+- **Email QA Facilitators, for a whole event** (a button on each event in Admin). Each QA
+  Facilitator, including the event's own, gets one email with the room screen and queue
+  links for each of their sessions in the event, with scheduled times. Ended sessions are
+  left out. Asks before sending.
+
+### Changed
+- **Calmer question rows in the queue.** Answer now is the one solid button; Phones,
+  Answered and Dismiss are quiet, and line up from row to row.
+- **With Group automatically off, the queue doesn't talk about grouping**: ungrouped
+  questions are simply "Questions", with no word-based sub-groups or "not grouped yet" notes.
+  With it on, word-based sub-groups appear only while grouping is actually failing, and a
+  slow run is mentioned once for the block instead of under every question.
+
 ## [2.23.0] - 2026-09-14
 
 ### Added
@@ -762,6 +778,7 @@ Fixes from a full code review.
 - "Merge into one question" for reading a topic aloud.
 - Participant page in English, Korean and Spanish.
 
+[2.24.0]: https://github.com/djsincla/question-desk/releases/tag/v2.24.0
 [2.23.0]: https://github.com/djsincla/question-desk/releases/tag/v2.23.0
 [2.22.4]: https://github.com/djsincla/question-desk/releases/tag/v2.22.4
 [2.22.3]: https://github.com/djsincla/question-desk/releases/tag/v2.22.3

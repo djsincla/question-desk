@@ -309,7 +309,8 @@
         board.appendChild(topicBlock({ topic: name, questions: qs, count: qs.length }, null, true));
       });
     } else if (data.unsorted.length) {
-      board.appendChild(topicBlock({ topic: 'Not yet grouped', questions: data.unsorted, count: data.unsorted.length }, null, true));
+      // With automatic grouping off, these are simply the questions; nothing is waiting on grouping.
+      board.appendChild(topicBlock({ topic: data.autoGroup === false ? 'Questions' : 'Not yet grouped', questions: data.unsorted, count: data.unsorted.length }, null, true));
     }
 
     var blocks = board.querySelectorAll('.topic');
@@ -573,6 +574,14 @@
     }
     wrap.appendChild(head);
 
+    // Waiting on automatic grouping: said once for the block, not under every question, and
+    // only when it's on and questions have waited longer than a run or two.
+    if (isLoose && !ended && state && state.autoGroup !== false && !state.groupingDown &&
+        t.questions.some(function (q) { return !q.lang && !q.translation && q.status !== 'answered' && Date.now() - q.submitted > 150000; })) {
+      var late = el('p', 'group-late', 'Grouping runs every minute. Questions still waiting? Press Group now, or run the health check on the Admin page.');
+      wrap.appendChild(late);
+    }
+
     if (!isLoose && merging[t.topic] === 'failed' && mergeErrors[t.topic]) {
       var why = el('p', 'merge-error');
       why.setAttribute('role', 'alert');
@@ -648,19 +657,6 @@
         orig.textContent = q.text;
         text.appendChild(orig);
       }
-      if (!q.lang && !q.translation) {
-        // Language is only known after grouping, which runs every minute — so English
-        // questions wait here too. They are not being translated.
-        var wait = el('span', 'original pending');
-        wait.textContent = state && state.groupingDown
-          ? 'Not grouped or translated while automatic grouping is down'
-          : state && state.autoGroup === false
-          ? 'Translating (every minute) — tick it and use Group as…, or Answer now'
-          : Date.now() - q.submitted < 150000
-          ? 'Waiting to be grouped (every minute) — or Answer now, or tick it to group it yourself'
-          : 'Not grouped yet — press Group now, or run the health check on the Admin page';
-        text.appendChild(wait);
-      }
       li.appendChild(text);
       list.appendChild(li);
       if (ended) return;
@@ -668,7 +664,7 @@
       var acts2 = el('div', 'acts');
       if (isLoose && q.status !== 'answered') {
         // No need to wait for grouping: put this one question up on its own.
-        var liveOne = el('button', isLiveQuestion ? 'small' : 'small primary');
+        var liveOne = el('button', isLiveQuestion ? 'small' : 'small primary');   // the one solid action
         liveOne.type = 'button';
         liveOne.textContent = isLiveQuestion ? 'Stop answering' : 'Answer now';
         liveOne.title = 'Show this question on the room screen and phones as the one being answered';
@@ -683,10 +679,10 @@
         acts2.appendChild(liveOne);
 
         // Same as a topic's: a quiet session may never be grouped, and people still want Me too.
-        var phonesOne = el('button', 'small toggle');
+        var phonesOne = el('button', 'small quiet toggle');
         phonesOne.type = 'button';
         phonesOne.setAttribute('aria-pressed', q.shown ? 'true' : 'false');
-        phonesOne.textContent = q.shown ? 'On phones ✓' : 'Show on phones';
+        phonesOne.textContent = q.shown ? 'Phones ✓' : 'Phones';
         phonesOne.title = q.shown
           ? 'Participants can see this question and tap Me too. Click to hide it from phones.'
           : 'Let participants see this question (translated into their language) and tap Me too';
@@ -697,7 +693,7 @@
         };
         acts2.appendChild(phonesOne);
       }
-      var mark = el('button', 'small');
+      var mark = el('button', 'small quiet');
       mark.type = 'button';
       mark.textContent = q.status === 'answered' ? 'Reopen' : 'Answered';
       mark.title = q.status === 'answered' ? 'Mark as not answered yet' : 'Mark this question as answered';

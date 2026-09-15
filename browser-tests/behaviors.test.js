@@ -442,8 +442,8 @@ test('chromium: an ungrouped question goes on phones with its own button, and ph
     const row = page.locator('li[data-id]', { hasText: 'childcare at the next meeting' });
     await row.waitFor();
     const qid = await row.getAttribute('data-id');
-    await row.locator('button', { hasText: 'Show on phones' }).click();
-    await row.locator('button', { hasText: 'On phones ✓' }).waitFor({ timeout: 1000 });   // before the server answers
+    await row.locator('button', { hasText: /^Phones$/ }).click();
+    await row.locator('button', { hasText: 'Phones ✓' }).waitFor({ timeout: 1000 });   // before the server answers
     await page.waitForTimeout(1500);
     ctx.h.env.activeUser = '';
     const phone = ctx.h.join(ctx.live);
@@ -458,7 +458,7 @@ test('chromium: an ungrouped question goes on phones with its own button, and ph
     for (let i = 0; i < 40 && (await selected()) !== qid; i++) await page.keyboard.press('j');
     assert.equal(await page.getAttribute('li.selected', 'data-id'), qid, 'J reaches the question');
     await page.keyboard.press('p');
-    await row.locator('button', { hasText: 'Show on phones' }).waitFor({ timeout: 1000 });
+    await row.locator('button', { hasText: /^Phones$/ }).waitFor({ timeout: 1000 });
   });
 });
 
@@ -664,3 +664,20 @@ for (const engineName of ['chromium', 'webkit']) {
     });
   });
 }
+
+test('chromium: an event\'s Email QA Facilitators button confirms, then emails each facilitator their session links', async () => {
+  await withDemo('chromium', '/?view=admin&as=owner', { viewport: { width: 1280, height: 900 } }, async ({ page, ctx }) => {
+    const conference = page.locator('.event', { has: page.locator('h2', { hasText: 'Fall Family Conference 2026' }) });
+    await conference.waitFor();
+    const button = conference.locator('button', { hasText: 'Email QA Facilitators' }).first();
+    assert.equal(await button.isDisabled(), false);
+    ctx.h.env.outbox.length = 0;
+    await button.click();
+    await page.waitForSelector('#dialog:not([hidden])');
+    assert.match(await page.textContent('#dialogBody'), /QA Facilitator/);
+    await page.click('#dialogOk');
+    await page.waitForFunction(() => /Sent \d+ email/.test(document.body.textContent), null, { timeout: 5000 });
+    assert.ok(ctx.h.env.outbox.length >= 1, 'emails sent');
+    assert.ok(ctx.h.env.outbox.every((m) => /your Question Desk sessions/.test(m.subject)));
+  });
+});

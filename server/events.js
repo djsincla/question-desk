@@ -149,6 +149,59 @@ function getEventLogo(eid) {
 // ---------------------------------------------------------------- event tools
 
 /** One email for a whole event: every session's topics and questions, and one CSV. */
+/**
+ * Emails each QA Facilitator of an event (its own and every session's) one message with the room
+ * screen and queue links for each of their sessions in it. Ended sessions are left out.
+ * Returns { facilitators, sessions }.
+ */
+function emailEventFacilitators(eid) {
+  requireAdmin_();
+  const ev = getEvent_(eid);
+  if (!ev) throw new Error('Event not found.');
+  const sessions = allSessions_().filter(function (s) { return s.eventId === eid && !s.loadTest && s.status !== 'ended'; })
+    .sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
+  if (!sessions.length) throw new Error('This event has no sessions that haven\'t ended.');
+  const byPerson = {};
+  sessions.forEach(function (s) {
+    facilitatorsFor_(s).forEach(function (e) { (byPerson[e] = byPerson[e] || []).push(s); });
+  });
+  const people = Object.keys(byPerson);
+  if (!people.length) throw new Error('No QA Facilitators are assigned to this event or its sessions.');
+  checkQuota_(people.length);
+
+  const tz = Session.getScriptTimeZone();
+  const when = function (s) {
+    if (!s.scheduledStart) return '';
+    return Utilities.formatDate(new Date(s.scheduledStart), tz, 'EEE MMM d, h:mm a') +
+      (s.scheduledEnd ? ' – ' + Utilities.formatDate(new Date(s.scheduledEnd), tz, 'h:mm a') : '');
+  };
+  const domain = domainOf_(ownerEmail_());
+  const eventBrand = brand_(sessions[0]);
+  people.forEach(function (address) {
+    const list = byPerson[address];
+    const body = '<p style="margin:0 0 18px">Your ' + (list.length === 1 ? 'session' : list.length + ' sessions') +
+      ' in ' + esc_(ev.name) + '. Open the room screen on the projector (no sign-in needed; use a private browsing window). ' +
+      'The queue needs your ' + esc_(domain) + ' account.</p>' +
+      list.map(function (s) {
+        const links = sessionLinks_(s);
+        const accent = brand_(s).accent;
+        const link = function (label, url) {
+          return '<br><span style="color:#5c6874">' + label + ':</span> <a href="' + esc_(url) + '" style="color:' + accent + '">' + esc_(url) + '</a>';
+        };
+        return '<p style="margin:0 0 20px;padding-left:10px;border-left:3px solid ' + accent + '"><strong>' + esc_(s.name) + '</strong>' +
+          (when(s) ? '<br><span style="color:#5c6874">' + esc_(when(s)) + '</span>' : '') +
+          link('Room screen', links.present) + link('QA Facilitator queue', links.moderate) + '</p>';
+      }).join('');
+    MailApp.sendEmail({
+      to: address, subject: ev.name + ' — your Question Desk sessions',
+      htmlBody: emailShell_(eventBrand, esc_(ev.name), body), name: eventBrand.orgName || 'Question Desk'
+    });
+  });
+  audit_('Session links emailed to QA Facilitators', { id: ev.id, eventName: ev.name },
+    people.length + (people.length === 1 ? ' QA Facilitator' : ' QA Facilitators') + ', ' + sessions.length + (sessions.length === 1 ? ' session' : ' sessions'));
+  return { facilitators: people.length, sessions: sessions.length };
+}
+
 function emailEventSummary(eid, recipients) {
   requireAdmin_();
   const ev = getEvent_(eid);
