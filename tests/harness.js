@@ -479,6 +479,11 @@ function defaultGemini(call) {
       })
     };
   }
+  if (call.schema.properties.translations && !call.schema.properties.question) {
+    // Translating one piece of text (an edited read-out question).
+    const text = JSON.parse(call.prompt.split('\n').pop());
+    return { translations: Object.fromEntries(Object.keys(call.schema.properties.translations.properties).map((c) => [c, '[' + c + '] ' + text])) };
+  }
   if (call.schema.properties.question) {
     const wanted = call.schema.properties.translations ? Object.keys(call.schema.properties.translations.properties) : [];
     return { question: 'What does everyone want to know?', translations: Object.fromEntries(wanted.map((c) => [c, '[' + c + '] merged'])) };

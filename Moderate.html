@@ -468,6 +468,134 @@
     return box;
   }
 
+  var editingMerge = {};      // topic -> true while its read-out question is being edited
+  var openTranslations = {};  // topic -> true while its translations are open, kept across refreshes
+
+  function linkButton(label, onClick, key) {
+    var b = el('button', 'linkish');
+    b.type = 'button';
+    b.textContent = label;
+    if (key) b.setAttribute('data-key', key);
+    b.onclick = onClick;
+    return b;
+  }
+
+  /** Asks Gemini to write (or rewrite) one question covering the topic. */
+  function startMerge(t) {
+    merging[t.topic] = 'busy';
+    delete mergeErrors[t.topic];
+    draw(state, true);
+    google.script.run.withSuccessHandler(function (res) {
+      if (res.ok) { delete merging[t.topic]; state.merged[t.topic] = res.question; state.mergedTranslations[t.topic] = []; load(true); }
+      else { merging[t.topic] = 'failed'; mergeErrors[t.topic] = res.error || 'Gemini\'s answer couldn\'t be used. Try again.'; draw(state, true); }
+    }).withFailureHandler(function (err) {
+      merging[t.topic] = 'failed';
+      mergeErrors[t.topic] = 'Couldn\'t reach Question Desk (' + ((err && err.message) || 'connection problem') + '). Try again.';
+      draw(state, true);
+    }).mergeTopic(sid, t.topic);
+  }
+
+  /**
+   * The topic's read-out question, in one strip under its heading: the question with Edit,
+   * Rewrite with Gemini and Remove; or, for a topic of several questions, an offer to write one.
+   */
+  function readOut(t, mergedText) {
+    var topic = t.topic;
+    var box = el('div', 'readout');
+    var label = el('span', 'readout-label');
+    label.textContent = 'Read out';
+
+    if (editingMerge[topic] && !ended) {
+      box.classList.add('editing');
+      box.appendChild(label);
+      var area = el('textarea');
+      area.value = mergedText || '';
+      area.rows = 2;
+      area.maxLength = 400;
+      area.setAttribute('aria-label', 'Question to read out for ' + topic);
+      box.appendChild(area);
+      var row = el('div', 'readout-acts');
+      var save = el('button', 'small primary');
+      save.type = 'button';
+      save.textContent = 'Save';
+      save.onclick = function () {
+        var text = area.value.replace(/\s+/g, ' ').trim();
+        delete editingMerge[topic];
+        if (text) { state.merged[topic] = text; state.mergedTranslations[topic] = []; } else { delete state.merged[topic]; }
+        draw(state, true);
+        send('setMergedQuestion', [sid, topic, text]);   // translated again on the server
+      };
+      var cancel = el('button', 'small quiet');
+      cancel.type = 'button';
+      cancel.textContent = 'Cancel';
+      cancel.onclick = function () { delete editingMerge[topic]; draw(state, true); };
+      row.appendChild(save);
+      row.appendChild(cancel);
+      box.appendChild(row);
+      setTimeout(function () { area.focus(); }, 0);
+      return box;
+    }
+
+    if (merging[topic] === 'busy') {
+      box.classList.add('busy');
+      box.appendChild(label);
+      box.appendChild(el('span', 'readout-note', 'Gemini is writing one question for this topic. This can take up to half a minute.'));
+      return box;
+    }
+
+    var failed = merging[topic] === 'failed' && mergeErrors[topic];
+    if (mergedText) {
+      box.appendChild(label);
+      box.appendChild(el('p', 'readout-text', mergedText));
+      if (!ended) {
+        var acts = el('div', 'readout-acts');
+        acts.appendChild(linkButton('Edit', function () { editingMerge[topic] = true; draw(state, true); }));
+        acts.appendChild(linkButton('Rewrite with Gemini', function () { startMerge(t); }, 'merge'));
+        acts.appendChild(linkButton('Remove', function () {
+          delete state.merged[topic];
+          draw(state, true);
+          send('setMergedQuestion', [sid, topic, '']);
+        }));
+        box.appendChild(acts);
+      }
+    } else {
+      if (ended || t.count < 2) return failed ? errorStrip(box, label, topic) : null;
+      box.classList.add('offer');
+      box.appendChild(linkButton('Write one question to read out', function () { startMerge(t); }, 'merge'));
+      box.appendChild(el('span', 'readout-note', 'Gemini combines these ' + t.count + ' questions into one. You can edit it.'));
+      box.appendChild(linkButton('Write it yourself', function () { editingMerge[topic] = true; draw(state, true); }));
+    }
+    if (failed) {
+      var why = el('p', 'merge-error', 'Couldn\'t write it: ' + mergeErrors[topic]);
+      why.setAttribute('role', 'alert');
+      box.appendChild(why);
+    }
+    return box;
+  }
+
+  function errorStrip(box, label, topic) {
+    box.appendChild(label);
+    var why = el('p', 'merge-error', 'Couldn\'t write it: ' + mergeErrors[topic]);
+    why.setAttribute('role', 'alert');
+    box.appendChild(why);
+    return box;
+  }
+
+  /** What phones and the room screen show in other languages, folded away until opened. */
+  function translationsFor(t, mergedText, mergedTranslations) {
+    var labels = t.translations || [];
+    var merged = mergedText ? (mergedTranslations || []) : [];
+    if (!labels.length && !merged.length) return null;
+    var box = el('details', 'translations');
+    box.open = !!openTranslations[t.topic];
+    box.addEventListener('toggle', function () { if (box.open) openTranslations[t.topic] = true; else delete openTranslations[t.topic]; });
+    var names = (labels.length ? labels : merged).map(function (x) { return x.language; });
+    box.appendChild(el('summary', null, 'Translations · ' + names.join(', ')));
+    if (labels.length) box.appendChild(alsoShown(t.shown ? 'Topic on phones' : 'Topic, if shown on phones', labels, 'tr-line'));
+    if (merged.length) box.appendChild(alsoShown('Read-out question', merged, 'tr-line'));
+    return box;
+  }
+
   function topicBlock(t, mergedText, isLoose, isLive, mergedTranslations) {
     var wrap = el('div', 'topic' + (isLive ? ' live' : '') + (t.answered ? ' done' : ''));
     wrap.setAttribute('data-topic', isLoose ? '' : t.topic);
@@ -526,30 +654,6 @@
       };
       acts.appendChild(phones);
 
-      var merge = el('button');
-      merge.type = 'button';
-      merge.setAttribute('data-key', 'merge');
-      merge.textContent = merging[t.topic] === 'busy' ? 'Merging…'
-        : merging[t.topic] === 'failed' ? 'Merge failed — retry'
-        : mergedText ? 'Rewrite merged question' : 'Merge into one question';
-      merge.disabled = merging[t.topic] === 'busy';   // survives the 5-second refresh, so no double Gemini call
-      merge.onclick = function () {
-        merging[t.topic] = 'busy';
-        delete mergeErrors[t.topic];
-        merge.disabled = true;
-        merge.textContent = 'Merging…';   // Gemini writes this, so it takes a few seconds
-        draw(state, true);                // shows that it's working
-        google.script.run.withSuccessHandler(function (res) {
-          if (res.ok) { delete merging[t.topic]; state.merged[t.topic] = res.question; draw(state, true); }
-          else { merging[t.topic] = 'failed'; mergeErrors[t.topic] = res.error || 'Gemini\'s answer couldn\'t be used. Try again.'; draw(state, true); }
-        }).withFailureHandler(function (err) {
-          merging[t.topic] = 'failed';
-          mergeErrors[t.topic] = 'Couldn\'t reach Question Desk (' + ((err && err.message) || 'connection problem') + '). Try again.';
-          draw(state, true);
-        }).mergeTopic(sid, t.topic);
-      };
-      acts.appendChild(merge);
-
       var more = el('details', 'more');
       more.setAttribute('data-topic', t.topic);
       var summary = el('summary');
@@ -582,31 +686,11 @@
       wrap.appendChild(late);
     }
 
-    if (!isLoose && merging[t.topic] === 'failed' && mergeErrors[t.topic]) {
-      var why = el('p', 'merge-error');
-      why.setAttribute('role', 'alert');
-      why.textContent = 'Merge failed: ' + mergeErrors[t.topic];
-      wrap.appendChild(why);
-    } else if (!isLoose && merging[t.topic] === 'busy') {
-      var busy = el('p', 'merge-busy');
-      busy.textContent = 'Gemini is writing one question for this topic. This can take up to half a minute.';
-      wrap.appendChild(busy);
-    }
-
-    if (!isLoose && t.translations && t.translations.length) {
-      wrap.appendChild(alsoShown(t.shown ? 'Phones show it as' : 'If shown, phones show it as', t.translations, 'also-labels'));
-    }
-
-    if (mergedText) {
-      var m = el('div', 'merged');
-      var label = el('span');
-      label.textContent = 'Read this out';
-      m.appendChild(label);
-      m.appendChild(document.createTextNode(mergedText));
-      if (mergedTranslations && mergedTranslations.length) {
-        m.appendChild(alsoShown('While answering, phones and the room screen also show', mergedTranslations, 'also'));
-      }
-      wrap.appendChild(m);
+    if (!isLoose) {
+      var strip = readOut(t, mergedText);
+      if (strip) wrap.appendChild(strip);
+      var tr = translationsFor(t, mergedText, mergedTranslations);
+      if (tr) wrap.appendChild(tr);
     }
 
     var list = el('ul');
@@ -902,7 +986,7 @@
   function press(where, test) {
     var row = selectedRow();
     if (!row) { moveSelection(1); return; }
-    var scope = where === 'row' ? row : row.closest('.topic').querySelector('.head');
+    var scope = where === 'row' ? row : where === 'topicAll' ? row.closest('.topic') : row.closest('.topic').querySelector('.head');
     if (!scope) return;
     var buttons = scope.querySelectorAll('button');
     for (var i = 0; i < buttons.length; i++) {
@@ -916,7 +1000,7 @@
     ['X', 'Tick the question (then Group as…, Ungroup, Answered or Dismiss)'],
     ['A', 'Answered (or Reopen)'], ['D', 'Dismiss'],
     ['N', 'Answer now / Stop answering for its topic'], ['P', 'Show on or hide from phones (a question not in a topic, or else its topic)'],
-    ['M', 'Merge the topic into one question'], ['G', 'Group now'],
+    ['M', 'Write (or rewrite) one question to read out for the topic'], ['G', 'Group now'],
     ['O', 'Show original wording'], ['Esc', 'Clear the selection'], ['?', 'This list']
   ];
 
@@ -959,7 +1043,7 @@
     else if (key === 'p') {
       if (!press('row', function (b) { return /phones/i.test(b.textContent); })) press('topic', function (b) { return /phones/i.test(b.textContent); });
     }
-    else if (key === 'm') press('topic', function (b) { return b.getAttribute('data-key') === 'merge'; });
+    else if (key === 'm') press('topicAll', function (b) { return b.getAttribute('data-key') === 'merge'; });
     else if (key === 'g') document.getElementById('cluster').click();
     else if (key === 'o') document.getElementById('originals').click();
     else if (key === '?') document.getElementById('keysHelp').click();

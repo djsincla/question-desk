@@ -462,28 +462,49 @@ test('chromium: an ungrouped question goes on phones with its own button, and ph
   });
 });
 
-test('chromium: a merge says it is working, and says why when Gemini fails, then works on retry', async () => {
+test('chromium: a topic\'s read-out question: written by Gemini (says why if it fails), edited, removed', async () => {
   await withDemo('chromium', (ctx) => '/?view=moderate&s=' + ctx.live.id + '&as=mod', { viewport: { width: 1280, height: 900 } }, async ({ page, ctx }) => {
     await page.waitForSelector('.topic [data-key="merge"]');
-    const topic = page.locator('.topic', { has: page.locator('[data-key="merge"]', { hasText: 'Merge into one question' }) }).first();
+    const topic = page.locator('.topic', { has: page.locator('[data-key="merge"]', { hasText: 'Write one question to read out' }) }).first();
     const name = await topic.getAttribute('data-topic');
+    const block = page.locator('.topic[data-topic="' + name + '"]');
     const demo = ctx.h.env.gemini;
     ctx.h.env.gemini = () => ({ status: 429, text: 'quota exceeded' });
-    await topic.locator('[data-key="merge"]').click();
-    const block = page.locator('.topic[data-topic="' + name + '"]');
+    await block.locator('[data-key="merge"]').click();
     await block.locator('.merge-error', { hasText: 'Gemini is busy or out of quota' }).waitFor({ timeout: 5000 });
-    assert.match(await block.locator('[data-key="merge"]').textContent(), /Merge failed — retry/);
+    assert.ok(await block.locator('[data-key="merge"]', { hasText: 'Write one question to read out' }).isVisible(), 'can try again');
 
     ctx.h.env.gemini = demo;
     // Watch for the "working" note: the demo's Gemini answers too fast to catch it afterwards.
     await page.evaluate(() => {
       window.sawBusy = false;
-      new MutationObserver(() => { if (document.querySelector('.merge-busy')) window.sawBusy = true; }).observe(document.body, { childList: true, subtree: true });
+      new MutationObserver(() => { if (document.querySelector('.readout.busy')) window.sawBusy = true; }).observe(document.body, { childList: true, subtree: true });
     });
     await block.locator('[data-key="merge"]').click();
-    await block.locator('.merged').waitFor({ timeout: 8000 });
+    await block.locator('.readout-text').waitFor({ timeout: 8000 });
     assert.equal(await page.evaluate(() => window.sawBusy), true, 'said it was working');
     assert.equal(await block.locator('.merge-error').count(), 0);
+
+    // Edit by hand: saved, and translated again on the server.
+    await block.locator('.readout button', { hasText: 'Edit' }).click();
+    await block.locator('.readout textarea').fill('What can the district do about delayed IEP meetings?');
+    await block.locator('.readout button', { hasText: 'Save' }).click();
+    assert.equal(await block.locator('.readout-text').textContent(), 'What can the district do about delayed IEP meetings?', 'shown at once');
+    await page.waitForTimeout(1500);
+    ctx.h.env.activeUser = USERS.mod;
+    assert.equal(ctx.h.app.getBoard(ctx.live.id).merged[name], 'What can the district do about delayed IEP meetings?');
+
+    // Translations are folded away until opened, and stay open through refreshes.
+    const tr = block.locator('details.translations');
+    assert.equal(await tr.evaluate((d) => d.open), false);
+    await tr.locator('summary').click();
+    await page.waitForTimeout(6000);
+    assert.equal(await block.locator('details.translations').evaluate((d) => d.open), true, 'still open after a refresh');
+
+    await block.locator('.readout button', { hasText: 'Remove' }).click();
+    await block.locator('[data-key="merge"]', { hasText: 'Write one question to read out' }).waitFor({ timeout: 3000 });
+    await page.waitForTimeout(1500);
+    assert.equal(ctx.h.app.getBoard(ctx.live.id).merged[name], undefined, 'removed on the server');
   });
 });
 

@@ -134,6 +134,9 @@ does not carry the query string. That exact bug shipped once (v2): every QR scan
   adds `asked` from `roomQuestionList_` — the phone topic list (approved topics and shown single
   questions) with Me too counts, most first, minus the live one, at most
   `CONFIG.roomQuestionsMax`. Present.html renders it under the instructions.
+- A topic's merged question is shown in the queue as its "Read out" question (`readOut()` in
+  Moderate.html): `mergeTopic` writes it with Gemini; `setMergedQuestion(sid, topic, text)`
+  saves a hand edit (translated again, do-not-soften prompt) or removes it (empty text).
 - Now answering is a topic or one question: `{topic}` or `{question, at}`
   (`setNowAnswering(sid, topic, questionId)`). `setStatus` clears it when the live question,
   or every open question in the live topic, is answered or dismissed. Fully answered topics

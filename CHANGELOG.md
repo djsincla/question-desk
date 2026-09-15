@@ -4,6 +4,21 @@ All notable changes to Question Desk. Versions follow [Semantic Versioning](http
 Each release is tagged `vX.Y.Z` and published as a GitHub release by `scripts/ship.sh`,
 which reads the notes for that version from this file.
 
+## [2.25.0] - 2026-09-14
+
+### Changed
+- **Merged questions, reworked in the queue as a topic's "Read out" question.** One strip
+  under the topic's heading shows the question to read aloud, with **Edit**, **Rewrite with
+  Gemini** and **Remove**. A topic without one (and with several questions) offers **Write one
+  question to read out** (Gemini) or **Write it yourself**. The heading keeps just Answer now,
+  Phones and ⋯. Progress and any error show in the same strip.
+- **Translations are folded into one "Translations" line** per topic (the topic label on
+  phones and the read-out question), open only when you want them.
+
+### Added
+- **Edit or remove a read-out question by hand.** An edited question is translated into the
+  session's languages again (without softening it) for phones and the room screen.
+
 ## [2.24.1] - 2026-09-14
 
 ### Changed
@@ -788,6 +803,7 @@ Fixes from a full code review.
 - "Merge into one question" for reading a topic aloud.
 - Participant page in English, Korean and Spanish.
 
+[2.25.0]: https://github.com/djsincla/question-desk/releases/tag/v2.25.0
 [2.24.1]: https://github.com/djsincla/question-desk/releases/tag/v2.24.1
 [2.24.0]: https://github.com/djsincla/question-desk/releases/tag/v2.24.0
 [2.23.0]: https://github.com/djsincla/question-desk/releases/tag/v2.23.0

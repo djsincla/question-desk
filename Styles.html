@@ -544,8 +544,6 @@
   .topic.live > .head .count { color: inherit; opacity: 0.85; }
   .votes { font-weight: 600; color: var(--action); }
   .merge-error { margin: 6px 0 0; color: var(--stop); font-size: 0.9rem; }
-  .merge-busy { margin: 6px 0 0; color: var(--muted); font-size: 0.9rem; }
-  .topic.live .merge-error, .topic.live .merge-busy { color: inherit; }
   .topic.live .votes { color: inherit; }
   header { border-top: 4px solid var(--action); padding-top: 12px; }
   .onphones { font-size: 0.75rem; border-radius: 999px; padding: 2px 8px; margin-left: 6px; background: #e5f2ef; color: var(--action); border: 1px solid #b9dcd5; font-weight: 400; vertical-align: 2px; }
@@ -584,12 +582,25 @@
   .topic h2 { font-size: 1rem; margin: 0; font-weight: 600; }
   .count { color: var(--muted); font-weight: 400; font-size: 0.9rem; }
 
-  .merged { padding: 12px 14px; border-bottom: 1px solid var(--rule); background: #fffdf5; }
-  .merged span { display: block; color: var(--muted); font-size: 0.8rem; margin-bottom: 4px; }
-  .merged .also, .also-labels { display: block; color: var(--muted); font-size: 0.82rem; margin: 6px 0 0; }
-  .also-labels { padding: 8px 14px; margin: 0; border-bottom: 1px solid var(--rule); }
+  /* A topic's read-out question: one strip under the heading. */
+  .readout { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; padding: 10px 16px; border-bottom: 1px solid var(--rule); background: #fffdf5; }
+  .readout-label { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #8a6d1f; }
+  .readout-text { flex: 1 1 22rem; margin: 0; font-size: 1rem; line-height: 1.4; color: var(--ink); }
+  .readout-acts { display: flex; gap: 14px; align-items: center; }
+  .readout-note { color: var(--muted); font-size: 0.85rem; }
+  .readout.offer { background: transparent; }
+  .readout.editing { display: block; }
+  .readout.editing textarea { width: 100%; margin: 6px 0 8px; font-size: 1rem; }
+  .readout.editing .readout-acts { gap: 8px; }
+  .readout .merge-error { flex-basis: 100%; margin: 2px 0 0; }
+  button.linkish { border: 0; background: none; box-shadow: none; padding: 0; font: inherit; font-size: 0.88rem; color: var(--action); cursor: pointer; }
+  button.linkish:hover { text-decoration: underline; background: none; }
+  details.translations { padding: 6px 16px; border-bottom: 1px solid var(--rule); font-size: 0.82rem; color: var(--muted); }
+  details.translations summary { cursor: pointer; width: fit-content; }
+  details.translations .tr-line { margin: 4px 0 2px; }
+  details.translations .tr-line span { font-weight: 600; margin-right: 4px; }
+  details.translations .tr-line b { font-weight: 600; }
   .also-labels span, .merged .also span { display: inline; font-size: inherit; margin: 0; }
-  .topic.live .also-labels { color: inherit; opacity: 0.85; }
   .also-labels b, .merged .also b { font-weight: 600; }
 
   ul { list-style: none; margin: 0; padding: 0; }

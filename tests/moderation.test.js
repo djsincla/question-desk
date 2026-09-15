@@ -314,3 +314,29 @@ test('the QA Facilitator queue\'s browser tab is named "QA - " and the session n
   h.as(MOD);
   assert.equal(h.app.doGet({ parameter: { view: 'moderate', s: a.id } }).title, 'QA - ' + a.name);
 });
+
+test('a read-out question can be edited by hand (translated again) or removed', () => {
+  const { h, a } = setup();
+  h.ask(a, h.join(a), 'Parking is a problem');
+  h.app.clusterAll_();
+  h.as(MOD);
+  h.app.mergeTopic(a.id, 'About parking');
+  h.env.geminiCalls.length = 0;
+  let board = h.app.setMergedQuestion(a.id, 'About parking', '  Where can families   park on event nights?  ');
+  assert.equal(board.merged['About parking'], 'Where can families park on event nights?');
+  const call = h.env.geminiCalls[0];
+  assert.match(call.prompt, /do not\s+smooth over or soften anything/, 'translation keeps the do-not-soften instruction');
+  assert.deepEqual(board.mergedTranslations['About parking'].map((t) => t.language), ['Korean', 'Spanish']);
+  h.app.setNowAnswering(a.id, 'About parking');
+  h.anonymous();
+  assert.equal(h.app.getRoomScreen(a.id, 'full', h.screenKey(a)).nowAnswering.merged.es, '[es] Where can families park on event nights?');
+
+  h.as(MOD);
+  board = h.app.setMergedQuestion(a.id, 'About parking', '');
+  assert.equal(board.merged['About parking'], undefined, 'removed');
+  h.anonymous();
+  assert.equal(h.app.getRoomScreen(a.id, 'full', h.screenKey(a)).nowAnswering.merged, null);
+  assert.throws(() => h.app.setMergedQuestion(a.id, 'About parking', 'Sneaky'));
+  h.as(MOD);
+  assert.throws(() => h.app.setMergedQuestion(a.id, 'No such topic', 'x'), /no questions/);
+});
