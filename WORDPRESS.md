@@ -3,6 +3,37 @@
 Branch: `wordpress`. The Google Apps Script app on `main` stays live until the plugin has
 run a real event.
 
+## Working on the plugin
+
+Needs Docker Desktop running and `npm ci` done.
+
+| Command | Does |
+|---|---|
+| `npm run wp:start` | Builds the shared pages and data into the plugin, starts WordPress at http://localhost:8888 (admin / password) and a test site at :8889 |
+| `npm run wp:test` | PHPUnit inside WordPress (`wordpress/question-desk/tests`) |
+| `npm run wp:browsers` | The plugin in WebKit and Chromium (`wordpress/browser-tests`); skips if WordPress isn't running |
+| `npx wp-env stop` | Stops WordPress |
+
+First run only: `npx wp-env run cli wp rewrite structure '/%postname%/'` so `/questions/` works
+(otherwise use `/?qd_page=1`).
+
+`wordpress/build.js` copies the page files from the repo root into `question-desk/pages/` and
+writes `question-desk/data/app.json` (UI_TEXT, CONFIG). Both are build output (git-ignored):
+edit the pages at the root, as for the Apps Script version.
+
+## Status
+
+- [x] **Phase 0 — scaffold.** Plugin, activation (7 tables, QA Facilitator role, capabilities),
+  `/questions/` routing, page rendering (BOOT, style and script sections, text), the REST
+  dispatcher with access levels, `qd-run.js` (google.script.run), PHPUnit (11 tests), browser
+  test in WebKit and Chromium, CI workflow (`.github/workflows/wordpress.yml`).
+- [ ] Phase 1 — settings, people, events and sessions
+- [ ] Phase 2 — participants
+- [ ] Phase 3 — room screen, slide, panelist view, QR sheets
+- [ ] Phase 4 — queue
+- [ ] Phase 5 — reports and operations
+- [ ] Phase 6 — packaging and move-over
+
 ## Decisions
 
 | Question | Decision |

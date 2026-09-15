@@ -43,6 +43,9 @@ function scanText(text, where) {
     let m;
     while ((m = re.exec(text))) {
       if (name === 'Email address' && ALLOWED_EMAIL.test(m[0])) continue;
+      // npm's lock file lists third-party package authors' published addresses; not ours to hide.
+      // Every other pattern (keys, tokens, IDs) still applies to it.
+      if (name === 'Email address' && /(^|\/)package-lock\.json$/.test(where)) continue;
       const line = text.slice(0, m.index).split('\n').length;
       findings.push({ where, line, name, match: m[0].length > 12 ? m[0].slice(0, 6) + '…' + m[0].slice(-4) : m[0] });
     }

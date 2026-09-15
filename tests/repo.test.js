@@ -76,11 +76,12 @@ test('every tracked-to-be file is clean', () => {
   (function walk(dir) {
     fs.readdirSync(path.join(ROOT, dir), { withFileTypes: true }).forEach((d) => {
       const rel = dir ? dir + '/' + d.name : d.name;
-      if (d.isDirectory()) { if (d.name !== '.git' && d.name !== 'node_modules') walk(rel); return; }
+      // Downloaded dependencies (npm, Composer) are ignored by git and never committed.
+      if (d.isDirectory()) { if (['.git', 'node_modules', 'vendor'].indexOf(d.name) === -1) walk(rel); return; }
       files.push(rel);
     });
   })('');
-  const ignored = /(^|\/)(\.clasp\.json|\.clasprc\.json|\.deploy\.env|\.DS_Store)$/;
+  const ignored = /(^|\/)(\.clasp\.json|\.clasprc\.json|\.deploy\.env|\.DS_Store|composer\.lock)$/;
   const findings = secrets.scanFiles(files.filter((f) => !ignored.test(f)), (f) => read(f));
   assert.deepEqual(findings, []);
 });
@@ -91,4 +92,11 @@ test('the GitHub Pages splash page links the donation page and never the app its
   assert.doesNotMatch(html, /script\.google(usercontent)?\.com|AKfycb/, 'no app address in the public repo');
   assert.doesNotMatch(html, /<script|<link|<img|@import|url\(/, 'self-contained: nothing loaded from elsewhere');
   assert.match(html, /<meta name="viewport"/);
+});
+
+test('package authors\' addresses in package-lock.json are allowed, but nothing else is', () => {
+  const author = '"author": "maintainer' + '@' + 'package-author.invalid"';   // built at runtime, so this file stays clean
+  assert.deepEqual(secrets.scanText(author, 'package-lock.json'), []);
+  assert.equal(secrets.scanText(author, 'package.json').length, 1, 'only the lock file');
+  assert.equal(secrets.scanText('key AIza' + 'x'.repeat(35), 'package-lock.json').length, 1, 'keys are still refused');
 });
