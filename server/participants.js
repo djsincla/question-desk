@@ -225,28 +225,56 @@ function myVotes_(sid, deviceId) {
 }
 
 function publicTopicsCached_(session) {
-  const cache = CacheService.getScriptCache();
-  const key = 'topics:' + session.id;
-  const hit = cache.get(key);
-  if (hit) return JSON.parse(hit);
-  const fresh = publicTopics_(session);
-  // Which devices' questions are answered rides along, so phones can show "Answered" on
-  // their own questions without a sheet read per poll. Only ever handed back per device.
-  fresh.answeredByDevice = {};
-  questionValues_().slice(1).forEach(function (r) {
-    if (String(r[COLS.session - 1]) !== session.id || r[COLS.status - 1] !== 'answered') return;
-    const d = String(r[COLS.device - 1]);
-    (fresh.answeredByDevice[d] = fresh.answeredByDevice[d] || []).push(String(r[COLS.id - 1]));
+  return cachedForSession_(session.id, 'topics', CONFIG.topicCacheSeconds, function () {
+    const fresh = publicTopics_(session);
+    // Which devices' questions are answered rides along, so phones can show "Answered" on
+    // their own questions without a sheet read per poll. Only ever handed back per device.
+    fresh.answeredByDevice = {};
+    questionValues_().slice(1).forEach(function (r) {
+      if (String(r[COLS.session - 1]) !== session.id || r[COLS.status - 1] !== 'answered') return;
+      const d = String(r[COLS.device - 1]);
+      (fresh.answeredByDevice[d] = fresh.answeredByDevice[d] || []).push(String(r[COLS.id - 1]));
+    });
+    return fresh;
   });
-  cache.put(key, JSON.stringify(fresh), CONFIG.topicCacheSeconds);
-  return fresh;
 }
 
 /** Clears a session's cached phone topic list and queue board, after anything changes them. */
 function invalidateTopics_(sid) {
   const cache = CacheService.getScriptCache();
+  // A new version first: a request that read the sheet before this change and caches its result
+  // afterwards tags it with the old version, so it's never served (see cachedForSession_).
+  cache.put('ver:' + sid, newId_(12), 21600);
   cache.remove('topics:' + sid);
   cache.remove('board:' + sid);
+}
+
+/**
+ * A session's cached value (the queue board, the phone topic list), or build() it and cache it.
+ * Every entry carries the session's cache version from before the sheet was read; a change
+ * (invalidateTopics_) replaces the version, so an entry built from data read before the change
+ * is ignored even if it's written after. Without this, dismissed questions reappeared in the
+ * queue for up to 30 seconds when a refresh raced a dismissal.
+ */
+function cachedForSession_(sid, name, seconds, build, maxLength) {
+  const cache = CacheService.getScriptCache();
+  const key = name + ':' + sid;
+  const got = cache.getAll(['ver:' + sid, key]);
+  let version = got['ver:' + sid];
+  if (!version) {
+    version = newId_(12);
+    cache.put('ver:' + sid, version, 21600);
+  }
+  if (got[key]) {
+    try {
+      const entry = JSON.parse(got[key]);
+      if (entry && entry.v === version) return entry.data;
+    } catch (err) { /* unreadable: rebuild */ }
+  }
+  const data = build();
+  const json = JSON.stringify({ v: version, data: data });
+  if (!maxLength || json.length < maxLength) cache.put(key, json, seconds);
+  return data;
 }
 
 function publicTopics_(session) {

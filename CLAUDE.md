@@ -112,7 +112,11 @@ does not carry the query string. That exact bug shipped once (v2): every QR scan
 - The queue's board is cached per session (`boardData_`, `board:<sid>`, 30 s) — rows, topics,
   merged and prepared questions; votes, session settings and viewer details are always
   fresh. `invalidateTopics_(sid)` clears it with the phone topic cache: call it after any
-  change to a session's questions, topics or languages.
+  change to a session's questions, topics or languages. Both caches go through
+  `cachedForSession_`, which tags entries with the session's `ver:<sid>` (replaced by every
+  invalidation), so a request that read the sheet before a change can't cache stale data
+  after it — that race brought dismissed questions back (fixed 2.22.3). The queue re-reads
+  the board after several parallel saves instead of drawing the last save's answer.
 - Questions sheet columns 10–11: `Grouping` (`ungrouped` = taken out of a topic by hand;
   automatic grouping skips it unless Group now; before 2.16 a `?` language marked this) and
   `Translations` (JSON in the session's languages). `session.translatePrepared` (default

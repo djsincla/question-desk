@@ -110,9 +110,12 @@ function getBoard(sid) {
  */
 function boardData_(session) {
   const sid = session.id;
-  const cache = CacheService.getScriptCache();
-  const hit = cache.get('board:' + sid);
-  if (hit) return JSON.parse(hit);
+  // Big sessions skip the cache (100 KB per entry).
+  return cachedForSession_(sid, 'board', CONFIG.boardCacheSeconds, function () { return buildBoard_(session); }, 95000);
+}
+
+function buildBoard_(session) {
+  const sid = session.id;
 
   const all = sessionRows_(sid, true);
   const topics = {};
@@ -163,8 +166,6 @@ function boardData_(session) {
       return { id: q.id, text: q.text, lang: q.lang, translation: q.translation, translations: translationList_(q.translations, session) };
     })
   };
-  const json = JSON.stringify(data);
-  if (json.length < 95000) cache.put('board:' + sid, json, CONFIG.boardCacheSeconds);   // big sessions skip the cache
   return data;
 }
 

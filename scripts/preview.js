@@ -162,10 +162,15 @@ function shim(as, params) {
     '})();</script>';
 }
 
-/** options.rpcDelayMs slows every server call, to prove pages don't wait for the server. */
+/**
+ * options.rpcDelayMs slows every server call, to prove pages don't wait for the server.
+ * options.rpcReplyDelay(fn, n) → ms, per call (n counts calls to fn): the call runs at once but
+ * its answer is held back, so answers can arrive out of order the way they can from Apps Script.
+ */
 function serve(port, options) {
   options = options || {};
   const { h, live } = buildDemo(options);
+  const calls = {};
   const server = http.createServer((req, res) => {
     const url = new URL(req.url, 'http://localhost');
     if (req.method === 'POST' && url.pathname === '/rpc') {
@@ -185,7 +190,9 @@ function serve(port, options) {
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify(out === undefined ? {} : out));
         };
-        if (options.rpcDelayMs) setTimeout(reply, options.rpcDelayMs); else reply();
+        calls[fn] = (calls[fn] || 0) + 1;
+        const wait = options.rpcReplyDelay ? options.rpcReplyDelay(fn, calls[fn]) : options.rpcDelayMs;
+        if (wait) setTimeout(reply, wait); else reply();
       });
       return;
     }

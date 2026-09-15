@@ -18,8 +18,8 @@ test.after(async () => {
   for (const b of Object.values(browsers)) await b.close();
 });
 
-async function withDemo(engineName, url, contextOptions, fn) {
-  const ctx = await serve(0);
+async function withDemo(engineName, url, contextOptions, fn, serveOptions) {
+  const ctx = await serve(0, serveOptions);
   const base = 'http://127.0.0.1:' + ctx.server.address().port;
   const context = await browsers[engineName].newContext(contextOptions || {});
   const page = await context.newPage();
@@ -539,4 +539,35 @@ test('chromium: the Admin tab row shows no scrollbar when the browser always sho
     await browser.close();
     ctx.server.close();
   }
+});
+
+test('chromium: questions dismissed in quick succession stay dismissed through saves and refreshes', async () => {
+  // Live: several quick Dismiss clicks, and some came back. Saves run in parallel, and Apps Script
+  // can answer them out of order: here the first Dismiss answers last, carrying a queue from
+  // before the other two dismissals.
+  await withDemo('chromium', (ctx) => '/?view=moderate&s=' + ctx.live.id + '&as=mod', { viewport: { width: 1280, height: 1000 } }, async ({ page, ctx }) => {
+    await page.waitForSelector('#board li[data-id] button');
+    const ids = await page.$$eval('#board .topic li[data-id]', (lis) => lis.slice(0, 3).map((li) => li.getAttribute('data-id')));
+    assert.equal(ids.length, 3);
+    for (const id of ids) {
+      await page.locator('#board li[data-id="' + id + '"] button', { hasText: 'Dismiss' }).click();
+      await page.waitForTimeout(150);
+    }
+    const onBoard = () => page.$$eval('#board .topic li[data-id]', (lis, gone) => lis.map((li) => li.getAttribute('data-id')).filter((id) => gone.indexOf(id) !== -1), ids);
+    // Watch every redraw from here on: none may bring a dismissed question back.
+    await page.evaluate((gone) => {
+      window.cameBack = [];
+      new MutationObserver(() => {
+        document.querySelectorAll('#board .topic li[data-id]').forEach((li) => {
+          if (gone.indexOf(li.getAttribute('data-id')) !== -1) window.cameBack.push(li.getAttribute('data-id'));
+        });
+      }).observe(document.getElementById('board'), { childList: true, subtree: true });
+    }, ids);
+    await page.waitForTimeout(12000);   // every save answered, then two refreshes
+    assert.deepEqual(await onBoard(), [], 'no dismissed question on the board');
+    assert.deepEqual(await page.evaluate(() => window.cameBack), [], 'none reappeared at any point');
+    ctx.h.env.activeUser = USERS.mod;
+    const dismissed = ctx.h.app.getBoard(ctx.live.id).dismissed.map((q) => q.id);
+    ids.forEach((id) => assert.ok(dismissed.indexOf(id) !== -1, id + ' saved as dismissed'));
+  }, { rpcReplyDelay: (fn, n) => (fn === 'setStatus' ? [0, 3000, 2000, 1000][n] || 500 : 300) });
 });

@@ -149,16 +149,27 @@
     showUpdated();
   }
 
+  var batch = 0;   // saves sent since the queue was last in step with the server
+
   function send(fn, args) {
     pending++;
     saves++;
+    batch++;
     var runner = google.script.run
       .withSuccessHandler(function (fresh) {
         pending--;
-        if (!pending && fresh && fresh.session) draw(fresh);
+        if (pending) return;
+        // Several quick clicks save in parallel, and the last answer to arrive can be from a save
+        // that read the queue before an earlier one landed: drawing it would bring a dismissed
+        // question back. After more than one save, read the queue again instead.
+        var several = batch > 1;
+        batch = 0;
+        if (several) load(true);
+        else if (fresh && fresh.session) draw(fresh);
       })
       .withFailureHandler(function (err) {
         pending--;
+        if (!pending) batch = 0;
         showError('That change didn\'t save' + (err && err.message ? ' (' + err.message + ')' : '') + ' — reloaded the queue');
         load(true);
       });

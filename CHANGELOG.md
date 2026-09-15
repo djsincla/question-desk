@@ -4,6 +4,18 @@ All notable changes to Question Desk. Versions follow [Semantic Versioning](http
 Each release is tagged `vX.Y.Z` and published as a GitHub release by `scripts/ship.sh`,
 which reads the notes for that version from this file.
 
+## [2.22.3] - 2026-09-14
+
+### Fixed
+- **Dismissed questions could reappear in the queue**, for a few seconds up to half a
+  minute, after dismissing several quickly or while another facilitator's queue refreshed.
+  Two causes, both fixed and both reproduced in tests first:
+  - The queue's shared 30-second cache could be refilled by a request that read the sheet
+    just before a dismissal. Cached boards and phone topic lists now carry a version that
+    every change replaces, so an out-of-date copy is never served.
+  - After several quick clicks, the queue drew whichever save answered last, which could
+    predate an earlier click. It now reads the queue again once they've all saved.
+
 ## [2.22.2] - 2026-09-14
 
 ### Fixed
@@ -720,6 +732,7 @@ Fixes from a full code review.
 - "Merge into one question" for reading a topic aloud.
 - Participant page in English, Korean and Spanish.
 
+[2.22.3]: https://github.com/djsincla/question-desk/releases/tag/v2.22.3
 [2.22.2]: https://github.com/djsincla/question-desk/releases/tag/v2.22.2
 [2.22.1]: https://github.com/djsincla/question-desk/releases/tag/v2.22.1
 [2.22.0]: https://github.com/djsincla/question-desk/releases/tag/v2.22.0

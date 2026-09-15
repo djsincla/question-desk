@@ -272,3 +272,39 @@ test('merging asks Gemini to think less, retries without that if refused, and sa
   assert.match(h.app.mergeTopic(a.id, 'About parking').error, /couldn't be used/);
   assert.match(h.app.mergeTopic(a.id, 'No such topic').error, /no questions/);
 });
+
+test('a board read before a change can never be cached after it (dismissed questions stayed dismissed)', () => {
+  // Live: dismissing questions quickly, or with another queue refreshing, a request that read
+  // the sheet just before a dismissal finished after it and put its old board back in the cache,
+  // so the dismissed questions reappeared for up to 30 seconds.
+  const { h, a } = setup();
+  h.ask(a, h.join(a), 'Parking question one');
+  h.ask(a, h.join(a), 'Parking question two');
+  h.app.clusterAll_();
+  h.as(MOD);
+  const board = h.app.getBoard(a.id);
+  const [q1, q2] = board.topics[0].questions.map((q) => q.id);
+  const staleBoard = h.cache.get('board:' + a.id);
+  assert.ok(staleBoard, 'the board was cached');
+
+  h.app.setStatus(a.id, [q1], 'dismissed');
+  // The slow request lands now, writing what it read before the dismissal.
+  h.cache.put('board:' + a.id, staleBoard, 30);
+
+  const after = h.app.getBoard(a.id);
+  assert.deepEqual(after.dismissed.map((q) => q.id), [q1], 'still dismissed');
+  assert.deepEqual(after.topics[0].questions.map((q) => q.id), [q2]);
+
+  // Phones: a topic list read before its approval can't be served after it either.
+  h.app.setTopicShown(a.id, after.topics[0].topic, true);
+  const phone = h.join(a);
+  h.anonymous();
+  assert.equal(h.app.getTopics(a.id, phone.deviceId).topics.length, 1, 'shown on phones');
+  const shownTopics = h.cache.get('topics:' + a.id);
+  assert.ok(shownTopics, 'the phone topic list was cached');
+  h.as(MOD);
+  h.app.setTopicShown(a.id, after.topics[0].topic, false);
+  h.cache.put('topics:' + a.id, shownTopics, 30);
+  h.anonymous();
+  assert.equal(h.app.getTopics(a.id, phone.deviceId).topics.length, 0, 'hidden stays hidden on phones');
+});

@@ -86,6 +86,12 @@ function createApp(options) {
       if (hit.expires <= clock.now) { cacheStore.delete(k); return null; }
       return hit.value;
     },
+    /** Like CacheService: an object with only the keys that are present. */
+    getAll(keys) {
+      const out = {};
+      keys.forEach((k) => { const v = scriptCache.get(k); if (v !== null) out[k] = v; });
+      return out;
+    },
     remove(k) { cacheStore.delete(k); },
     put(k, v, ttlSeconds) {
       if (k.length > 250) throw new Error('Cache key too long');
