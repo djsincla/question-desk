@@ -571,3 +571,55 @@ test('chromium: questions dismissed in quick succession stay dismissed through s
     ids.forEach((id) => assert.ok(dismissed.indexOf(id) !== -1, id + ' saved as dismissed'));
   }, { rpcReplyDelay: (fn, n) => (fn === 'setStatus' ? [0, 3000, 2000, 1000][n] || 500 : 300) });
 });
+
+for (const engineName of ['chromium', 'webkit']) {
+test(engineName + ': the queue keeps its place when a refresh brings changes', async () => {
+  // Live: the page jumped at every refresh. After clicking a button, each redraw put focus back on
+  // it with a scroll, and new questions above pushed what the facilitator was reading down.
+  await withDemo(engineName, (ctx) => '/?view=moderate&s=' + ctx.live.id + '&as=mod', { viewport: { width: 1280, height: 700 } }, async ({ page, ctx }) => {
+    await page.waitForSelector('.topic li[data-id]');
+    // Click something near the top, so focus stays there, then scroll down to read.
+    // The ⋯ menu button: opened and closed, focus stays on it, and its label never changes.
+    const more = page.locator('.topic').first().locator('details.more summary');
+    await more.click();
+    await more.click();
+    await more.focus();
+    await page.waitForTimeout(300);
+    await page.evaluate(() => window.scrollTo(0, 650));
+    await page.waitForTimeout(300);
+    const anchor = () => page.evaluate(() => {
+      const rows = Array.from(document.querySelectorAll('#board li[data-id]'));
+      const row = rows.find((r) => r.getBoundingClientRect().top >= 0);
+      return { id: row.getAttribute('data-id'), top: Math.round(row.getBoundingClientRect().top), y: scrollY };
+    });
+    const before = await anchor();
+    assert.ok(before.y > 400, 'scrolled down: ' + before.y);
+
+    // New questions arrive in the first topic (above the reader) and get grouped there.
+    const topTopic = await page.locator('.topic').first().getAttribute('data-topic');
+    ctx.h.env.activeUser = '';
+    for (let i = 0; i < 3; i++) ctx.h.ask(ctx.live, ctx.h.join(ctx.live), 'Another question about ' + topTopic + ' number ' + i);
+    ctx.h.env.activeUser = USERS.mod;
+    const fresh = ctx.h.app.getBoard(ctx.live.id).unsorted.map((q) => q.id);
+    ctx.h.app.groupQuestions(ctx.live.id, fresh, topTopic);
+
+    const count = await page.$$eval('#board li[data-id]', (l) => l.length);
+    await page.waitForFunction((n) => document.querySelectorAll('#board li[data-id]').length >= n, count + 3, { timeout: 12000 });
+    await page.waitForTimeout(500);
+    const after = await page.evaluate((id) => {
+      const row = document.querySelector('#board li[data-id="' + id + '"]');
+      return { top: Math.round(row.getBoundingClientRect().top), y: scrollY };
+    }, before.id);
+    assert.ok(Math.abs(after.top - before.top) <= 2, 'the question being read stayed put: ' + before.top + ' → ' + after.top + ' (scroll ' + before.y + ' → ' + after.y + ')');
+    // The rise-in animation plays once, when a topic first appears, not on every refresh.
+    assert.equal(await page.$$eval('#board > .topic.arrived', (t) => t.length), 0, 'no existing topic animates again');
+    ctx.h.env.activeUser = '';
+    ctx.h.ask(ctx.live, ctx.h.join(ctx.live), 'Is there a quiet room for kids who need a break?');
+    ctx.h.env.activeUser = USERS.mod;
+    const loose = ctx.h.app.getBoard(ctx.live.id).unsorted.map((q) => q.id);
+    ctx.h.app.groupQuestions(ctx.live.id, loose, 'Quiet spaces');
+    await page.waitForSelector('#board > .topic[data-topic="Quiet spaces"]', { timeout: 12000 });
+    assert.deepEqual(await page.$$eval('#board > .topic.arrived', (t) => t.map((x) => x.getAttribute('data-topic'))), ['Quiet spaces'], 'only the new topic rises in');
+  });
+});
+}

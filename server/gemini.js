@@ -394,6 +394,8 @@ function clusterSessionNow_(sid, force) {
     '   plainly rather than paraphrasing it away. If it is already in ' + lang + ',',
     '   repeat it unchanged.',
     '3. Assign a topic label so the facilitator can answer each theme once.',
+    names.length ? '4. Also translate the question itself into ' + names.join(' and ') + ', just as faithfully, for' : null,
+    names.length ? '   participants\' phones and the room screen when a facilitator shows or answers it.' : null,
     '',
     'Topic labels must always be written in ' + lang + ', whatever language the',
     'question was asked in, so that questions on the same theme group together',
@@ -436,7 +438,12 @@ function clusterSessionNow_(sid, force) {
     },
     required: ['assignments']
   };
-  if (codes.length) schema.properties.labels = labelSchema_('topic', codes);
+  if (codes.length) {
+    schema.properties.labels = labelSchema_('topic', codes);
+    // Each question in the session's languages too, in the same request, so Show on phones and
+    // Answer now on a single question never wait for Gemini.
+    schema.properties.assignments.items.properties.translations = labelSchema_('question', codes).items.properties.translations;
+  }
 
   const response = geminiRequest_(prompt, schema, { task: 'grouping' });
   // Count a try only when Gemini actually answered. An outage, bad key or retired model
@@ -458,7 +465,7 @@ function clusterSessionNow_(sid, force) {
   let written = 0;
   const usedTopics = {};
   withLock_(function () {
-    const rows = sheet.getRange(1, COLS.id, sheet.getLastRow(), COLS.lang).getValues();
+    const rows = sheet.getRange(1, COLS.id, sheet.getLastRow(), COLS.translations).getValues();
     const rowById = {};
     rows.forEach(function (r, i) {
       const id = String(r[COLS.id - 1]);
@@ -470,8 +477,13 @@ function clusterSessionNow_(sid, force) {
       if (!pendingIds[id] || !rowById[id] || !a.topic) return;   // unknown, gone, or already grouped
       const topicOut = fixedTopic[id] || (autoGroup ? a.topic : '');
       if (topicOut) usedTopics[topicOut] = true;
-      sheet.getRange(rowById[id], COLS.topic, 1, 3)
-        .setValues([[sheetSafe_(topicOut), sheetSafe_(a.language || ''), sheetSafe_(a.translation || '')]]);
+      // Topic through Translations in one write; Session and Grouping are written back as they are.
+      const r = rows[rowById[id] - 1];
+      const translations = a.translations ? JSON.stringify(pickCodes_(a.translations, codes)) : r[COLS.translations - 1];
+      sheet.getRange(rowById[id], COLS.topic, 1, COLS.translations - COLS.topic + 1).setValues([[
+        sheetSafe_(topicOut), sheetSafe_(a.language || ''), sheetSafe_(a.translation || ''),
+        r[COLS.session - 1], r[COLS.grouping - 1], translations
+      ]]);
       delete rowById[id];   // a repeated id in Gemini's reply writes once
       written++;
     });

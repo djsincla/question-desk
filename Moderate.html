@@ -150,6 +150,7 @@
   }
 
   var batch = 0;   // saves sent since the queue was last in step with the server
+  var topicsShown = {};   // topics on the board at the last draw, so only new ones animate
 
   function send(fn, args) {
     pending++;
@@ -285,6 +286,9 @@
     var active = document.activeElement;
     var focusTopic = active && board.contains(active) && active.closest('.topic') ? active.closest('.topic').getAttribute('data-topic') : null;
     var focusKey = focusTopic !== null ? (active.getAttribute('data-key') || active.textContent) : null;
+    // Keep the facilitator's place: whatever question (or topic heading) is at the top of the
+    // window stays exactly there, even when questions arrive above it.
+    var anchor = readingPlace();
 
     board.innerHTML = '';
     data.topics.forEach(function (t) { board.appendChild(topicBlock(t, data.merged[t.topic], false, data.nowAnswering === t.topic, (data.mergedTranslations || {})[t.topic])); });
@@ -307,22 +311,72 @@
     }
 
     var blocks = board.querySelectorAll('.topic');
+    var shownNow = {};
     for (var i = 0; i < blocks.length; i++) {
       var name = blocks[i].getAttribute('data-topic');
+      shownNow[name] = true;
+      if (!topicsShown[name]) blocks[i].classList.add('arrived');   // rises in once, when it first appears
       if (openMenu !== null && name === openMenu) {
         var menu = blocks[i].querySelector('details.more');
-        if (menu) menu.open = true;
+        if (menu) { menu.open = true; menu.classList.add('kept'); }
       }
       if (focusTopic !== null && name === focusTopic) {
         var candidates = blocks[i].querySelectorAll('button, summary');
         for (var j = 0; j < candidates.length; j++) {
-          if ((candidates[j].getAttribute('data-key') || candidates[j].textContent) === focusKey) { candidates[j].focus(); break; }
+          // preventScroll: focusing used to scroll back to the last clicked button on every refresh.
+          if ((candidates[j].getAttribute('data-key') || candidates[j].textContent) === focusKey) { candidates[j].focus({ preventScroll: true }); break; }
         }
       }
     }
+    topicsShown = shownNow;
     markSelected(false);
     tickTimers();
     updateSelection();
+    keepPlace(anchor);
+  }
+
+  /** The first question row (or topic, when none is showing) at the top of the window, and where it is. */
+  function readingPlace() {
+    if (window.scrollY < 1) return null;   // at the top: new questions may push the page down as usual
+    // A question row is the precise anchor; a topic box also grows when questions join it.
+    var lists = [board.querySelectorAll('li[data-id]'), board.querySelectorAll('.topic')];
+    for (var l = 0; l < lists.length; l++) {
+      for (var i = 0; i < lists[l].length; i++) {
+        var top = layoutTop(lists[l][i]) - window.scrollY;
+        if (top + lists[l][i].offsetHeight > 0 && top < window.innerHeight) {
+          return {
+            id: l === 0 ? lists[l][i].getAttribute('data-id') : null,
+            topic: l === 1 ? lists[l][i].getAttribute('data-topic') : null,
+            top: top
+          };
+        }
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Where an element sits on the page, from layout alone: getBoundingClientRect() includes the
+   * short rise animation new topics play, which threw the correction off by its 6px.
+   */
+  function layoutTop(node) {
+    var y = 0;
+    for (var n = node; n; n = n.offsetParent) y += n.offsetTop;
+    return y;
+  }
+
+  /** Scrolls so that the remembered item is back where it was. */
+  function keepPlace(anchor) {
+    if (!anchor) return;
+    var el3 = null;
+    if (anchor.id) el3 = board.querySelector('li[data-id="' + anchor.id + '"]');
+    if (!el3 && anchor.topic !== null) {
+      var topics = board.querySelectorAll('.topic');
+      for (var i = 0; i < topics.length; i++) if (topics[i].getAttribute('data-topic') === anchor.topic) { el3 = topics[i]; break; }
+    }
+    if (!el3) return;   // it left the queue (answered elsewhere, dismissed): nothing to hold on to
+    var moved = layoutTop(el3) - window.scrollY - anchor.top;
+    if (Math.abs(moved) >= 1) window.scrollBy(0, moved);
   }
 
   function drawPrepared(list) {

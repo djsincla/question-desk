@@ -506,6 +506,9 @@
 </style>
 
 <style data-pages="Moderate">
+  /* The queue keeps the reader's place itself when a refresh rebuilds it (keepPlace in
+     Moderate.html); the browser's own scroll anchoring would correct a second time. */
+  html { overflow-anchor: none; }
   /* QA Facilitator queue */
   /* Keep the scrollbar's space even when the page is short, so collapsing, filtering or a
      refresh that changes the page's height never shifts everything sideways. */
@@ -534,7 +537,9 @@
   .topic { border: 1px solid var(--rule); border-radius: var(--radius); margin-bottom: 16px; overflow: visible; background: var(--card); box-shadow: var(--shadow); }
   .topic > .head { border-radius: var(--radius) var(--radius) 0 0; }
   .topic.live { border: 2px solid var(--action); box-shadow: 0 0 0 4px var(--action-soft), var(--shadow-lg); }
-  #board > .topic { animation: qd-rise 0.18s var(--ease); }
+  /* Only a topic that just appeared rises in; refreshes rebuild the board and must not replay it. */
+  #board > .topic.arrived { animation: qd-rise 0.18s var(--ease); }
+  details.more.kept .menu { animation: none; }   /* a menu the refresh reopened */
   .topic.live > .head { background: var(--action); color: var(--action-ink, #fff); }
   .topic.live > .head .count { color: inherit; opacity: 0.85; }
   .votes { font-weight: 600; color: var(--action); }

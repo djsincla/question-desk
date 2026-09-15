@@ -4,6 +4,21 @@ All notable changes to Question Desk. Versions follow [Semantic Versioning](http
 Each release is tagged `vX.Y.Z` and published as a GitHub release by `scripts/ship.sh`,
 which reads the notes for that version from this file.
 
+## [2.22.4] - 2026-09-14
+
+### Fixed
+- **The QA Facilitator queue jumped on refreshes.** After clicking a button, each refresh
+  that brought changes put focus back on that button and scrolled the page to it; new
+  questions above what you were reading also pushed it down. The queue now keeps whatever
+  question is at the top of the window exactly in place (tested in Chrome and Safari).
+- **Topic boxes replayed their rise-in animation on every refresh.** It now plays once, when
+  a topic first appears; a ⋯ menu kept open across a refresh doesn't re-animate either.
+
+### Changed
+- **Questions are translated into the session's languages as they're grouped**, in the same
+  every-minute Gemini request. Show on phones and Answer now on a single question no longer
+  wait for a translation.
+
 ## [2.22.3] - 2026-09-14
 
 ### Fixed
@@ -736,6 +751,7 @@ Fixes from a full code review.
 - "Merge into one question" for reading a topic aloud.
 - Participant page in English, Korean and Spanish.
 
+[2.22.4]: https://github.com/djsincla/question-desk/releases/tag/v2.22.4
 [2.22.3]: https://github.com/djsincla/question-desk/releases/tag/v2.22.3
 [2.22.2]: https://github.com/djsincla/question-desk/releases/tag/v2.22.2
 [2.22.1]: https://github.com/djsincla/question-desk/releases/tag/v2.22.1

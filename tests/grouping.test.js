@@ -252,3 +252,28 @@ test('the summary counts Me too on single questions shown on phones', () => {
   assert.equal(row[8], 1);
   assert.equal(row[9], 'yes');
 });
+
+test('grouping translates each question into the session languages, so showing or answering one never waits for Gemini', () => {
+  const { h, s } = setup();
+  const d = h.join(s);
+  h.ask(s, d, 'Is the parking lot lit at night?');
+  const qid = ids(h, s)['Is the parking lot lit at night?'];
+  h.app.clusterAll_();
+  const grouping = h.env.geminiCalls[0];
+  assert.ok(grouping.schema.properties.assignments.items.properties.translations, 'asked for in the grouping request');
+  assert.match(grouping.prompt, /Also translate the question itself into Korean and Spanish/);
+  const row = h.questions().rows.find((r) => r[0] === qid);
+  assert.equal(row[8], s.id, 'session kept');
+  assert.deepEqual(JSON.parse(row[10]), { ko: '[ko] Is the parking lot lit at night?', es: '[es] Is the parking lot lit at night?' });
+
+  // Ungroup it so it's a single question, then show and answer it: no more Gemini calls.
+  h.as(MOD);
+  h.app.ungroupQuestions(s.id, [qid]);
+  assert.equal(h.questions().rows.find((r) => r[0] === qid)[9], 'ungrouped', 'grouping flag kept');
+  h.env.geminiCalls.length = 0;
+  h.app.setQuestionShown(s.id, qid, true);
+  h.app.setNowAnswering(s.id, null, qid);
+  assert.equal(h.env.geminiCalls.length, 0, 'already translated');
+  h.anonymous();
+  assert.equal(h.app.getTopics(s.id, d.deviceId).nowAnswering.labels.ko, '[ko] Is the parking lot lit at night?');
+});

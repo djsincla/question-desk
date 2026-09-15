@@ -17,7 +17,7 @@
 
 /** Bump with every release; scripts/ship.sh tags git and publishes release notes from CHANGELOG.md. */
 const APP = {
-  version: '2.22.3',
+  version: '2.22.4',
   repo: 'https://github.com/djsincla/question-desk'
 };
 
@@ -69,7 +69,7 @@ const COLS = {
   id: 1, submitted: 2, device: 3, text: 4,
   status: 5, topic: 6, lang: 7, translation: 8, session: 9,
   grouping: 10,       // 'ungrouped' when a facilitator took it out of a topic: automatic grouping leaves it
-  translations: 11    // JSON { ko: …, es: … } in the session's languages (prepared questions)
+  translations: 11    // JSON { ko: …, es: … } in the session's languages (from grouping, or prepared-question translation)
 };
 
 const HEADERS = ['ID', 'Submitted', 'Device', 'Question', 'Status', 'Topic',

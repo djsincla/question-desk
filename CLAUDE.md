@@ -119,7 +119,9 @@ does not carry the query string. That exact bug shipped once (v2): every QR scan
   the board after several parallel saves instead of drawing the last save's answer.
 - Questions sheet columns 10–11: `Grouping` (`ungrouped` = taken out of a topic by hand;
   automatic grouping skips it unless Group now; before 2.16 a `?` language marked this) and
-  `Translations` (JSON in the session's languages). `session.translatePrepared` (default
+  `Translations` (JSON in the session's languages; the every-minute grouping request fills it
+  for every question, so Show on phones / Answer now on one question don't call Gemini).
+  `session.translatePrepared` (default
   on) makes `saveSessionAs_` call `translateQuestions_(sid)`: language, English and
   `translationCodes_(session)` only; `translatePendingPrepared_()` retries from the schedule.
   A single question on Answer now uses its stored translations.
