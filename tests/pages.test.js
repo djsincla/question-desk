@@ -123,13 +123,15 @@ for (const page of PAGES) {
 
 test('every style is in Styles.html: one style block, a section per page, and each page gets only its own', () => {
   const css = fs.readFileSync(path.join(ROOT, 'Styles.html'), 'utf8').trim();
-  assert.match(css, /^<style>[\s\S]*<\/style>$/);
-  assert.equal((css.match(/<style>/g) || []).length, 1);
+  // Sections are elements, never comment markers: Apps Script strips comments when reading a file.
+  assert.equal((css.match(/<style[\s>]/g) || []).length, (css.match(/<style data-pages="[A-Za-z ]+">/g) || []).length, 'every style element has data-pages');
+  assert.doesNotMatch(css.replace(/<!--[\s\S]*?-->/g, '').replace(/<style data-pages="[A-Za-z ]+">[\s\S]*?<\/style>/g, ''), /\S/, 'nothing outside the sections but comments');
+  assert.doesNotMatch(css, /@pages/, 'no comment markers');
   assert.doesNotMatch(css, /<\?|<script|@import|url\(/, 'no scriptlets, scripts or external resources');
   assert.match(fs.readFileSync(path.join(ROOT, '.claspignore'), 'utf8'), /^!Styles\.html$/m);
   assert.match(SERVER, /template\.styles = stylesFor_\(file\);/);
 
-  const sections = Array.from(css.matchAll(/\/\* =+ @pages ([A-Za-z ]+) \*\//g), (m) => m[1].split(' '));
+  const sections = Array.from(css.matchAll(/<style data-pages="([A-Za-z ]+)">/g), (m) => m[1].split(' '));
   const names = PAGES.map((p) => p.replace('.html', ''));
   names.forEach((name) => {
     assert.ok(sections.some((list) => list.length === 1 && list[0] === name), 'Styles.html has a section for ' + name);
@@ -142,7 +144,8 @@ test('every style is in Styles.html: one style block, a section per page, and ea
   names.forEach((name) => {
     const out = forPage(name + '.html');
     assert.match(out, /^<style>\n[\s\S]+<\/style>$/);
-    assert.doesNotMatch(out, /@pages/, 'markers are stripped');
+    assert.ok(out.length > 1000, name + ' gets real styles (' + out.length + ' characters)');
+    assert.doesNotMatch(out, /data-pages/, 'section tags are not passed on');
   });
   // Each page gets the shared section (except the room screen) and its own, never another page's.
   assert.match(forPage('Ask.html'), /--action:/);
@@ -190,13 +193,13 @@ test('manifest keeps anonymous web app access and the scopes the code needs', ()
 
 test('shared script: one script block in Scripts.html, sections for real pages, each page gets only its own', () => {
   const js = fs.readFileSync(path.join(ROOT, 'Scripts.html'), 'utf8').trim();
-  assert.match(js, /^<script>[\s\S]*<\/script>$/);
-  assert.equal((js.match(/<script>/g) || []).length, 1);
+  assert.equal((js.match(/<script[\s>]/g) || []).length, (js.match(/<script data-pages="[A-Za-z ]+">/g) || []).length, 'every script element has data-pages');
+  assert.doesNotMatch(js.replace(/<!--[\s\S]*?-->/g, '').replace(/<script data-pages="[A-Za-z ]+">[\s\S]*?<\/script>/g, ''), /\S/, 'nothing outside the sections but comments');
   assert.doesNotMatch(js, /<\?|google\.script\.run|src=/, 'no scriptlets, server calls or external scripts');
   assert.match(fs.readFileSync(path.join(ROOT, '.claspignore'), 'utf8'), /^!Scripts\.html$/m);
   assert.match(SERVER, /template\.scripts = scriptsFor_\(file\);/);
   const names = PAGES.map((p) => p.replace('.html', ''));
-  Array.from(js.matchAll(/\/\* =+ @pages ([A-Za-z ]+) \*\//g), (m) => m[1].split(' ')).flat()
+  Array.from(js.matchAll(/<script data-pages="([A-Za-z ]+)">/g), (m) => m[1].split(' ')).flat()
     .forEach((name) => assert.ok(names.indexOf(name) !== -1, 'section for an unknown page: ' + name));
   // Each page that uses a helper gets it, and only the pages that use it.
   const forPage = (p) => HARNESS.app.scriptsFor_(p);

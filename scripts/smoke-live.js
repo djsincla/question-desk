@@ -86,12 +86,23 @@ async function pageText(page) {
             google.script.run.withSuccessHandler(resolve).withFailureHandler((e) => resolve({ error: String(e && e.message || e) }))
               .getSessionState('ffffffff', '');
           }));
-          ok = version === expectedVersion && state && state.found === false;
-          detail = 'version ' + version + ' (expected ' + expectedVersion + '), server call ' + JSON.stringify(state).slice(0, 80);
+          // The page is styled and has its shared script and text: all three are assembled by the
+          // server from Styles.html, Scripts.html and the text catalog, and a page can load and
+          // answer server calls with none of them (2.21.1 and 2.22.0 went out unstyled).
+          const built = await frame.evaluate(() => ({
+            css: Array.from(document.querySelectorAll('style')).reduce((n, el) => n + el.textContent.length, 0),
+            background: getComputedStyle(document.body).backgroundColor,
+            shared: typeof $ === 'function' && typeof el === 'function',
+            text: (document.getElementById('joinEn') || {}).textContent || ''
+          }));
+          const styled = built.css > 3000 && built.background !== 'rgba(0, 0, 0, 0)' && built.shared && built.text.length > 10;
+          ok = version === expectedVersion && state && state.found === false && styled;
+          detail = 'version ' + version + ' (expected ' + expectedVersion + '), server call ' + JSON.stringify(state).slice(0, 80) +
+            ', page ' + JSON.stringify(built);
         } catch (err) { detail = err.message; }
         if (!ok && attempt < 8) await page.waitForTimeout(10000);
       }
-      console.log((ok ? '  ✓ ' : '  ✗ ') + engineName + ' · version ' + expectedVersion + ' serving, server calls answer' + (ok ? '' : ' — ' + detail));
+      console.log((ok ? '  ✓ ' : '  ✗ ') + engineName + ' · version ' + expectedVersion + ' serving, styled, server calls answer' + (ok ? '' : ' — ' + detail));
       if (!ok) failed++;
     }
     if (guestPage) {

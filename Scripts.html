@@ -1,12 +1,14 @@
-<script>
-  /*
-   * Script shared by the Apps Script pages, in one file, like Styles.html. page_() inlines it
-   * where a page says "scripts" (before the page's own script), keeping only the sections
-   * marked for that page. Plain ES5, no dependencies. Names here are page-wide globals: don't
-   * reuse them in a page's own script.
-   */
+<!--
+   Script shared by the Apps Script pages, in one file, like Styles.html. page_() inlines it
+   where a page says "scripts" (before the page's own script), keeping only the sections
+   marked for that page. Plain ES5, no dependencies. Names here are page-wide globals: don't
+   reuse them in a page's own script.
 
-  /* ============================== @pages Admin Home Moderate Panel Sheet */
+  Each section is a script element with a data-pages attribute naming its pages. Not comments:
+  Apps Script strips comments when it reads this file, so comment markers never reach the server.
+-->
+
+<script data-pages="Admin Home Moderate Panel Sheet">
   /** Short for document.getElementById. */
   function $(id) { return document.getElementById(id); }
 
@@ -17,8 +19,9 @@
     if (text !== undefined) n.textContent = text;
     return n;
   }
+</script>
 
-  /* ============================== @pages Admin Moderate */
+<script data-pages="Admin Moderate">
   /*
    * The in-page confirm dialog (pages never use confirm(): in Google's sandbox it shows a
    * googleusercontent.com address). Needs the #dialog markup; the type-to-confirm field
@@ -70,8 +73,9 @@
     closeDialog();
     if (done) done(typed);
   });
+</script>
 
-  /* ============================== @pages Present Sheet */
+<script data-pages="Present Sheet">
   /**
    * The QR pattern as one SVG with rounded dots: each module's outside corners are rounded,
    * inside corners are filled in, so neighbours flow together; the three finder "eyes" are
@@ -137,8 +141,9 @@
     });
     return svg;
   }
+</script>
 
-  /* ============================== @pages Present Panel */
+<script data-pages="Present Panel">
   /*
    * The PowerPoint add-in and the guest page frame the room screen and panelist view. Each
    * update tells them the page is alive ('ok'), or that a newer Question Desk is live

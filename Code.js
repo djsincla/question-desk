@@ -17,7 +17,7 @@
 
 /** Bump with every release; scripts/ship.sh tags git and publishes release notes from CHANGELOG.md. */
 const APP = {
-  version: '2.22.0',
+  version: '2.22.1',
   repo: 'https://github.com/djsincla/question-desk'
 };
 
@@ -201,15 +201,20 @@ function scriptsFor_(file) {
   return js ? '<script>\n' + js + '</script>' : '';
 }
 
-/** The sections of Styles.html or Scripts.html marked "@pages … <page> …", in file order. */
+/**
+ * The sections of Styles.html or Scripts.html for one page, in file order: each section is a
+ * <style> or <script> element whose data-pages attribute lists the pages it's for. (Not
+ * comment markers: Apps Script strips comments when it reads a file, which silently left
+ * every page unstyled in 2.21.1 and 2.22.0.)
+ */
 function sectionsFor_(source, tag, file) {
   const page = String(file).replace(/\.html$/, '');
   const text = HtmlService.createHtmlOutputFromFile(source).getContent();
-  const inner = text.slice(text.indexOf('<' + tag + '>') + tag.length + 2, text.lastIndexOf('</' + tag + '>'));
-  const parts = inner.split(/[ \t]*\/\* =+ @pages ([A-Za-z ]+) \*\/\n/);
+  const re = new RegExp('<' + tag + '\\s+data-pages\\s*=\\s*["\']([A-Za-z ]+)["\']\\s*>([\\s\\S]*?)</' + tag + '>', 'g');
   let out = '';
-  for (let i = 1; i < parts.length; i += 2) {
-    if (parts[i].split(' ').indexOf(page) !== -1) out += parts[i + 1];
+  let m;
+  while ((m = re.exec(text))) {
+    if (m[1].split(/\s+/).indexOf(page) !== -1) out += m[2].replace(/^\n/, '');
   }
   return out;
 }

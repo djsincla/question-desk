@@ -4,6 +4,16 @@ All notable changes to Question Desk. Versions follow [Semantic Versioning](http
 Each release is tagged `vX.Y.Z` and published as a GitHub release by `scripts/ship.sh`,
 which reads the notes for that version from this file.
 
+## [2.22.1] - 2026-09-14
+
+### Fixed
+- **Pages were unstyled in 2.21.1 and 2.22.0**, and the queue's and Admin's dialogs didn't
+  work in 2.22.0. When Apps Script reads a file it strips comments, and the section markers
+  in `Styles.html` and `Scripts.html` were comments, so every page got an empty stylesheet.
+  Sections are now marked by the elements themselves (`<style data-pages="…">`). The tests
+  strip comments the same way, and the live check after each release now confirms a page
+  has its styles, shared script and text, not just that it loads.
+
 ## [2.22.0] - 2026-09-14
 
 ### Changed
@@ -704,6 +714,7 @@ Fixes from a full code review.
 - "Merge into one question" for reading a topic aloud.
 - Participant page in English, Korean and Spanish.
 
+[2.22.1]: https://github.com/djsincla/question-desk/releases/tag/v2.22.1
 [2.22.0]: https://github.com/djsincla/question-desk/releases/tag/v2.22.0
 [2.21.1]: https://github.com/djsincla/question-desk/releases/tag/v2.21.1
 [2.21.0]: https://github.com/djsincla/question-desk/releases/tag/v2.21.0

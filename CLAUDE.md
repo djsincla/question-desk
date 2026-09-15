@@ -25,16 +25,18 @@ Workspace account. See SETUP.md for install and deployment.
 - `Moderate.html` — facilitator queue for one session, grouped by topic, Now answering
 - `Admin.html` — sessions (schedule, per-session branding), people, branding, health, load test
 - `Denied.html` — not-allowed page, also the session picker
-- `Styles.html` — **every style for the Apps Script pages**, one `<style>` block in sections
-  marked `/* ==== @pages Admin Ask … */`: the shared section (tokens, components, utilities
-  that replaced style attributes), then one section per page. `stylesFor_(file)` inlines
+- `Styles.html` — **every style for the Apps Script pages**, in sections: one
+  `<style data-pages="Admin Ask …">` element each — the shared section (tokens, components,
+  utilities that replaced style attributes), then one per page. **Never mark sections with
+  comments: Apps Script strips comments when it reads a file** (2.21.1/2.22.0 shipped
+  unstyled that way; the harness now strips comments too, and smoke-live checks styling). `stylesFor_(file)` inlines
   only the sections naming that page through `<?!= styles ?>` (the room screen gets only its
   own). Pages have no `<style>` blocks, `style=` attributes or script-set styles except
   data-driven values (CSS variables, a brand color dot, a meter width); `tests/pages.test.js`
   enforces it. docs/ pages (guest page, add-in) are separate sites with their own styles.
 - `appsscript.json` — manifest; web app set to execute as owner, anonymous access
 - `.claspignore` — allowlist of what `clasp push` uploads; add new pages here
-- `Scripts.html` — script shared by pages, in `@pages` sections like Styles.html
+- `Scripts.html` — script shared by pages, in `<script data-pages="…">` sections like Styles.html
   (`$`/`el`, the confirm dialog `ask()`, `qrArt()`, `tellFrame()`), inlined by
   `scriptsFor_(file)` through `<?!= scripts ?>` before the page's own script. Pages must not
   redeclare its names (a test checks).

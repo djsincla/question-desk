@@ -321,7 +321,12 @@ function createApp(options) {
         };
         return template;
       },
-      createHtmlOutputFromFile: (name) => ({ getContent: () => require('fs').readFileSync(require('path').join(__dirname, '..', name + '.html'), 'utf8') })
+      // Like Apps Script, which strips comments from a file's HTML, CSS and script when it reads it
+      // (found live: comment section markers vanished and pages lost their styles).
+      createHtmlOutputFromFile: (name) => ({
+        getContent: () => require('fs').readFileSync(require('path').join(__dirname, '..', name + '.html'), 'utf8')
+          .replace(/<!--[\s\S]*?-->/g, '').replace(/\/\*[\s\S]*?\*\//g, '')
+      })
     }
   };
 

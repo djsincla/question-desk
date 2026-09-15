@@ -1,14 +1,16 @@
-<style>
-  /*
-   * Every style for the Apps Script pages, in one file. page_() inlines it into each page
-   * where the page says "styles" (no extra request on venue wifi), keeping only the sections
-   * marked for that page: the shared section (design tokens and components) and the page's
-   * own section after it, which may override the shared rules. The room screen (Present) has
-   * only its own projector styles. Pages have no style blocks or style attributes of their own.
-   * The guest page and PowerPoint add-in (docs/) are separate sites with their own styles.
-   */
+<!--
+   Every style for the Apps Script pages, in one file. page_() inlines it into each page
+   where the page says "styles" (no extra request on venue wifi), keeping only the sections
+   marked for that page: the shared section (design tokens and components) and the page's
+   own section after it, which may override the shared rules. The room screen (Present) has
+   only its own projector styles. Pages have no style blocks or style attributes of their own.
+   The guest page and PowerPoint add-in (docs/) are separate sites with their own styles.
 
-  /* ============================== @pages Admin Ask Denied Home Moderate Panel Sheet */
+  Each section is a style element with a data-pages attribute naming its pages. Not comments:
+  Apps Script strips comments when it reads this file, so comment markers never reach the server.
+-->
+
+<style data-pages="Admin Ask Denied Home Moderate Panel Sheet">
   [hidden] { display: none !important; }
 
   :root {
@@ -177,8 +179,9 @@
   .indent { margin: 6px 0 0 24px !important; }
   .hex-input { width: 7rem !important; }
   .clickable { cursor: pointer !important; }
+</style>
 
-  /* ============================== @pages Admin */
+<style data-pages="Admin">
   /* Admin page */
   /* Keep the scrollbar's space even when the page is short, so collapsing, filtering or a
      refresh that changes the page's height never shifts everything sideways. */
@@ -345,8 +348,9 @@
   details.archived summary { cursor: pointer; font-weight: 600; }
   details.archived ul { list-style: none; margin: 10px 0 0; padding: 0; }
   details.archived li { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 7px 0; border-bottom: 1px solid #eef1f3; }
+</style>
 
-  /* ============================== @pages Ask */
+<style data-pages="Ask">
   /* participant page */
   body {
     padding: 24px 20px 48px;
@@ -450,8 +454,9 @@
   html.big .langs button, html.big .topics button.metoo { font-size: 1rem; }
   .sent li.done { color: var(--ink); }
   .sent .tick { display: inline-block; margin-left: 8px; font-size: 0.78rem; font-weight: 600; color: var(--action); background: var(--action-soft); border-radius: 999px; padding: 1px 8px; }
+</style>
 
-  /* ============================== @pages Denied */
+<style data-pages="Denied">
   /* notices and session picker */
   body { padding: 15vh 24px; max-width: 30rem; margin-inline: auto; }
   .logo { display: block; max-height: 48px; max-width: 200px; margin-bottom: 24px; }
@@ -462,8 +467,9 @@
   li a { display: flex; justify-content: space-between; gap: 12px; padding: 12px 14px; color: var(--ink); text-decoration: none; transition: background-color 0.12s var(--ease); }
   li a:hover { background: var(--action-soft); }
   li span { color: var(--muted); font-size: 0.9rem; }
+</style>
 
-  /* ============================== @pages Home */
+<style data-pages="Home">
   /* landing page */
   html, body { min-height: 100%; }
   body { display: flex; flex-direction: column; background: radial-gradient(1200px 400px at 50% -120px, var(--action-soft), transparent 70%), var(--paper); }
@@ -493,8 +499,9 @@
   .staff .links a { margin-left: 12px; }
   .quiet { color: var(--muted); font-size: 0.9rem; margin: 0; }
   footer { text-align: center; color: var(--muted); font-size: 0.85rem; padding: 18px 24px 24px; }
+</style>
 
-  /* ============================== @pages Moderate */
+<style data-pages="Moderate">
   /* QA Facilitator queue */
   /* Keep the scrollbar's space even when the page is short, so collapsing, filtering or a
      refresh that changes the page's height never shifts everything sideways. */
@@ -641,8 +648,9 @@
     .topic > .head .acts { width: 100%; }
     .updated { margin-left: 0; width: 100%; }
   }
+</style>
 
-  /* ============================== @pages Panel */
+<style data-pages="Panel">
   /* panelist view */
   /* Panelist view: a tablet or laptop on the panel table. Read-only, large, calm. */
   html, body { height: 100%; }
@@ -670,8 +678,9 @@
   .foot { display: flex; justify-content: space-between; gap: 16px; color: var(--soft); font-size: clamp(0.8rem, 1.4vw, 1rem); font-variant-numeric: tabular-nums; }
   .foot .stale { color: #e8a13a; font-weight: 600; }
   main > * { animation: qd-rise 0.3s var(--ease); }
+</style>
 
-  /* ============================== @pages Sheet */
+<style data-pages="Sheet">
   /* printable QR sheets */
   /* Printable QR sheets for an event's shareable-link sessions: one page each. */
   body { padding: 24px; }
@@ -700,8 +709,9 @@
     .page { box-shadow: none; border-radius: 0; margin: 0; max-width: none; min-height: 100vh; page-break-after: always; break-after: page; }
     .page:last-of-type { page-break-after: auto; break-after: auto; }
   }
+</style>
 
-  /* ============================== @pages Present */
+<style data-pages="Present">
   /* room screen and PowerPoint slide */
   [hidden] { display: none !important; }
   * { box-sizing: border-box; }
