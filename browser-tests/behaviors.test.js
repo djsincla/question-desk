@@ -514,3 +514,29 @@ test('chromium: Gemini settings on the Health tab save, try out, and list models
     assert.match(await page.textContent('#gem-list-note'), /3 models/);
   });
 });
+
+test('chromium: the Admin tab row shows no scrollbar when the browser always shows scrollbars', async () => {
+  // Seen live in Chrome with "always show scrollbars": the tab underline pokes 1px past the
+  // row, and the row's sideways scrolling (for phones) turned that into a small vertical bar.
+  const browser = await chromium.launch({ ignoreDefaultArgs: ['--hide-scrollbars'] });
+  const ctx = await serve(0);
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const page = await context.newPage();
+  try {
+    await page.goto('http://127.0.0.1:' + ctx.server.address().port + '/?view=admin&as=owner');
+    await page.waitForSelector('nav.tabs button');
+    const bars = await page.$eval('nav.tabs', (el) => {
+      const cs = getComputedStyle(el);
+      const px = (v) => parseFloat(v) || 0;
+      return {
+        vertical: el.offsetWidth - el.clientWidth - px(cs.borderLeftWidth) - px(cs.borderRightWidth),
+        horizontal: el.offsetHeight - el.clientHeight - px(cs.borderTopWidth) - px(cs.borderBottomWidth)
+      };
+    });
+    assert.deepEqual(bars, { vertical: 0, horizontal: 0 }, 'scrollbar space inside the tab row');
+  } finally {
+    await context.close();
+    await browser.close();
+    ctx.server.close();
+  }
+});

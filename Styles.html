@@ -199,6 +199,10 @@
 
   /* Tabs: a segmented bar with an accent underline that slides between tabs. */
   nav.tabs { display: flex; gap: 2px; margin: 18px 0 22px; border-bottom: 1px solid var(--rule); overflow-x: auto; }
+  /* It scrolls sideways on phones, but never shows a scrollbar: the selected tab's underline
+     pokes 1px past the row, which browsers that always show scrollbars drew as a small bar. */
+  nav.tabs { scrollbar-width: none; }
+  nav.tabs::-webkit-scrollbar { display: none; }
   nav.tabs button { border: 0; border-radius: var(--radius-sm) var(--radius-sm) 0 0; background: none; box-shadow: none; padding: 9px 14px; color: var(--muted); position: relative; white-space: nowrap; }
   nav.tabs button:hover { background: rgba(16, 24, 40, 0.04); color: var(--ink); }
   nav.tabs button::after { content: ""; position: absolute; left: 10px; right: 10px; bottom: -1px; height: 3px; border-radius: 3px 3px 0 0; background: var(--action); transform: scaleX(0); transition: transform 0.2s var(--ease); }
