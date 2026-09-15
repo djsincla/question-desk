@@ -133,7 +133,6 @@ function saveSessionAs_(input, me, dryRun) {
     cooldownSeconds: cooldown,
     moderators: moderators,
     emailOnEnd: !!input.emailOnEnd,
-    summary: summarySetting_(input.summary),
     scheduledStart: start,
     scheduledEnd: end,
     brand: { orgName: cleanText_(input.brandOrgName, 80), accent: brandAccent.toLowerCase() },
@@ -145,7 +144,6 @@ function saveSessionAs_(input, me, dryRun) {
   if (fields.eventId && !getEvent_(fields.eventId)) throw new Error('That event no longer exists.');
 
   let savedId = input.id;
-  if (input.summary === undefined) delete fields.summary;   // leave recipients as they were
   if (input.guestPage === undefined) delete fields.guestPage;
   if (input.eventId === undefined) delete fields.eventId;   // edits that don't mention it keep it
   if (dryRun) return input.id || null;
@@ -496,32 +494,31 @@ function removePerson(role, email) {
 // ---------------------------------------------------------------- summary recipients
 
 /** Organization default: the session's QA Facilitators and/or extra addresses. */
+/**
+ * The Session Summary Email Recipients (People tab): { extra: [addresses] }. `facilitators` is
+ * always false: since 2.24.1 summaries go only to this list, never automatically to a session's
+ * QA Facilitators, and sessions no longer choose their own recipients.
+ */
 function summaryDefaults_() {
   const saved = JSON.parse(props_().getProperty('SUMMARY_DEFAULTS') || 'null');
-  return saved || { facilitators: true, extra: [] };
+  return { facilitators: false, extra: (saved && saved.extra) || [] };
 }
 
-/** Validates { facilitators, extra } from a form. Extra addresses may be outside the domain. */
+/** Validates the People tab list. Addresses may be outside the domain. */
 function cleanSummaryRecipients_(input) {
   input = input || {};
   const extra = parseEmails_(Array.isArray(input.extra) ? input.extra : String(input.extra || ''));
-  return { facilitators: input.facilitators !== false, extra: extra };
+  return { facilitators: false, extra: extra };
 }
 
-/** A session either uses the default or its own { facilitators, extra }. */
-function summarySetting_(input) {
-  if (!input || input.mode !== 'custom') return { mode: 'default' };
-  const custom = cleanSummaryRecipients_(input);
-  return { mode: 'custom', facilitators: custom.facilitators, extra: custom.extra };
-}
-
-/** Who gets this session's summary, de-duplicated, at most CONFIG.maxRecipients. */
+/**
+ * Who gets a session's summary: the Session Summary Email Recipients on the People tab,
+ * de-duplicated, at most CONFIG.maxRecipients. The same for every session (older sessions'
+ * own recipient settings are ignored).
+ */
 function summaryRecipients_(session) {
-  const setting = session.summary && session.summary.mode === 'custom' ? session.summary : summaryDefaults_();
   const list = [];
-  const add = function (e) { e = String(e).toLowerCase(); if (list.indexOf(e) === -1) list.push(e); };
-  if (setting.facilitators !== false) facilitatorsFor_(session).forEach(add);
-  (setting.extra || []).forEach(add);
+  summaryDefaults_().extra.forEach(function (e) { e = String(e).toLowerCase(); if (list.indexOf(e) === -1) list.push(e); });
   return list.slice(0, CONFIG.maxRecipients);
 }
 
@@ -540,7 +537,7 @@ function saveSummaryDefaults(input) {
   // Nobody at all is allowed: then summaries go only to sessions with their own recipients.
   const clean = cleanSummaryRecipients_(input);
   props_().setProperty('SUMMARY_DEFAULTS', JSON.stringify(clean));
-  audit_('Summary recipients changed', null, (clean.facilitators ? 'QA Facilitators, ' : '') + (clean.extra.join(', ') || 'no other addresses'));
+  audit_('Summary recipients changed', null, clean.extra.join(', ') || 'nobody');
   return adminState();
 }
 

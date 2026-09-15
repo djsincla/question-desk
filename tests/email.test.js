@@ -11,7 +11,7 @@ function csvOf(message) {
 }
 
 test('ending a session emails its moderators a summary with a CSV', () => {
-  const h = createApp().install({ moderators: [MOD, MOD2] });
+  const h = createApp().install({ summaryTo: [MOD, MOD2], moderators: [MOD, MOD2] });
   h.app.saveBrand({ orgName: 'Example Society' });
   const s = h.session({ name: 'Family night', access: 'link', active: true, moderators: [MOD, MOD2], emailOnEnd: true });
   h.ask(s, h.join(s), 'Parking is a problem');
@@ -34,7 +34,7 @@ test('ending a session emails its moderators a summary with a CSV', () => {
 });
 
 test('ending runs a final grouping pass so the summary is translated', () => {
-  const h = createApp().install({ moderators: [MOD] });
+  const h = createApp().install({ summaryTo: [MOD], moderators: [MOD] });
   const s = h.session({ name: 'Final pass', access: 'link', active: true, moderators: [MOD], emailOnEnd: true });
   h.ask(s, h.join(s), 'Ungrouped until the end');
   h.env.geminiCalls.length = 0;
@@ -44,7 +44,7 @@ test('ending runs a final grouping pass so the summary is translated', () => {
 });
 
 test('the summary still sends when final grouping fails', () => {
-  const h = createApp().install({ moderators: [MOD] });
+  const h = createApp().install({ summaryTo: [MOD], moderators: [MOD] });
   const s = h.session({ name: 'Gemini down', access: 'link', active: true, moderators: [MOD], emailOnEnd: true });
   h.ask(s, h.join(s), 'Will this still arrive?');
   h.env.gemini = () => ({ status: 503, text: 'unavailable' });
@@ -76,7 +76,7 @@ test('dismissed questions are counted but left out of the summary body, kept in 
 });
 
 test('summary HTML is escaped and CSV cells are formula-guarded', () => {
-  const h = createApp().install({ moderators: [MOD] });
+  const h = createApp().install({ summaryTo: [MOD], moderators: [MOD] });
   const s = h.session({ name: '<script>alert(1)</script>', access: 'link', active: true, moderators: [MOD] });
   h.ask(s, h.join(s), '<img src=x onerror=alert(1)> question');
   h.ask(s, h.join(s), '=HYPERLINK("http://evil","click") please');
@@ -141,64 +141,40 @@ test('moderators cannot send email', () => {
 
 // ------------------------------------------------------------ custom recipients
 
-test('by default the summary goes to the session\'s QA Facilitators', () => {
+test('summaries go only to the Session Summary Email Recipients on the People tab, never automatically to QA Facilitators', () => {
   const h = createApp().install({ moderators: [MOD, MOD2] });
   const s = h.session({ name: 'Default', access: 'link', active: true, moderators: [MOD, MOD2], emailOnEnd: true });
-  assert.deepEqual(h.app.adminState().sessions[0].summaryTo, [MOD, MOD2]);
-  h.app.endSession(s.id, 'Default');
-  assert.deepEqual(h.env.outbox.map((m) => m.to), [MOD, MOD2]);
-});
+  assert.deepEqual(h.app.adminState().sessions[0].summaryTo, [], 'nobody until the People tab lists someone');
+  assert.equal(h.app.endSession(s.id, 'Default').emailed, 0, 'QA Facilitators are not emailed automatically');
 
-test('the organization default can add outside addresses or drop facilitators', () => {
-  const h = createApp().install({ moderators: [MOD] });
-  h.app.saveSummaryDefaults({ facilitators: true, extra: 'board@partner.test, Chair@partner.test\nboard@partner.test' });
-  const s = h.session({ name: 'Board copy', access: 'link', active: true, moderators: [MOD], emailOnEnd: true });
-  assert.deepEqual(h.app.adminState().summaryDefaults, { facilitators: true, extra: ['board@partner.test', 'chair@partner.test'] });
-  h.app.endSession(s.id, 'Board copy');
-  assert.deepEqual(h.env.outbox.map((m) => m.to), [MOD, 'board@partner.test', 'chair@partner.test']);
+  h.app.saveSummaryDefaults({ extra: 'board@partner.test, Chair@partner.test\nboard@partner.test' });
+  assert.deepEqual(h.app.adminState().summaryDefaults, { facilitators: false, extra: ['board@partner.test', 'chair@partner.test'] });
+  const t = h.session({ name: 'Board copy', access: 'link', active: true, moderators: [MOD], emailOnEnd: true });
+  assert.deepEqual(h.app.adminState().sessions.find((x) => x.id === t.id).summaryTo, ['board@partner.test', 'chair@partner.test']);
+  h.app.endSession(t.id, 'Board copy');
+  assert.deepEqual(h.env.outbox.map((m) => m.to), ['board@partner.test', 'chair@partner.test'], 'only the list, one message each');
+
+  // An old saved setting that included facilitators, or a session's own old recipients, change nothing.
+  h.props.setProperty('SUMMARY_DEFAULTS', JSON.stringify({ facilitators: true, extra: ['records@example.org'] }));
+  const old = h.session({ name: 'Old setting', access: 'link', active: true, moderators: [MOD], emailOnEnd: true });
+  const stored = h.app.getSession_(old.id);
+  stored.summary = { mode: 'custom', facilitators: true, extra: ['partner-lead@partner.test'] };
+  h.props.setProperty('SESSION_' + old.id, JSON.stringify(stored));
   h.env.outbox.length = 0;
-
-  h.app.saveSummaryDefaults({ facilitators: false, extra: 'records@example.org' });
-  const t = h.session({ name: 'Records only', access: 'link', active: true, moderators: [MOD], emailOnEnd: true });
-  h.app.endSession(t.id, 'Records only');
+  h.app.endSession(old.id, 'Old setting');
   assert.deepEqual(h.env.outbox.map((m) => m.to), ['records@example.org']);
-
-  h.app.saveSummaryDefaults({ facilitators: false, extra: [] });
-  const quiet = h.session({ name: 'Nobody by default', access: 'link', active: true, moderators: [MOD], emailOnEnd: true });
-  assert.equal(h.app.endSession(quiet.id, 'Nobody by default').emailed, 0, 'no default recipients means no email');
   assert.throws(() => h.app.saveSummaryDefaults({ extra: 'not an email' }), /Not an email address/);
 });
 
-test('a session can override the default recipients, and edits without recipients keep them', () => {
-  const h = createApp().install({ moderators: [MOD] });
-  h.app.saveSummaryDefaults({ facilitators: true, extra: 'board@partner.test' });
-  h.app.saveSession({ name: 'Partner event', access: 'link', moderators: [MOD], emailOnEnd: true,
-    summary: { mode: 'custom', facilitators: false, extra: 'partner-lead@partner.test' } });
-  const s = h.app.allSessions_()[0];
-  assert.deepEqual(h.app.adminState().sessions[0].summaryTo, ['partner-lead@partner.test']);
-
-  h.app.saveSession({ id: s.id, name: 'Partner event renamed', access: 'link', moderators: [MOD], emailOnEnd: true });
-  assert.deepEqual(h.app.adminState().sessions[0].summaryTo, ['partner-lead@partner.test'], 'kept');
-
-  h.app.setSessionActive(s.id, true);
-  h.app.endSession(s.id, 'Partner event renamed');
-  assert.equal(h.env.outbox[0].to, 'partner-lead@partner.test');
-
-  h.app.saveSession({ id: s.id, name: 'Partner event renamed', access: 'link', moderators: [MOD], summary: { mode: 'default' } });
-  assert.deepEqual(h.app.adminState().sessions[0].summaryTo, [MOD, 'board@partner.test'], 'back to default');
-});
-
-test('Email summary resends to the resolved recipients unless others are typed', () => {
-  const h = createApp().install({ moderators: [MOD] });
-  h.app.saveSession({ name: 'Resend', access: 'link', moderators: [MOD], summary: { mode: 'custom', facilitators: true, extra: 'x@partner.test' } });
-  const s = h.app.allSessions_()[0];
-  h.app.setSessionActive(s.id, true);
+test('Email summary resends to the People tab recipients unless others are typed', () => {
+  const h = createApp().install({ moderators: [MOD], summaryTo: ['x@partner.test'] });
+  const s = h.session({ name: 'Resend', access: 'link', active: true, moderators: [MOD] });
   h.app.endSession(s.id, 'Resend');
   h.env.outbox.length = 0;
   h.app.emailSummary(s.id);
-  assert.deepEqual(h.env.outbox.map((m) => m.to), [MOD, 'x@partner.test']);
+  assert.deepEqual(h.env.outbox.map((m) => m.to), ['x@partner.test']);
   h.app.emailSummary(s.id, ['someone@partner.test']);
-  assert.equal(h.env.outbox[2].to, 'someone@partner.test');
+  assert.equal(h.env.outbox[1].to, 'someone@partner.test');
 });
 
 test('only admins change summary recipients', () => {
@@ -208,7 +184,7 @@ test('only admins change summary recipients', () => {
 });
 
 test('the summary keeps original wording and the English translation for every question', () => {
-  const h = createApp().install({ moderators: [MOD] });
+  const h = createApp().install({ summaryTo: [MOD], moderators: [MOD] });
   const s = h.session({ name: 'Languages', access: 'link', active: true, moderators: [MOD], emailOnEnd: true });
   h.ask(s, h.join(s), 'Parking is a problem');
   h.ask(s, h.join(s), '주차 공간이 부족합니다');
@@ -243,7 +219,7 @@ test('the summary keeps original wording and the English translation for every q
 });
 
 test('questions that were never translated are labeled, never silently dropped', () => {
-  const h = createApp().install({ moderators: [MOD] });
+  const h = createApp().install({ summaryTo: [MOD], moderators: [MOD] });
   const s = h.session({ name: 'No Gemini', access: 'link', active: true, moderators: [MOD], emailOnEnd: true });
   h.ask(s, h.join(s), '¿Hay transporte para las familias?');
   h.env.gemini = () => ({ status: 503, text: 'down' });

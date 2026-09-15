@@ -6,7 +6,7 @@ const { createApp } = require('./harness');
 const MOD = 'mod@example.org';
 
 function setup() {
-  const h = createApp().install({ moderators: [MOD] });
+  const h = createApp().install({ moderators: [MOD], summaryTo: [MOD] });
   const s = h.session({ name: 'Topics', access: 'link', active: true, moderators: [MOD] });
   return { h, s };
 }

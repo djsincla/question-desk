@@ -22,9 +22,6 @@ const SESSION_CSV = [
   ['Scheduled start', 'scheduledStart'],
   ['Scheduled end', 'scheduledEnd'],
   ['QA Facilitators', 'moderators'],
-  ['Summary recipients (default or custom)', 'summaryMode'],
-  ['Custom summary: include QA Facilitators (yes or no)', 'summaryFacilitators'],
-  ['Custom summary: other addresses', 'summaryExtra'],
   ['Guest page for room screen (yes or no)', 'guestRoom'],
   ['Guest page for PowerPoint slide (yes or no)', 'guestSlide'],
   ['Guest page for panelist view (yes or no)', 'guestPanel'],
@@ -49,7 +46,6 @@ function exportSessionsCsv() {
   const yesNo = function (v) { return v ? 'yes' : 'no'; };
   const time = function (ms) { return ms ? Utilities.formatDate(new Date(ms), tz, CSV_TIME_FORMAT) : ''; };
   const rows = allSessions_().filter(function (s) { return !s.loadTest; }).map(function (s) {
-    const summary = s.summary && s.summary.mode === 'custom' ? s.summary : null;
     const guest = guestChoice_(s.guestPage);
     const own = s.brand || {};
     const values = {
@@ -57,9 +53,6 @@ function exportSessionsCsv() {
       cooldownSeconds: cooldownFor_(s), maxLength: s.maxLength || CONFIG.defaultMaxLength, emailOnEnd: yesNo(s.emailOnEnd),
       scheduledStart: time(s.scheduledStart), scheduledEnd: time(s.scheduledEnd),
       moderators: (s.moderators || []).join('; '),
-      summaryMode: summary ? 'custom' : 'default',
-      summaryFacilitators: summary ? yesNo(summary.facilitators !== false) : '',
-      summaryExtra: summary ? (summary.extra || []).join('; ') : '',
       guestRoom: yesNo(guest.room), guestSlide: yesNo(guest.slide), guestPanel: yesNo(guest.panel), guestUrl: guest.url,
       brandOrgName: own.orgName || '', brandAccent: own.accent || '',
       prepared: (prepared[s.id] || []).join('\n'), translatePrepared: yesNo(s.translatePrepared !== false), status: s.status
@@ -210,13 +203,6 @@ function importSessionsCsv(text, options, dryRun) {
         if (missing.length) out.warnings.push('Not on the QA Facilitator list, so not added: ' + missing.join(', ') + '. Add them on the People tab.');
         input.moderators = listed.filter(function (e) { return roster.indexOf(e) !== -1; });
       }
-      if (has('summaryMode') || has('summaryExtra') || has('summaryFacilitators')) {
-        const mode = String(get.summaryMode || '').trim().toLowerCase() || (String(get.summaryExtra || '').trim() ? 'custom' : 'default');
-        if (mode !== 'default' && mode !== 'custom') throw new Error('Summary recipients should be default or custom, not "' + get.summaryMode + '".');
-        input.summary = mode === 'custom'
-          ? { mode: 'custom', facilitators: csvYes_(get.summaryFacilitators, 'Include QA Facilitators', true), extra: parseEmails_(get.summaryExtra || '') }
-          : { mode: 'default' };
-      }
       if (has('guestRoom') || has('guestSlide') || has('guestPanel') || has('guestUrl')) {
         const g = guestChoice_(input.guestPage);
         input.guestPage = {
@@ -286,7 +272,7 @@ function sessionInput_(s) {
     id: s.id, name: s.name, heading: s.heading, access: s.access, theme: s.theme, maxLength: s.maxLength,
     cooldownSeconds: cooldownFor_(s), moderators: (s.moderators || []).slice(), emailOnEnd: !!s.emailOnEnd,
     translatePrepared: s.translatePrepared !== false, roomQuestions: !!s.roomQuestions,
-    summary: s.summary, scheduledStart: s.scheduledStart || null, scheduledEnd: s.scheduledEnd || null,
+    scheduledStart: s.scheduledStart || null, scheduledEnd: s.scheduledEnd || null,
     brandOrgName: own.orgName || '', brandAccent: own.accent || '', guestPage: s.guestPage, eventId: s.eventId || ''
   };
 }

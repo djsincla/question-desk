@@ -8,7 +8,7 @@ const MOD = 'mod@example.org';
 const MOD2 = 'mod2@example.org';
 
 test('QA Facilitators assigned to an event run every session in it and get its summaries', () => {
-  const h = createApp().install({ moderators: [MOD, MOD2] });
+  const h = createApp().install({ summaryTo: [MOD, MOD2], moderators: [MOD, MOD2] });
   const eid = h.app.saveEvent({ name: 'Conference', moderators: [MOD, 'stranger@example.org'] }).savedEventId;
   assert.deepEqual(h.app.getEvent_(eid).moderators, [MOD], 'only people on the QA Facilitator list');
   const a = h.session({ name: 'Room A', access: 'link', active: true, eventId: eid, moderators: [MOD2], emailOnEnd: true });
@@ -22,7 +22,7 @@ test('QA Facilitators assigned to an event run every session in it and get its s
   assert.deepEqual(h.app.mySessions().map((s) => s.name).sort(), ['Room A', 'Room B']);
 
   h.as(OWNER);
-  assert.deepEqual(h.app.adminState().sessions.find((s) => s.id === a.id).summaryTo, [MOD2, MOD]);
+  assert.deepEqual(h.app.adminState().sessions.find((s) => s.id === a.id).summaryTo, [MOD, MOD2], 'the People tab recipients');
   h.app.emailLinks(b.id, { toModerators: true, present: true, moderate: true });
   assert.deepEqual(h.env.outbox.map((m) => m.to), [MOD]);
 
@@ -86,9 +86,13 @@ test('the day-of checklist flags what isn\'t ready, per session', () => {
   h.app.saveSession({ name: 'Ready', eventId: eid, moderators: [MOD], emailOnEnd: true, scheduledStart: soon, scheduledEnd: soon + 3600000,
     guestPage: { room: true, slide: true } });
   h.app.saveSession({ name: 'Not ready', eventId: eid, emailOnEnd: true });
-  h.app.saveSummaryDefaults({ facilitators: true, extra: [] });
+  h.app.saveSummaryDefaults({ extra: [] });
+  let res = h.app.eventChecklist(eid);
+  assert.equal(res.sessions.find((x) => x.name === 'Ready').checks.find((c) => c.label === 'Summary email').ok, false, 'nobody on the People tab');
+  h.app.saveSummaryDefaults({ extra: ['board@partner.test'] });
+  h.app.saveSession({ id: h.app.allSessions_().find((x) => x.name === 'Not ready').id, name: 'Not ready', eventId: eid, emailOnEnd: false });
 
-  const res = h.app.eventChecklist(eid);
+  res = h.app.eventChecklist(eid);
   assert.equal(res.event.name, 'Tonight');
   assert.ok(res.site.find((c) => /every minute/.test(c.label)).ok);
   const by = Object.fromEntries(res.sessions.map((s) => [s.name, Object.fromEntries(s.checks.map((c) => [c.label, c]))]));
@@ -98,14 +102,14 @@ test('the day-of checklist flags what isn\'t ready, per session', () => {
   assert.equal(by.Ready['Guest page'].ok, true);
   assert.equal(by['Not ready']['Not active'].ok, null);
   assert.equal(by['Not ready']['QA Facilitators'].ok, false);
-  assert.equal(by['Not ready']['Summary email'].ok, false, 'on, but nobody would get it');
+  assert.notEqual(by['Not ready']['Summary email'].ok, true, 'not sent');
   assert.match(res.sessions[0].links.present, /view=present/);
   h.as(MOD);
   assert.throws(() => h.app.eventChecklist(eid), /Only administrators/);
 });
 
 test('one summary email for a whole event, with every session and a single CSV', () => {
-  const h = createApp().install({ moderators: [MOD] });
+  const h = createApp().install({ summaryTo: [MOD], moderators: [MOD] });
   const eid = h.app.saveEvent({ name: 'Conference' }).savedEventId;
   const a = h.session({ name: 'Room A', access: 'link', active: true, eventId: eid, moderators: [MOD] });
   const b = h.session({ name: 'Room B', access: 'link', active: true, eventId: eid, moderators: [MOD] });

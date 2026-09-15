@@ -168,8 +168,10 @@ does not carry the query string. That exact bug shipped once (v2): every QR scan
   them unless `includePrepared`; clustering, phones, counts and summaries skip them. Only
   `usePrepared()` turns them into `new` (re-timestamped). Saving a session with a
   `prepared` list replaces only the unused ones.
-- Summary recipients: `SUMMARY_DEFAULTS` property `{facilitators, extra}`, overridden by a
-  session's `summary: {mode:'custom', ...}`; always resolve with `summaryRecipients_()`.
+- Summary recipients: only the People tab's Session Summary Email Recipients
+  (`SUMMARY_DEFAULTS.extra`); since 2.24.1 never a session's QA Facilitators automatically, and
+  sessions have no recipient override (old `summary` settings are ignored). Always resolve with
+  `summaryRecipients_()`.
   Extra addresses may be outside the domain. The summary must always show original
   wording plus the English translation (`sameLanguage_` decides when one line suffices).
 - The wait between questions is per session (`cooldownSeconds`, 0–3600). The cache stores

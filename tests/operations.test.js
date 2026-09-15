@@ -46,7 +46,7 @@ test('changing the start time re-arms the schedule', () => {
 });
 
 test('a scheduled end ends the session and sends the summary', () => {
-  const h = createApp().install({ moderators: [MOD] });
+  const h = createApp().install({ summaryTo: [MOD], moderators: [MOD] });
   const now = h.env.clock.now;
   const s = h.session({ name: 'Ends itself', access: 'link', moderators: [MOD], emailOnEnd: true,
                         scheduledStart: now + 1000, scheduledEnd: now + 60 * MINUTE * 1000 });
@@ -275,7 +275,7 @@ test('a scheduled end that has already passed is refused, so a typo cannot end a
 });
 
 test('a summary that fails to send is kept and retried by the schedule', () => {
-  const h = createApp().install({ moderators: [MOD] });
+  const h = createApp().install({ summaryTo: [MOD], moderators: [MOD] });
   const s = h.session({ name: 'Quota', access: 'link', active: true, moderators: [MOD], emailOnEnd: true });
   h.ask(s, h.join(s), 'Parking is a problem');
   h.env.mailQuota = 0;

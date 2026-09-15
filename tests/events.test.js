@@ -91,7 +91,7 @@ test('event branding overrides the site; session branding overrides the event', 
 });
 
 test('queue, landing page, picker and summary email name the event', () => {
-  const h = createApp().install({ moderators: [MOD] });
+  const h = createApp().install({ summaryTo: [MOD], moderators: [MOD] });
   const eid = h.app.saveEvent({ name: 'Spring Conference' }).savedEventId;
   const s = h.session({ name: 'Keynote', access: 'link', active: true, moderators: [MOD], eventId: eid, emailOnEnd: true });
   h.ask(s, h.join(s), 'Parking is a problem');
@@ -147,7 +147,7 @@ test('ended sessions are archived out of Script Properties after 30 days, and ca
 });
 
 test('a summary still owed is not archived', () => {
-  const h = createApp().install({ moderators: [MOD] });
+  const h = createApp().install({ summaryTo: [MOD], moderators: [MOD] });
   const s = h.session({ name: 'Owed', access: 'link', active: true, moderators: [MOD], emailOnEnd: true });
   h.env.mailQuota = 0;
   h.app.endSession(s.id, 'Owed');

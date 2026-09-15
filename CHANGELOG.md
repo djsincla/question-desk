@@ -4,6 +4,16 @@ All notable changes to Question Desk. Versions follow [Semantic Versioning](http
 Each release is tagged `vX.Y.Z` and published as a GitHub release by `scripts/ship.sh`,
 which reads the notes for that version from this file.
 
+## [2.24.1] - 2026-09-14
+
+### Changed
+- **Question summaries go only to the Session Summary Email Recipients on the People tab.**
+  A session's QA Facilitators are no longer added automatically, and the session form's
+  own recipient choice is gone (older sessions' choices are ignored), so the People tab is
+  the one place that decides. The session form shows who will get it. The three summary
+  recipient columns left the sessions CSV; older files still import (the columns are
+  ignored). **Email summary** can still send to anyone you type.
+
 ## [2.24.0] - 2026-09-14
 
 ### Added
@@ -778,6 +788,7 @@ Fixes from a full code review.
 - "Merge into one question" for reading a topic aloud.
 - Participant page in English, Korean and Spanish.
 
+[2.24.1]: https://github.com/djsincla/question-desk/releases/tag/v2.24.1
 [2.24.0]: https://github.com/djsincla/question-desk/releases/tag/v2.24.0
 [2.23.0]: https://github.com/djsincla/question-desk/releases/tag/v2.23.0
 [2.22.4]: https://github.com/djsincla/question-desk/releases/tag/v2.22.4

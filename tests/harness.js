@@ -394,6 +394,8 @@ function createApp(options) {
       scriptProperties.setProperty('GEMINI_API_KEY', 'test-key');
       (opts.moderators || []).forEach((m) => app.addPerson('moderator', m));
       (opts.admins || []).forEach((m) => app.addPerson('admin', m));
+      // Session Summary Email Recipients (People tab): the only people summaries go to.
+      if (opts.summaryTo) app.saveSummaryDefaults({ extra: opts.summaryTo });
       env.activeUser = was;
       return h;
     },

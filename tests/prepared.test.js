@@ -6,7 +6,7 @@ const { createApp } = require('./harness');
 const MOD = 'mod@example.org';
 
 function setup(prepared) {
-  const h = createApp().install({ moderators: [MOD] });
+  const h = createApp().install({ moderators: [MOD], summaryTo: [MOD] });
   h.app.saveSession({ name: 'Prepared', access: 'link', moderators: [MOD], prepared });
   const s = h.app.allSessions_()[0];
   h.app.setSessionActive(s.id, true);

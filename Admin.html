@@ -85,7 +85,7 @@
     <div class="field">
       <span class="field-label">QA Facilitators for every session in this event</span>
       <div id="ev-mods"></div>
-      <div class="hint">They can run the queue for all of this event's sessions, and get their summaries when summaries go to QA Facilitators. Sessions can add more of their own.</div>
+      <div class="hint">They can run the queue for all of this event's sessions. Sessions can add more of their own. (Summaries go to the Session Summary Email Recipients on the People tab.)</div>
     </div>
     <fieldset>
       <legend>Languages</legend>
@@ -181,7 +181,7 @@
       </label>
       <label class="field"><span>&nbsp;</span>
         <span class="choice"><input type="checkbox" id="f-email">
-          <span>Email the questions summary when the session ends<small>Topics, merged questions, every question in its original wording with the English translation, and a CSV file.</small></span></span>
+          <span>Email the questions summary when the session ends<small>To the Session Summary Email Recipients on the People tab: <span id="f-summary-to"></span>. Topics, merged questions, every question in its original wording with the English translation, and a CSV file.</small></span></span>
       </label>
     </div>
 
@@ -201,20 +201,6 @@
       </label>
     </fieldset>
 
-    <fieldset>
-      <legend>Session Summary Email Recipients</legend>
-      <label class="choice"><input type="radio" name="summaryMode" value="default" checked>
-        <span>Organization default<small id="f-summary-default"></small></span></label>
-      <label class="choice"><input type="radio" name="summaryMode" value="custom">
-        <span>Custom for this session</span></label>
-      <div class="indent" id="f-summary-custom" hidden>
-        <label class="choice"><input type="checkbox" id="f-summary-facilitators" checked><span>This session's QA Facilitators</span></label>
-        <label class="field flush-bottom"><span>Also send to</span>
-          <textarea id="f-summary-extra" rows="2" placeholder="board@example.org, partner@example.org"></textarea>
-          <div class="hint">Any email address, including people outside your organization. Separate with commas or new lines.</div>
-        </label>
-      </div>
-    </fieldset>
 
     <label class="field"><span>Prepared questions (optional)</span>
       <textarea id="f-prepared" rows="5" placeholder="One question per line"></textarea>
@@ -1317,14 +1303,7 @@
     $('f-guest-url').value = guest.url || '';
     $('f-guest-url-box').hidden = !(guest.room || guest.slide || guest.panel);
     $('f-guest-url').placeholder = 'Uses ' + (state.guestPageUrl || state.guestPageDefault);
-    var summary = s.summary && s.summary.mode === 'custom' ? s.summary : null;
-    radio('summaryMode', summary ? 'custom' : 'default');
-    $('f-summary-custom').hidden = !summary;
-    $('f-summary-facilitators').checked = summary ? summary.facilitators !== false : true;
-    $('f-summary-extra').value = summary ? (summary.extra || []).join(', ') : '';
-    var d = state.summaryDefaults;
-    $('f-summary-default').textContent = [d.facilitators !== false ? "this session's QA Facilitators" : '']
-      .concat(d.extra || []).filter(Boolean).join(', ') || 'nobody';
+    $('f-summary-to').textContent = (state.summaryDefaults.extra || []).join(', ') || 'nobody yet — add them on the People tab';
     $('f-start').value = toLocalInput(s.scheduledStart);
     $('f-end').value = toLocalInput(s.scheduledEnd);
     var own = s.brand || {};
@@ -1397,10 +1376,6 @@
       $('f-guest-url-box').hidden = !($('f-guest-room').checked || $('f-guest-slide').checked || $('f-guest-panel').checked);
     });
   });
-  var summaryRadios = document.querySelectorAll('input[name=summaryMode]');
-  for (var sr = 0; sr < summaryRadios.length; sr++) {
-    summaryRadios[sr].addEventListener('change', function () { $('f-summary-custom').hidden = radio('summaryMode') !== 'custom'; });
-  }
 
   $('f-logo').addEventListener('change', function () {
     var file = this.files && this.files[0];
@@ -1724,9 +1699,6 @@
       translatePrepared: $('f-translate-prepared').checked,
       roomQuestions: $('f-room-questions').checked,
       guestPage: { room: $('f-guest-room').checked, slide: $('f-guest-slide').checked, panel: $('f-guest-panel').checked, url: $('f-guest-url').value },
-      summary: radio('summaryMode') === 'custom'
-        ? { mode: 'custom', facilitators: $('f-summary-facilitators').checked, extra: $('f-summary-extra').value }
-        : { mode: 'default' },
       emailOnEnd: $('f-email').checked,
       moderators: mods,
       scheduledStart: fromLocalInput($('f-start').value),
@@ -2113,7 +2085,7 @@
   // Summary recipients: a list like administrators and QA Facilitators; every change saves.
   function saveSummary(extra, message, button, done) {
     // Only the list is edited here; whether session QA Facilitators also get it is left as saved.
-    call('saveSummaryDefaults', [{ facilitators: state.summaryDefaults.facilitators !== false, extra: extra }], function (res) {
+    call('saveSummaryDefaults', [{ extra: extra }], function (res) {
       render(res);
       toast(message);
       if (done) done();
@@ -2123,9 +2095,7 @@
   function renderSummaryList() {
     var ul = $('summaryList');
     var extra = state.summaryDefaults.extra || [];
-    $('summaryHint').textContent = "Get every session's questions summary when it ends" +
-      (state.summaryDefaults.facilitators !== false ? ", as do that session's QA Facilitators" : '') +
-      '. Anyone can be added, even outside your organization.';
+    $('summaryHint').textContent = "Every session's questions summary goes to these addresses, and only these, when it ends. Anyone can be added, even outside your organization.";
     ul.innerHTML = '';
     if (!extra.length) ul.appendChild(el('li', 'hint', 'None yet'));
     extra.forEach(function (email) {
@@ -2136,7 +2106,7 @@
       rm.onclick = function () {
         ask({
           title: 'Remove summary recipient?',
-          body: email + ' will no longer get session summaries, except from sessions that list them on their own form.',
+          body: email + ' will no longer get session summaries.',
           ok: 'Remove',
           danger: true
         }, function () {

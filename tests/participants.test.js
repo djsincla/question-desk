@@ -335,7 +335,7 @@ test('a burst of questions is saved to the inbox without the lock, then written 
 });
 
 test('questions sent just before a session ends are in its summary, and deleting a session clears its inbox', () => {
-  const h = createApp().install({ moderators: ['mod@example.org'] });
+  const h = createApp().install({ summaryTo: ['mod@example.org'], moderators: ['mod@example.org'] });
   const s = h.session({ name: 'Ending', access: 'link', active: true, moderators: ['mod@example.org'], emailOnEnd: true, cooldownSeconds: 0 });
   h.ask(s, h.join(s), 'The very last question');
   assert.equal(h.inboxCount(s.id), 1);

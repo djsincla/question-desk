@@ -34,7 +34,7 @@ test('export writes every session setting in the app time zone, and parses back'
   const byName = Object.fromEntries(rows.slice(1).map((r) => [r[1], r]));
   const k = byName['Keynote, "Main" hall'];
   assert.deepEqual(k, ['Fall Conference', 'Keynote, "Main" hall', 'Ask the panel', 'link', 'light', '45', '250', 'yes',
-    '2026-10-03 18:30', '2026-10-03 20:30', MOD + '; ' + MOD2, 'custom', 'no', 'board@partner.test', 'yes', 'no', 'yes', '',
+    '2026-10-03 18:30', '2026-10-03 20:30', MOD + '; ' + MOD2, 'yes', 'no', 'yes', '',
     'Partner', '#123456', 'What is next for teens?\nHow do we give feedback?', 'yes', 'no', 'inactive']);
   assert.equal(byName["'-starts with a dash"][1], "'-starts with a dash", 'formula guard on export');
 
