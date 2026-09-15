@@ -60,6 +60,68 @@ class QD_Questions {
 		} );
 	}
 
+	/**
+	 * A session's questions (sessionRows_). Prepared ones are left out unless asked for: until
+	 * a facilitator adds them they are not questions anyone asked.
+	 */
+	public static function rows( $sid, $include_prepared = false ) {
+		global $wpdb;
+		$sql  = 'SELECT * FROM ' . QD_Install::table( 'questions' ) . ' WHERE session_id = %s';
+		$args = array( $sid );
+		if ( ! $include_prepared ) {
+			$sql .= " AND status <> 'prepared'";
+		}
+		$rows = $wpdb->get_results( $wpdb->prepare( $sql . ' ORDER BY submitted, id', $args ) ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+		return array_map( array( __CLASS__, 'row' ), $rows );
+	}
+
+	public static function get( $id ) {
+		global $wpdb;
+		$row = $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . QD_Install::table( 'questions' ) . ' WHERE id = %s', $id ) ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+		return $row ? self::row( $row ) : null;
+	}
+
+	private static function row( $r ) {
+		return array(
+			'id'           => (string) $r->id,
+			'sessionId'    => (string) $r->session_id,
+			'text'         => (string) $r->text,
+			'device'       => (string) $r->device,
+			// '?' only ever meant "leave this one out of grouping", never a language.
+			'lang'         => ( $r->lang && '?' !== $r->lang ) ? (string) $r->lang : '',
+			'translation'  => (string) $r->translation,
+			'topic'        => (string) $r->topic,
+			'translations' => QD_Util::json_array( $r->translations ),
+			'grouping'     => (string) $r->grouping,
+			'status'       => (string) $r->status,
+			'submitted'    => (int) $r->submitted,
+		);
+	}
+
+	/** Saves one asked question. One row, one INSERT: no inbox and no lock needed here. */
+	public static function insert( $sid, $device_id, $text ) {
+		global $wpdb;
+		$id = QD_Util::new_id( 8 );
+		$ok = $wpdb->insert(
+			QD_Install::table( 'questions' ),
+			array(
+				'id'           => $id,
+				'session_id'   => $sid,
+				'submitted'    => QD_Util::now_ms(),
+				'device'       => $device_id ? $device_id : 'unknown',
+				'text'         => $text,
+				'status'       => 'new',
+				'translation'  => '',
+				'translations' => '',
+			)
+		);
+		if ( ! $ok ) {
+			return '';
+		}
+		QD_Cache::invalidate( $sid );
+		return $id;
+	}
+
 	public static function delete_for_session( $sid ) {
 		global $wpdb;
 		$wpdb->delete( QD_Install::table( 'questions' ), array( 'session_id' => $sid ) );

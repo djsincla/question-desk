@@ -35,7 +35,11 @@ edit the pages and `Code.js` at the root, as for the Apps Script version.
   duplicate, archive and restore), people as WordPress roles, and the activity log behind them.
   25 Admin functions answer for real; the 16 from later phases say so. 50 PHPUnit tests, and a
   browser test that saves and deletes a session through the REST transport in both engines.
-- [ ] Phase 2 — participants
+- [x] **Phase 2 — participants.** The participant page on WordPress data: the rotating room
+  code and device tokens, asking (length, status, wait between questions, per-session room
+  cap), Me too counted by the database itself, the topic list phones poll (approved labels
+  only, in every session language), Now answering, and a phone's own answered questions.
+  25 more PHPUnit tests and a browser test where a phone joins by link and asks.
 - [ ] Phase 3 — room screen, slide, panelist view, QR sheets
 - [ ] Phase 4 — queue
 - [ ] Phase 5 — reports and operations
@@ -67,8 +71,8 @@ The **server is rewritten in PHP**, area by area, mirroring `server/*.js`:
 | Script Properties (sessions, events, votes, tokens, settings) | Custom tables (below) and `wp_options` |
 | Questions / Topics / Archive / Activity log sheets | Custom tables via `dbDelta` |
 | Assets sheet (logos) | Media Library attachments |
-| CacheService | Transients / `wp_cache_*` (persistent object cache when the host has one) |
-| LockService, the question inbox, batched writes | MySQL: single-row `INSERT`s, atomic `UPDATE … SET n = n + 1`, transactions where rows change together. The inbox and lock workarounds aren't needed. |
+| CacheService | Transients (`QD_Cache`), so a host with a persistent object cache keeps them out of the database; per-session values carry a version replaced by every change, as in the Apps Script version |
+| LockService, the question inbox, batched writes | MySQL: one `INSERT` per question (no inbox, no lock — a test asks 100 in a row and finds 100), `INSERT … ON DUPLICATE KEY UPDATE votes = votes + 1` for Me too, named locks (`GET_LOCK`) only where a whole record is rewritten |
 | Every-minute trigger | WP-Cron event every minute, **plus** grouping kicked from queue refreshes when it's due (WP-Cron only runs when the site gets traffic). Recommend a real system cron on the host. |
 | `UrlFetchApp` (Gemini) | `wp_remote_post`; API key in settings or a `QD_GEMINI_API_KEY` constant in `wp-config.php` |
 | `MailApp` | `wp_mail` (recommend an SMTP plugin on the host) |

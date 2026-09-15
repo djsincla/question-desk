@@ -315,7 +315,7 @@ class QD_Sessions {
 			$s['ended']        = QD_Util::now_ms();
 			$s['nowAnswering'] = null;
 		} );
-		delete_transient( 'qd_token_' . $sid );
+		QD_Tokens::clear_room_token( $sid );
 		QD_Activity::log( 'Session ended', $session, '' );
 		return array( 'emailed' => 0, 'note' => '' );
 	}
@@ -333,7 +333,7 @@ class QD_Sessions {
 		QD_Settings::clear_logo( $sid );
 		QD_Questions::delete_for_session( $sid );
 		QD_Store::delete_session_row( $sid );
-		delete_transient( 'qd_token_' . $sid );
+		QD_Tokens::clear_room_token( $sid );
 		QD_Activity::log( 'Session deleted', $session, 'with its questions, topics and votes' );
 		return QD_Admin::state();
 	}
@@ -416,7 +416,7 @@ class QD_Sessions {
 		);
 		QD_Store::delete_session_row( $sid );
 		$wpdb->delete( QD_Install::table( 'votes' ), array( 'session_id' => $sid ) );
-		delete_transient( 'qd_token_' . $sid );
+		QD_Tokens::clear_room_token( $sid );
 		QD_Activity::log( 'Session archived', $session, '' );
 		return QD_Admin::state();
 	}

@@ -53,12 +53,25 @@ class QD_Router {
 		if ( 'ask' === $view && empty( $p['s'] ) ) {
 			self::home();
 		}
-		// Later phases: ask, present, panel, moderate, qrsheet.
+		if ( 'ask' === $view ) {
+			self::ask( (string) $p['s'], (string) ( $p['t'] ?? $p['k'] ?? '' ) );
+		}
+		// Later phases: present, panel, moderate, qrsheet.
 		QD_Pages::send( 'Denied.html', 'Not available yet', array(
 			'heading' => 'This page isn\'t available yet',
 			'body'    => 'The WordPress version of Question Desk is still being built.',
 			'links'   => array(),
 		) );
+	}
+
+	/** The participant page. An unknown session still gets the page, which says so. */
+	public static function ask( $sid, $credential ) {
+		$session = QD_Store::get_session( $sid );
+		QD_Pages::send( 'Ask.html', 'Ask a question', array(
+			'sid'        => $session ? $session['id'] : '',
+			'credential' => substr( (string) $credential, 0, 64 ),
+			'languages'  => QD_Settings::language_list( $session ),
+		), $session );
 	}
 
 	/** The landing page: how to join, and staff links when signed in. */
