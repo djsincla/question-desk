@@ -84,3 +84,11 @@ test('every tracked-to-be file is clean', () => {
   const findings = secrets.scanFiles(files.filter((f) => !ignored.test(f)), (f) => read(f));
   assert.deepEqual(findings, []);
 });
+
+test('the GitHub Pages splash page links the donation page and never the app itself', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'docs/index.html'), 'utf8');
+  assert.match(html, /<a class="button" href="https:\/\/www\.autismla\.org\/1\/donate\/"[^>]*>Donate<\/a>/);
+  assert.doesNotMatch(html, /script\.google(usercontent)?\.com|AKfycb/, 'no app address in the public repo');
+  assert.doesNotMatch(html, /<script|<link|<img|@import|url\(/, 'self-contained: nothing loaded from elsewhere');
+  assert.match(html, /<meta name="viewport"/);
+});

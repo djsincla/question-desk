@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Question Desk</title>
+<meta name="description" content="Anonymous, multilingual audience questions for live events. Built for the Autism Society of Los Angeles.">
+<!--
+  Project splash page, served by GitHub Pages at https://djsincla.github.io/question-desk/.
+  Deliberately general: no app address or other install-specific value lives in this public repo.
+  Self-contained (no external fonts, scripts or images) so it loads anywhere.
+-->
+<style>
+  :root {
+    --ink: #172230;
+    --muted: #5d6877;
+    --rule: #e2e6eb;
+    --paper: #f5f7f9;
+    --card: #ffffff;
+    --accent: #1b5e5a;
+    --accent-ink: #ffffff;
+    --accent-soft: #e8f1f0;
+    color-scheme: light dark;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ink: #eef2f5;
+      --muted: #a3afbb;
+      --rule: #2a3440;
+      --paper: #10171f;
+      --card: #17212b;
+      --accent: #4fb3aa;
+      --accent-ink: #0c1a19;
+      --accent-soft: #16302e;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font: 16px/1.55 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    padding-inline: 20px;
+  }
+  .band { height: 6px; background: var(--accent); margin-inline: -20px; }
+  main { max-width: 52rem; margin: 0 auto; padding-block: 56px 40px; }
+  .eyebrow { text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.8rem; font-weight: 700; color: var(--accent); margin: 0 0 10px; }
+  h1 { font-size: clamp(2.2rem, 6vw, 3.4rem); line-height: 1.05; margin: 0 0 16px; letter-spacing: -0.02em; }
+  .lead { font-size: clamp(1.1rem, 2.4vw, 1.3rem); color: var(--muted); margin: 0 0 36px; max-width: 40rem; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 16px; margin: 0 0 20px; }
+  .card { background: var(--card); border: 1px solid var(--rule); border-radius: 14px; padding: 22px; }
+  .card h2 { font-size: 1.1rem; margin: 0 0 8px; }
+  .card p { margin: 0 0 10px; color: var(--muted); }
+  .card p:last-child { margin-bottom: 0; }
+  .card ul { margin: 0; padding-left: 1.1rem; color: var(--muted); }
+  .card li { margin: 4px 0; }
+  a { color: var(--accent); }
+  .donate {
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px 24px;
+    background: var(--accent-soft); border: 1px solid var(--rule); border-left: 5px solid var(--accent);
+    border-radius: 14px; padding: 24px; margin: 28px 0;
+  }
+  .donate h2 { font-size: 1.25rem; margin: 0 0 6px; }
+  .donate p { margin: 0; color: var(--muted); max-width: 32rem; }
+  .button {
+    display: inline-block; background: var(--accent); color: var(--accent-ink); text-decoration: none;
+    font-weight: 700; padding: 12px 22px; border-radius: 10px; white-space: nowrap;
+  }
+  .button:hover, .button:focus-visible { filter: brightness(1.08); outline: 3px solid color-mix(in srgb, var(--accent) 35%, transparent); outline-offset: 2px; }
+  footer { max-width: 52rem; margin: 0 auto; padding-block: 18px 40px; border-top: 1px solid var(--rule); color: var(--muted); font-size: 0.9rem; display: flex; flex-wrap: wrap; gap: 6px 18px; }
+  footer a { color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="band"></div>
+<main>
+  <p class="eyebrow">Question Desk</p>
+  <h1>Every question heard, in any language.</h1>
+  <p class="lead">Anonymous audience questions for live events and panels. People ask from their phones, a facilitator sees them grouped by topic and translated, and the room sees what's being answered. Built for the Autism Society of Los Angeles.</p>
+
+  <div class="grid">
+    <section class="card">
+      <h2>At an event</h2>
+      <p>Scan the QR code on the screen in the room and type your question. No app, no account, and your name is never attached.</p>
+      <p>Ask in English, Korean, Spanish, Chinese, Vietnamese, Tagalog or Armenian.</p>
+    </section>
+    <section class="card">
+      <h2>Running a session</h2>
+      <ul>
+        <li>QA Facilitators and administrators sign in from the link your organization shared.</li>
+        <li>Questions are grouped by topic and translated automatically.</li>
+        <li>Show the live QR code on a slide with the <a href="https://github.com/djsincla/question-desk/blob/main/docs/addin/README.md">PowerPoint add-in</a>.</li>
+      </ul>
+    </section>
+    <section class="card">
+      <h2>Private by design</h2>
+      <p>It runs inside the organization's own Google account. Participants are anonymous, and nobody sees another person's question unless a facilitator puts it on screen.</p>
+    </section>
+  </div>
+
+  <section class="donate" aria-labelledby="donate-title">
+    <div>
+      <h2 id="donate-title">Support the Autism Society of Los Angeles</h2>
+      <p>Your gift helps autistic people and their families across Los Angeles find information, support and community.</p>
+    </div>
+    <a class="button" href="https://www.autismla.org/1/donate/" target="_blank" rel="noopener">Donate</a>
+  </section>
+</main>
+<footer>
+  <span>Question Desk is free, open-source software (Apache 2.0).</span>
+  <a href="https://github.com/djsincla/question-desk">Source and documentation on GitHub</a>
+  <a href="https://github.com/djsincla/question-desk/blob/main/docs/addin/README.md">PowerPoint add-in</a>
+  <a href="https://www.autismla.org/">autismla.org</a>
+</footer>
+</body>
+</html>
