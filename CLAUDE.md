@@ -130,6 +130,10 @@ does not carry the query string. That exact bug shipped once (v2): every QR scan
   `ungroupQuestions` clears the topic and sets language to itself or `?` so automatic
   grouping leaves it alone (`sessionRows_` hides `?`). `session.autoGroup === false`:
   Gemini translates but doesn't group. `groupNow` forces grouping (`clusterSession_(sid, true)`).
+- `session.roomQuestions` (Admin option and the queue's `setRoomQuestions`): `getRoomScreen`
+  adds `asked` from `roomQuestionList_` — the phone topic list (approved topics and shown single
+  questions) with Me too counts, most first, minus the live one, at most
+  `CONFIG.roomQuestionsMax`. Present.html renders it under the instructions.
 - Now answering is a topic or one question: `{topic}` or `{question, at}`
   (`setNowAnswering(sid, topic, questionId)`). `setStatus` clears it when the live question,
   or every open question in the live topic, is answered or dismissed. Fully answered topics

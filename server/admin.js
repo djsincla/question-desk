@@ -138,6 +138,7 @@ function saveSessionAs_(input, me, dryRun) {
     scheduledEnd: end,
     brand: { orgName: cleanText_(input.brandOrgName, 80), accent: brandAccent.toLowerCase() },
     translatePrepared: input.translatePrepared !== false,
+    roomQuestions: !!input.roomQuestions,
     guestPage: cleanGuestPageChoice_(input.guestPage),
     eventId: String(input.eventId || '')
   };

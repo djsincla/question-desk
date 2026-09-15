@@ -39,7 +39,24 @@ function getRoomScreen(sid, layout, key) {
     screen.url = guestLink_(session, 's=' + sid + '&t=' + tok.token, where);
     screen.refreshInSeconds = Math.min(5, tok.expiresIn + 1);
   }
+  if (session.roomQuestions) screen.asked = roomQuestionList_(session);
   return screen;
+}
+
+/**
+ * What the room screen lists when a session turns that on: exactly what phones show (topics and
+ * single questions a QA Facilitator put on phones), most Me too first, without the one being
+ * answered (it's in the banner). Nothing a facilitator hasn't reviewed reaches the big screen.
+ */
+function roomQuestionList_(session) {
+  const votes = votesFor_(session.id);
+  const now = session.nowAnswering || {};
+  const live = now.question ? singleKey_(now.question) : now.topic || '';
+  return publicTopicsCached_(session).topics
+    .filter(function (t) { return t.topic !== live; })
+    .map(function (t) { return { labels: t.labels, count: t.questions + (votes[t.topic] || 0) }; })
+    .sort(function (a, b) { return b.count - a.count; })
+    .slice(0, CONFIG.roomQuestionsMax);
 }
 
 // ---------------------------------------------------------------- moderation
@@ -95,6 +112,7 @@ function getBoard(sid) {
     nowAnsweringQuestion: session.nowAnswering && session.nowAnswering.question ? session.nowAnswering.question : null,
     nowAnsweringSince: session.nowAnswering ? session.nowAnswering.at || null : null,
     autoShowOnPhones: !!session.autoShowOnPhones,
+    roomQuestions: !!session.roomQuestions,
     autoGroup: session.autoGroup !== false,
     merged: data.merged,
     mergedTranslations: data.mergedTranslations,
@@ -306,6 +324,14 @@ function setNowAnswering(sid, topic, questionId) {
 }
 
 /** The queue's "Show on phones automatically when answering" switch, per session. */
+/** The queue's "List on the room screen" switch (also a session setting on the Admin page). */
+function setRoomQuestions(sid, on) {
+  const session = requireSession_(sid);
+  updateSession_(sid, function (s) { s.roomQuestions = !!on; });
+  audit_(on ? 'Room screen question list turned on' : 'Room screen question list turned off', session, '');
+  return getBoard(sid);
+}
+
 function setAutoShowOnPhones(sid, on) {
   const session = requireSession_(sid);
   updateSession_(sid, function (s) { s.autoShowOnPhones = !!on; });

@@ -166,6 +166,7 @@
         <label class="choice"><input type="radio" name="theme" value="dark" checked><span>Dark<small>Best for dim rooms and most projectors.</small></span></label>
         <label class="choice"><input type="radio" name="theme" value="light"><span>Light<small>Best for bright rooms and TVs.</small></span></label>
         <label class="choice"><input type="radio" name="theme" value="contrast"><span>High contrast<small>Black, white and yellow, for low vision and washed-out projectors.</small></span></label>
+        <label class="choice space-above-8"><input type="checkbox" id="f-room-questions"><span>List questions on the room screen<small>What participants' phones show — topics and questions a QA Facilitator put on phones — most Me too first. Nothing unreviewed. QA Facilitators can also switch it on and off from the queue.</small></span></label>
       </div>
     </div>
 
@@ -970,7 +971,7 @@
     info.appendChild(h);
     var meta = [
       s.access === 'link' ? 'Shareable link' : 'In-room QR',
-      s.theme === 'light' ? 'Light screen' : s.theme === 'contrast' ? 'High-contrast screen' : 'Dark screen',
+      (s.theme === 'light' ? 'Light screen' : s.theme === 'contrast' ? 'High-contrast screen' : 'Dark screen') + (s.roomQuestions ? ' listing questions' : ''),
       s.questionCount + (s.questionCount === 1 ? ' question' : ' questions') +
         (s.prepared && s.prepared.length ? ' (+' + s.prepared.length + ' prepared)' : ''),
       s.moderators.length + (s.moderators.length === 1 ? ' QA Facilitator' : ' QA Facilitators'),
@@ -1283,6 +1284,7 @@
     $('f-prepared').value = (s.prepared || []).join('\n');
     loadedPrepared = $('f-prepared').value;
     $('f-translate-prepared').checked = s.id ? s.translatePrepared !== false : true;
+    $('f-room-questions').checked = !!s.roomQuestions;
     var guest = s.guestPage || {};
     $('f-guest-room').checked = !!guest.room;
     $('f-guest-slide').checked = !!guest.slide;
@@ -1695,6 +1697,7 @@
       // would break "Add to queue" on an open queue and could revive one just added there.
       prepared: $('f-prepared').value !== loadedPrepared ? $('f-prepared').value : undefined,
       translatePrepared: $('f-translate-prepared').checked,
+      roomQuestions: $('f-room-questions').checked,
       guestPage: { room: $('f-guest-room').checked, slide: $('f-guest-slide').checked, panel: $('f-guest-panel').checked, url: $('f-guest-url').value },
       summary: radio('summaryMode') === 'custom'
         ? { mode: 'custom', facilitators: $('f-summary-facilitators').checked, extra: $('f-summary-extra').value }

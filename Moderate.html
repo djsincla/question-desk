@@ -40,6 +40,7 @@
   <button type="button" id="cluster" title="Group and translate waiting questions now, even when automatic grouping is off">Group now</button>
   <label class="check" title="Every minute, Gemini groups new questions into topics. Off: questions are still translated, and you group them yourself."><input type="checkbox" id="autoGroup"> Group automatically</label>
   <label class="check" title="Answer now also shows the topic on participants' phones"><input type="checkbox" id="autoShow"> Show on phones when answering</label>
+  <label class="check" title="The room screen lists what's on participants' phones, most Me too first"><input type="checkbox" id="roomQuestions"> List on the room screen</label>
   <label class="check"><input type="checkbox" id="originals"> Show original wording</label>
   <span class="updated" id="updated" aria-live="polite"></span>
 </div>
@@ -265,6 +266,7 @@
 
     document.getElementById('autoGroup').checked = data.autoGroup !== false;
     document.getElementById('autoShow').checked = !!data.autoShowOnPhones;
+    document.getElementById('roomQuestions').checked = !!data.roomQuestions;
     document.getElementById('toggleText').textContent = data.open ? 'Accepting questions' : 'Paused — not accepting questions';
     toggle.setAttribute('aria-pressed', data.open ? 'true' : 'false');
     drawPrepared(data.prepared || []);
@@ -850,6 +852,11 @@
     if (!state) return;
     state.autoShowOnPhones = this.checked;
     send('setAutoShowOnPhones', [sid, this.checked]);
+  };
+  document.getElementById('roomQuestions').onchange = function () {
+    if (!state) return;
+    state.roomQuestions = this.checked;
+    send('setRoomQuestions', [sid, this.checked]);
   };
 
   // ------------------------------------------------------------ timer for the live topic

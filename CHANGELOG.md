@@ -4,6 +4,17 @@ All notable changes to Question Desk. Versions follow [Semantic Versioning](http
 Each release is tagged `vX.Y.Z` and published as a GitHub release by `scripts/ship.sh`,
 which reads the notes for that version from this file.
 
+## [2.23.0] - 2026-09-14
+
+### Added
+- **The room screen can list the room's questions.** A session option (Admin → session →
+  Room screen theme) and a switch on the QA Facilitator queue, **List on the room screen**.
+  It lists what participants' phones show, meaning topics and single questions a QA
+  Facilitator put on phones, with how many people asked or tapped Me too, most supported
+  first, in the session's languages. Up to six, never the one being answered (that's in the
+  banner), and nothing a facilitator hasn't reviewed. Off by default; the slide stays QR only.
+  Sessions CSV has a new column for it.
+
 ## [2.22.4] - 2026-09-14
 
 ### Fixed
@@ -751,6 +762,7 @@ Fixes from a full code review.
 - "Merge into one question" for reading a topic aloud.
 - Participant page in English, Korean and Spanish.
 
+[2.23.0]: https://github.com/djsincla/question-desk/releases/tag/v2.23.0
 [2.22.4]: https://github.com/djsincla/question-desk/releases/tag/v2.22.4
 [2.22.3]: https://github.com/djsincla/question-desk/releases/tag/v2.22.3
 [2.22.2]: https://github.com/djsincla/question-desk/releases/tag/v2.22.2

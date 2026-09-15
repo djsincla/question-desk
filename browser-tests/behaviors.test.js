@@ -623,3 +623,44 @@ test(engineName + ': the queue keeps its place when a refresh brings changes', a
   });
 });
 }
+
+for (const engineName of ['chromium', 'webkit']) {
+  test(engineName + ': the room screen lists the room\'s questions when the queue switches it on, without crowding', async () => {
+    await withDemo(engineName, (ctx) => '/?view=moderate&s=' + ctx.live.id + '&as=mod', { viewport: { width: 1280, height: 900 } }, async ({ page, ctx }) => {
+      await page.waitForSelector('#roomQuestions');
+      assert.equal(await page.isChecked('#roomQuestions'), false, 'off by default');
+      await page.check('#roomQuestions');
+      await page.waitForTimeout(1200);
+      ctx.h.env.activeUser = USERS.mod;
+      assert.equal(ctx.h.app.getSession_(ctx.live.id).roomQuestions, true, 'saved');
+
+      const base = page.url().split('/?')[0];
+      for (const [w, hh] of [[1600, 900], [1280, 720], [960, 540], [760, 760], [540, 900], [480, 270]]) {
+        const room = await page.context().newPage();
+        await room.setViewportSize({ width: w, height: hh });
+        await room.goto(base + '/?view=present&s=' + ctx.live.id + '&r=' + ctx.h.screenKey(ctx.live));
+        await room.waitForSelector('#askedList li', { timeout: 15000 });
+        await room.waitForTimeout(500);
+        const info = await room.evaluate(() => ({
+          crowded: crowded(),
+          items: Array.from(document.querySelectorAll('#askedList li .asked-label')).map((l) => l.firstChild.textContent),
+          title: document.getElementById('askedTitle').textContent
+        }));
+        assert.equal(info.crowded, false, w + 'x' + hh + ': nothing overlaps or runs off the screen');
+        assert.ok(info.items.length >= 1 && info.items.indexOf('Respite care hours') === -1, w + 'x' + hh + ': listed, without the topic being answered: ' + info.items);
+        assert.match(info.title, /Questions from the room/);
+        await room.close();
+      }
+
+      // Switched off again: the list leaves the room screen.
+      await page.uncheck('#roomQuestions');
+      await page.waitForTimeout(1200);
+      const room = await page.context().newPage();
+      await room.goto(base + '/?view=present&s=' + ctx.live.id + '&r=' + ctx.h.screenKey(ctx.live));
+      await room.waitForSelector('#code svg', { timeout: 15000 });
+      await room.waitForTimeout(500);
+      assert.equal(await room.isHidden('#asked'), true);
+      await room.close();
+    });
+  });
+}

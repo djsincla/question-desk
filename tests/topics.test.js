@@ -304,3 +304,45 @@ test('the queue shows the translated labels phones will show, so facilitators re
     { language: 'Spanish', text: '[es] merged' }
   ]);
 });
+
+test('the room screen can list what phones show, most Me too first, never unreviewed questions', () => {
+  const h = createApp().install({ moderators: ['mod@example.org'] });
+  const s = h.session({ name: 'Listed', access: 'link', active: true, moderators: ['mod@example.org'] });
+  const r = h.screenKey(s);
+  for (const text of ['Parking is hard', 'Parking again', 'Lunch options please', 'Transport home']) h.ask(s, h.join(s), text);
+  h.app.clusterAll_();
+  h.as('mod@example.org');
+  const topics = h.app.getBoard(s.id).topics.map((t) => t.topic);
+  assert.ok(topics.includes('About parking') && topics.includes('About lunch'));
+  h.app.setTopicShown(s.id, 'About parking', true);
+  h.app.setTopicShown(s.id, 'About lunch', true);
+  h.anonymous();
+  ['a', 'b', 'c'].forEach(() => h.app.meToo(s.id, h.join(s).deviceId, 'About lunch'));
+  assert.equal(h.app.getRoomScreen(s.id, 'full', r).asked, undefined, 'off by default');
+
+  h.as('mod@example.org');
+  assert.equal(h.app.setRoomQuestions(s.id, true).roomQuestions, true, 'the queue switch');
+  h.anonymous();
+  let asked = h.app.getRoomScreen(s.id, 'full', r).asked;
+  assert.deepEqual(asked.map((a) => [a.labels.en, a.count]), [['About lunch', 4], ['About parking', 2]], 'approved only, most supported first');
+  assert.ok(asked[0].labels.ko, 'in the session languages');
+
+  // The one being answered is in the banner, not the list.
+  h.as('mod@example.org');
+  h.app.setNowAnswering(s.id, 'About lunch');
+  h.anonymous();
+  asked = h.app.getRoomScreen(s.id, 'full', r).asked;
+  assert.deepEqual(asked.map((a) => a.labels.en), ['About parking']);
+
+  // Admin setting, CSV and the activity log.
+  h.as('owner@example.org');
+  const saved = h.app.adminState().sessions.find((x) => x.id === s.id);
+  assert.equal(saved.roomQuestions, true);
+  const csv = h.app.exportSessionsCsv().csv;
+  assert.match(csv, /Room screen lists questions \(yes or no\)/);
+  h.app.importSessionsCsv('Session,Room screen lists questions (yes or no)\nListed,no', { duplicates: 'update' }, false);
+  assert.equal(h.app.getSession_(s.id).roomQuestions, false, 'imported');
+  assert.ok(h.app.getActivity().entries.some((e) => /Room screen question list turned on/.test(e.action)));
+  h.as('someone@example.org');
+  assert.throws(() => h.app.setRoomQuestions(s.id, true));
+});

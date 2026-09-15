@@ -33,6 +33,7 @@ const SESSION_CSV = [
   ['Session accent color', 'brandAccent'],
   ['Prepared questions (one per line)', 'prepared'],
   ['Translate prepared questions when saved (yes or no)', 'translatePrepared'],
+  ['Room screen lists questions (yes or no)', 'roomQuestions'],
   ['Status (not imported)', 'status']
 ];
 
@@ -52,7 +53,7 @@ function exportSessionsCsv() {
     const guest = guestChoice_(s.guestPage);
     const own = s.brand || {};
     const values = {
-      event: eventName_(s), name: s.name, heading: s.heading, access: s.access, theme: s.theme || 'dark',
+      event: eventName_(s), name: s.name, heading: s.heading, access: s.access, theme: s.theme || 'dark', roomQuestions: yesNo(s.roomQuestions),
       cooldownSeconds: cooldownFor_(s), maxLength: s.maxLength || CONFIG.defaultMaxLength, emailOnEnd: yesNo(s.emailOnEnd),
       scheduledStart: time(s.scheduledStart), scheduledEnd: time(s.scheduledEnd),
       moderators: (s.moderators || []).join('; '),
@@ -225,6 +226,7 @@ function importSessionsCsv(text, options, dryRun) {
           url: has('guestUrl') ? get.guestUrl.trim() : g.url
         };
       }
+      if (has('roomQuestions')) input.roomQuestions = csvYes_(get.roomQuestions, 'Room screen lists questions', !!input.roomQuestions);
       if (has('translatePrepared')) input.translatePrepared = csvYes_(get.translatePrepared, 'Translate prepared questions', input.translatePrepared !== false);
       if (has('brandOrgName')) input.brandOrgName = get.brandOrgName;
       if (has('brandAccent')) input.brandAccent = get.brandAccent.trim().toLowerCase();
@@ -283,7 +285,7 @@ function sessionInput_(s) {
   return {
     id: s.id, name: s.name, heading: s.heading, access: s.access, theme: s.theme, maxLength: s.maxLength,
     cooldownSeconds: cooldownFor_(s), moderators: (s.moderators || []).slice(), emailOnEnd: !!s.emailOnEnd,
-    translatePrepared: s.translatePrepared !== false,
+    translatePrepared: s.translatePrepared !== false, roomQuestions: !!s.roomQuestions,
     summary: s.summary, scheduledStart: s.scheduledStart || null, scheduledEnd: s.scheduledEnd || null,
     brandOrgName: own.orgName || '', brandAccent: own.accent || '', guestPage: s.guestPage, eventId: s.eventId || ''
   };

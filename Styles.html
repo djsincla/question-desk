@@ -810,6 +810,14 @@
   .now .merged { font-size: calc(var(--fit) * clamp(0.95rem, min(1.8vw, 3.2vh), 1.7rem)); line-height: 1.3; }
   .words .help { margin-top: 1.1em; font-size: calc(var(--fit) * clamp(0.75rem, min(1.25vw, 2.3vh), 1.2rem)); color: var(--muted); }
   .words .help span { display: block; }
+  /* The room's questions (a session option): label, other languages below, supporters at the end. */
+  .asked { margin-top: 1.6em; }
+  .asked-title { font-size: calc(var(--fit) * clamp(0.7rem, min(1.2vw, 2.2vh), 1.15rem)); text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 700; margin-bottom: 0.6em; }
+  .asked ol { list-style: none; margin: 0; padding: 0; }
+  .asked li { display: flex; align-items: baseline; gap: 1vw; padding: 0.45em 0; border-top: 1px solid var(--faint); font-size: calc(var(--fit) * clamp(0.8rem, min(1.7vw, 3vh), 1.7rem)); line-height: 1.2; }
+  .asked-label { flex: 1 1 auto; min-width: 0; color: var(--ink); font-weight: 600; }
+  .asked-others { display: block; font-weight: 400; font-size: 0.72em; color: var(--muted); margin-top: 0.15em; }
+  .asked-count { flex: 0 0 auto; min-width: 1.8em; text-align: center; padding: 0.1em 0.5em; border-radius: 999px; background: var(--accent); color: var(--accent-ink); font-weight: 700; font-size: 0.8em; font-variant-numeric: tabular-nums; }
   .caption { display: none; }
   .caption .help { display: block; margin-top: 0.5em; font-size: 0.55em; color: var(--muted); }
   /* Bottom row: status on the left, the live clock (shows the screen is updating) on the right. */
@@ -819,7 +827,7 @@
   /* Very short boxes: keep the code, heading and topic; drop the extras. */
   @media (max-height: 420px) {
     .footer, .status { display: none; }
-    body.answering .words p, .now .merged, .now .others, .words .help, .caption .help { display: none; }
+    body.answering .words p, .now .merged, .now .others, .words .help, .caption .help, .asked-others { display: none; }
     .now { padding: 1.2vh 2vw; }
   }
   /*

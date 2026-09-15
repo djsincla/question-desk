@@ -22,6 +22,11 @@
   <!-- Google can refuse to open Apps Script pages in browsers signed into several Google
        accounts ("Sorry, unable to open the file"). Its error page can't carry our help. -->
   <p class="help" id="helpLine"><span lang="en" id="helpEn"></span></p>
+  <!-- Session option: what phones show, most Me too first (getRoomScreen's asked). -->
+  <div class="asked" id="asked" hidden>
+    <div class="asked-title" id="askedTitle"></div>
+    <ol id="askedList"></ol>
+  </div>
 </div>
 
 <div class="code" id="code" hidden></div>
@@ -218,6 +223,37 @@
     shownUrl = '';
   }
 
+  /** The room's questions, when the session lists them: English, then the session's other languages. */
+  function showAsked(list) {
+    var box = document.getElementById('asked');
+    var ol = document.getElementById('askedList');
+    box.hidden = !list || !list.length;
+    while (ol.firstChild) ol.removeChild(ol.firstChild);
+    if (box.hidden) return;
+    document.getElementById('askedTitle').textContent = LANGS.map(function (code) { return PHRASES[code].asked; }).join('  ·  ');
+    list.forEach(function (item) {
+      var li = document.createElement('li');
+      var label = document.createElement('span');
+      label.className = 'asked-label';
+      label.textContent = item.labels.en;
+      var others = LANGS.filter(function (code) { return code !== 'en' && item.labels[code] && item.labels[code] !== item.labels.en; })
+        .map(function (code) { return item.labels[code]; });
+      if (others.length) {
+        var o = document.createElement('span');
+        o.className = 'asked-others';
+        o.textContent = others.join('  ·  ');
+        label.appendChild(o);
+      }
+      var count = document.createElement('span');
+      count.className = 'asked-count';
+      count.textContent = String(item.count);
+      count.setAttribute('aria-label', item.count === 1 ? '1 person' : item.count + ' people');
+      li.appendChild(label);
+      li.appendChild(count);
+      ol.appendChild(li);
+    });
+  }
+
   function showNow(now) {
     var panel = document.getElementById('now');
     panel.hidden = !now;
@@ -261,6 +297,7 @@
       applyBrand();
       document.getElementById('heading').textContent = screen.heading;
       showNow(screen.status === 'active' ? screen.nowAnswering : null);
+      showAsked(screen.status === 'active' ? screen.asked : null);
 
       if (screen.status === 'ended') {
         ended = true;
