@@ -341,19 +341,21 @@
   /** The first question row (or topic, when none is showing) at the top of the window, and where it is. */
   function readingPlace() {
     if (window.scrollY < 1) return null;   // at the top: new questions may push the page down as usual
-    // A question row is the precise anchor; a topic box also grows when questions join it.
-    var lists = [board.querySelectorAll('li[data-id]'), board.querySelectorAll('.topic')];
-    for (var l = 0; l < lists.length; l++) {
-      for (var i = 0; i < lists[l].length; i++) {
-        var top = layoutTop(lists[l][i]) - window.scrollY;
-        if (top + lists[l][i].offsetHeight > 0 && top < window.innerHeight) {
-          return {
-            id: l === 0 ? lists[l][i].getAttribute('data-id') : null,
-            topic: l === 1 ? lists[l][i].getAttribute('data-topic') : null,
-            top: top
-          };
-        }
-      }
+    // A question row is the precise anchor; a topic box also grows when questions join it. The
+    // first row that starts inside the window is what's being read (one mostly scrolled past
+    // isn't), then any row still partly showing, then a topic.
+    var rows = board.querySelectorAll('li[data-id]');
+    var partly = null;
+    for (var i = 0; i < rows.length; i++) {
+      var top = layoutTop(rows[i]) - window.scrollY;
+      if (top >= 0 && top < window.innerHeight) return { id: rows[i].getAttribute('data-id'), topic: null, top: top };
+      if (!partly && top < 0 && top + rows[i].offsetHeight > 0) partly = { id: rows[i].getAttribute('data-id'), topic: null, top: top };
+    }
+    if (partly) return partly;
+    var topics = board.querySelectorAll('.topic');
+    for (var j = 0; j < topics.length; j++) {
+      var t = layoutTop(topics[j]) - window.scrollY;
+      if (t + topics[j].offsetHeight > 0 && t < window.innerHeight) return { id: null, topic: topics[j].getAttribute('data-topic'), top: t };
     }
     return null;
   }
