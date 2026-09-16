@@ -21,11 +21,20 @@ them.
 
 ## Install
 
-1. Download `question-desk-<version>.zip` from the repository's releases.
+1. Download `question-desk-<version>.zip` from the
+   [latest release](https://github.com/djsincla/question-desk/releases/latest).
 2. WordPress admin → **Plugins → Add New → Upload Plugin** → choose the zip → **Install Now** →
    **Activate**.
 3. Open **Question Desk** in the admin menu. It creates its tables, the **QA Facilitator** and
    **Question Desk Admin** roles, and the `/questions/` pages on activation.
+
+**Updating**: upload the newer zip the same way and choose **Replace current with uploaded**.
+Sessions, questions and settings are kept; the plugin's version matches the Question Desk
+release it comes from.
+
+**Removing**: deactivating keeps everything. **Deleting** the plugin removes its tables, its
+settings (the Gemini key included) and its two roles — accounts themselves are untouched, and
+installing it again gives people their roles back.
 
 If `/questions/` shows "not found", save **Settings → Permalinks** once (WordPress needs to
 write its rewrite rules), or use `/?qd_page=1`.

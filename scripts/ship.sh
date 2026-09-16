@@ -98,5 +98,13 @@ if git remote get-url origin >/dev/null 2>&1; then
     else
       printf '%s\n' "$NOTES" | gh release create "v$APP_VERSION" --title "Question Desk $APP_VERSION" --notes-file -
     fi
+    # The WordPress plugin is released with the app it shares its version with: the zip on the
+    # release is what wordpress/README.md tells an administrator to download.
+    echo "==> WordPress plugin zip"
+    if node wordpress/package.js; then
+      gh release upload "v$APP_VERSION" "wordpress/dist/question-desk-$APP_VERSION.zip" --clobber
+    else
+      echo "The plugin zip could not be built; the release has no plugin download." >&2
+    fi
   fi
 fi
