@@ -18,6 +18,7 @@ class QD_Settings {
 		if ( $favicon && ! preg_match( '#^https://[^\s"\'<>]+$#', $favicon ) ) {
 			throw new QD_Error( 'The tab icon must be an https:// link to an image.' );
 		}
+		$guest = array_key_exists( 'guestPageUrl', $input ) ? self::clean_guest_page_url( $input['guestPageUrl'] ) : null;
 		$brand = get_option( 'qd_brand', array() );
 		$brand = is_array( $brand ) ? $brand : array();
 		$saved = array(
@@ -31,8 +32,34 @@ class QD_Settings {
 			'logoId'      => (int) ( $brand['logoId'] ?? 0 ),
 		);
 		update_option( 'qd_brand', $saved );
+		if ( null !== $guest ) {
+			update_option( 'qd_guest_page', $guest, false );
+		}
 		QD_Activity::log( 'Branding saved', null, '' );
 		return QD_Admin::state();
+	}
+
+	/**
+	 * The guest page address (Branding tab): a copy of docs/join hosted anywhere, which frames
+	 * this site's pages. https, no query or fragment; a folder gets a trailing slash.
+	 */
+	public static function clean_guest_page_url( $value ) {
+		$url = trim( (string) $value );
+		if ( '' === $url ) {
+			return '';
+		}
+		if ( ! preg_match( '#^https://[a-z0-9.-]+(:\d+)?(/[A-Za-z0-9._~%/-]*)?$#i', $url ) || strlen( $url ) > 300 ) {
+			throw new QD_Error( 'The guest page address must be an https:// link to the folder or page with the guest page files, without ? or #.' );
+		}
+		if ( ! preg_match( '/\.html?$/i', $url ) && '/' !== substr( $url, -1 ) ) {
+			$url .= '/';
+		}
+		return $url;
+	}
+
+	/** The site-wide guest page address, or '' when links go straight to this site. */
+	public static function guest_page_url() {
+		return (string) get_option( 'qd_guest_page', '' );
 	}
 
 	public static function save_site_languages( $codes ) {

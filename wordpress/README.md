@@ -62,6 +62,28 @@ with `define( 'DISABLE_WP_CRON', true );` in `wp-config.php`.
 - People are WordPress users. Administrators manage everything; **Question Desk Admin** manages
   it without being a site administrator; **QA Facilitator** runs the queues they are assigned to.
 
+## Guest page (optional)
+
+Links can go through a **guest page**: a copy of [`docs/join`](../docs/join) that your
+organization hosts, which shows Question Desk inside it. Both versions support it, so links look
+and behave the same whichever version an event runs on.
+
+For this version it is a matter of where the link points — `autismla.org/qa/?s=…` rather than
+`autismla.org/questions/?s=…` — useful for a short address on printed material, or to keep
+people on a familiar page. (In the Apps Script version it also avoids Google's "Sorry, unable to
+open the file" for people signed into several Google accounts; that problem doesn't exist here.)
+
+1. Copy `docs/join/index.html` and `docs/join/join-url.js` to your site, say `/qa/`.
+2. In `index.html`, name your Question Desk in the page tag:
+   `<html lang="en" data-only-deployment="" data-site="https://example.org/questions/">`
+3. Put that guest page's address (`https://example.org/qa/`) on the **Branding** tab, and tick
+   which links use it on each session (room screen, PowerPoint slide, panelist view). A session
+   may name its own address instead.
+
+Links never carry a site of their own — the copy you host names it — so nobody can use your
+guest page's address to show some other website. The QA Facilitator queue never goes through a
+guest page: it needs a WordPress sign-in.
+
 ## Keeping the two versions together
 
 - **Sessions** move either way through the sessions CSV: export from one, import into the other

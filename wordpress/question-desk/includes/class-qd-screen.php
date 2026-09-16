@@ -42,13 +42,15 @@ class QD_Screen {
 			return $screen;
 		}
 
-		$base = QD_Router::base_url();
+		// The code on screen leads wherever that screen's own link leads: through the session's
+		// guest page when it uses one, so a phone and the screen agree on the address.
+		$where = 'qr' === $layout ? 'slide' : 'room';
 		if ( 'link' === $session['access'] ) {
-			$screen['url'] = $base . '?s=' . $sid . '&k=' . $session['linkKey'];
+			$screen['url'] = QD_Sessions::guest_link( $session, 's=' . $sid . '&k=' . $session['linkKey'], $where );
 		} else {
-			$token                        = QD_Tokens::room_token( $sid );
-			$screen['url']                = $base . '?s=' . $sid . '&t=' . $token['token'];
-			$screen['refreshInSeconds']   = min( 5, $token['expiresIn'] + 1 );
+			$token                      = QD_Tokens::room_token( $sid );
+			$screen['url']              = QD_Sessions::guest_link( $session, 's=' . $sid . '&t=' . $token['token'], $where );
+			$screen['refreshInSeconds'] = min( 5, $token['expiresIn'] + 1 );
 		}
 		if ( ! empty( $session['roomQuestions'] ) ) {
 			$screen['asked'] = self::room_question_list( $session );

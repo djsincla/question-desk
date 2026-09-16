@@ -183,8 +183,40 @@ class QD_Sessions {
 	}
 
 	private static function clean_guest_page_choice( $input ) {
-		$g = self::guest_choice( $input );
-		return array( 'room' => $g['room'], 'slide' => $g['slide'], 'panel' => $g['panel'], 'url' => '' );
+		$g   = self::guest_choice( $input );
+		$any = $g['room'] || $g['slide'] || $g['panel'];
+		// Blank means the Branding tab's address, looked up when links are made.
+		return array( 'room' => $g['room'], 'slide' => $g['slide'], 'panel' => $g['panel'],
+			'url' => $any ? QD_Settings::clean_guest_page_url( $g['url'] ) : '' );
+	}
+
+	/**
+	 * The guest page for one kind of link, or '' when it opens this site directly. $where is
+	 * 'room' (the room screen link and its QR), 'slide' (the PowerPoint slide), 'panel' (the
+	 * panelist view) or 'any' (the shareable questions link: on when the room screen or the
+	 * slide uses one). Mirrors guestPageFor_ in the Apps Script version.
+	 */
+	public static function guest_page_for( $session, $where ) {
+		$g  = self::guest_choice( $session['guestPage'] ?? null );
+		$on = 'room' === $where ? $g['room'] : ( 'slide' === $where ? $g['slide']
+			: ( 'panel' === $where ? $g['panel'] : ( $g['room'] || $g['slide'] ) ) );
+		if ( ! $on ) {
+			return '';
+		}
+		return $g['url'] ? $g['url'] : QD_Settings::guest_page_url();
+	}
+
+	/**
+	 * An address for a guest-facing page: through the session's guest page when it has one,
+	 * otherwise straight to this site. A guest page link carries no site of its own — the
+	 * hosted copy names it — so the same link shape works for both versions of Question Desk.
+	 */
+	public static function guest_link( $session, $query, $where ) {
+		$wrapper = self::guest_page_for( $session, $where );
+		if ( ! $wrapper ) {
+			return QD_Router::base_url() . '?' . $query;
+		}
+		return $wrapper . ( false === strpos( $wrapper, '?' ) ? '?' : '&' ) . $query;
 	}
 
 	// ------------------------------------------------------------ links
@@ -211,11 +243,13 @@ class QD_Sessions {
 		$key  = self::screen_key( $session );
 		$id   = $session['id'];
 		return array(
-			'present'     => $base . '?view=present&s=' . $id . '&r=' . $key,
+			// Guest-facing links may go through the session's guest page; the queue is staff-only.
+			'present'     => self::guest_link( $session, 'view=present&s=' . $id . '&r=' . $key, 'room' ),
 			'moderate'    => $base . '?view=moderate&s=' . $id,
-			'panel'       => $base . '?view=panel&s=' . $id . '&r=' . $key,
-			'slide'       => $base . '?view=present&s=' . $id . '&r=' . $key . '&layout=qr',
-			'participant' => ( $session['access'] ?? '' ) === 'link' ? $base . '?s=' . $id . '&k=' . ( $session['linkKey'] ?? '' ) : null,
+			'panel'       => self::guest_link( $session, 'view=panel&s=' . $id . '&r=' . $key, 'panel' ),
+			'slide'       => self::guest_link( $session, 'view=present&s=' . $id . '&r=' . $key . '&layout=qr', 'slide' ),
+			'participant' => ( $session['access'] ?? '' ) === 'link'
+				? self::guest_link( $session, 's=' . $id . '&k=' . ( $session['linkKey'] ?? '' ), 'any' ) : null,
 		);
 	}
 

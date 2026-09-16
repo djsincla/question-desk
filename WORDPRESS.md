@@ -102,7 +102,7 @@ The **server is rewritten in PHP**, area by area, mirroring `server/*.js`:
 | `UrlFetchApp` (Gemini) | `wp_remote_post`; API key in settings or a `QD_GEMINI_API_KEY` constant in `wp-config.php` |
 | `MailApp` | `wp_mail`, one message per recipient (recommend an SMTP plugin on the host; the checklist and health check say when there isn't one) |
 | `Session.getActiveUser` / ADMINS / MODERATORS | WordPress users; capabilities `qd_manage` (Administrator) and `qd_facilitate` (QA Facilitator role); session facilitators stored as user IDs |
-| Guest page (`docs/join`) | Not needed for pages served by WordPress: Google's multi-account error doesn't exist there. Kept for the Apps Script version. |
+| Guest page (`docs/join`) | Supported the same way, so links are shaped alike in both versions (an address on your own site, for printed material or a familiar page). The copy the organization hosts names the site in `data-site`; links never carry a site of their own, so a guest page can only ever show the Question Desk it was set up for. Google's multi-account error, the reason it exists for Apps Script, doesn't arise here. |
 | PowerPoint add-in | Accepts the WordPress room screen link too (`room-url.js` learns the WordPress form). The room screen and slide must be frameable: the plugin removes `X-Frame-Options` for those two routes — **a host-level header (like autismla.org's) can't be removed by a plugin; test on the real host.** |
 
 ## Data model (custom tables, prefix `{$wpdb->prefix}qd_`)
