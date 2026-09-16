@@ -50,16 +50,131 @@ class QD_Router {
 	/** doGet: which page to show for these parameters. */
 	public static function dispatch( array $p ) {
 		$view = $p['view'] ?? 'ask';
-		if ( 'ask' === $view && empty( $p['s'] ) ) {
+		$sid  = (string) ( $p['s'] ?? '' );
+
+		// The room screen and the slide: no sign-in, but the link's own key (r=) is checked.
+		if ( 'present' === $view || 'panel' === $view ) {
+			$session = QD_Store::get_session( $sid );
+			if ( $session && ( QD_Sessions::screen_key_valid( $session, $p['r'] ?? '' ) || QD_People::can_moderate( $session, QD_People::current_email() ) ) ) {
+				self::screen( $view, $session, ( $p['layout'] ?? '' ) === 'qr' ? 'qr' : 'full' );
+			}
+			if ( $session ) {
+				self::notice( 'oldScreenLink', $view );
+			}
+			self::notice( QD_People::current_email() ? 'pick' : 'noSession', $view );
+		}
+
+		if ( 'qrsheet' === $view ) {
+			self::qr_sheet( (string) ( $p['e'] ?? '' ) );
+		}
+
+		if ( 'moderate' === $view ) {
+			// Phase 4 brings the queue itself; until then say so rather than show nothing.
+			self::notice( current_user_can( 'qd_facilitate' ) ? 'later' : 'denied', $view );
+		}
+
+		if ( 'ask' === $view && empty( $sid ) ) {
 			self::home();
 		}
 		if ( 'ask' === $view ) {
-			self::ask( (string) $p['s'], (string) ( $p['t'] ?? $p['k'] ?? '' ) );
+			self::ask( $sid, (string) ( $p['t'] ?? $p['k'] ?? '' ) );
 		}
-		// Later phases: present, panel, moderate, qrsheet.
-		QD_Pages::send( 'Denied.html', 'Not available yet', array(
-			'heading' => 'This page isn\'t available yet',
-			'body'    => 'The WordPress version of Question Desk is still being built.',
+		self::notice( 'denied', $view );
+	}
+
+	/** The room screen (or the slide layout), and the panelist view. */
+	private static function screen( $view, array $session, $layout ) {
+		$key = QD_Sessions::screen_key( $session );
+		if ( 'panel' === $view ) {
+			QD_Pages::send( 'Panel.html', $session['name'] . ' — panel', array(
+				'sid'     => $session['id'],
+				'key'     => $key,
+				'theme'   => $session['theme'] ?? 'dark',
+				'version' => QD_VERSION,
+			), $session );
+		}
+		QD_Pages::send( 'Present.html', $session['name'], array(
+			'sid'       => $session['id'],
+			'key'       => $key,
+			'theme'     => $session['theme'] ?? 'dark',
+			'layout'    => $layout,   // 'qr' is the compact slide view the PowerPoint add-in frames
+			'languages' => QD_Settings::languages_for( $session ),
+			'version'   => QD_VERSION,
+		), $session );
+	}
+
+	/** Printable QR sheets for an event's shareable-link sessions (administrators). */
+	private static function qr_sheet( $eid ) {
+		if ( ! current_user_can( 'qd_manage' ) ) {
+			self::notice( 'denied', 'qrsheet' );
+		}
+		$event = QD_Store::get_event( $eid );
+		if ( ! $event ) {
+			self::notice( 'pick', 'qrsheet' );
+		}
+		$sessions = array();
+		foreach ( QD_Store::all_sessions() as $s ) {
+			if ( ( $s['eventId'] ?? '' ) !== $event['id'] || 'ended' === $s['status'] || ! empty( $s['loadTest'] ) ) {
+				continue;
+			}
+			$sessions[] = array(
+				'name'    => (string) $s['name'],
+				'heading' => (string) ( $s['heading'] ?? '' ),
+				'url'     => 'link' === $s['access'] ? QD_Sessions::links( $s )['participant'] : '',
+			);
+		}
+		QD_Pages::send( 'Sheet.html', $event['name'] . ' — QR sheets', array(
+			'eventName' => (string) $event['name'],
+			'languages' => ! empty( $event['languages'] ) ? array_values( (array) $event['languages'] ) : QD_Settings::site_languages(),
+			'sessions'  => $sessions,
+		), array( 'eventId' => $event['id'] ) );
+	}
+
+	/** The Denied page, which is also the session picker (notice_). */
+	private static function notice( $mode, $view ) {
+		if ( 'pick' === $mode ) {
+			$links = array();
+			foreach ( QD_People::sessions_for( QD_People::current_email() ) as $s ) {
+				if ( 'ended' === $s['status'] ) {
+					continue;
+				}
+				$event   = QD_Store::event_name( $s );
+				$links[] = array(
+					'label' => $event ? $event . ' — ' . $s['name'] : $s['name'],
+					'note'  => 'active' === $s['status'] ? 'Active' : 'Not active',
+					'href'  => 'present' === $view ? QD_Sessions::links( $s )['present'] : self::base_url() . '?view=' . $view . '&s=' . $s['id'],
+				);
+			}
+			QD_Pages::send( 'Denied.html', 'Choose a session', array(
+				'heading' => 'Choose a session',
+				'body'    => $links ? 'Pick the session to open.' : 'You are not assigned to any open sessions.',
+				'links'   => $links,
+			) );
+		}
+		if ( 'oldScreenLink' === $mode ) {
+			QD_Pages::send( 'Denied.html', 'Room screen link out of date', array(
+				'heading' => 'This room screen link is out of date',
+				'body'    => 'Room screen and PowerPoint slide links changed. Ask whoever runs the session to copy the new one from the Admin page (Sessions → Links). To ask a question, scan the code on the screen in the room.',
+				'links'   => array(),
+			) );
+		}
+		if ( 'noSession' === $mode ) {
+			QD_Pages::send( 'Denied.html', 'Session not found', array(
+				'heading' => 'This room screen link is not valid',
+				'body'    => 'Check the link with whoever is running the session, or scan the code on the screen in the room to ask a question.',
+				'links'   => array(),
+			) );
+		}
+		if ( 'later' === $mode ) {
+			QD_Pages::send( 'Denied.html', 'Not available yet', array(
+				'heading' => 'The queue is not in the WordPress version yet',
+				'body'    => 'Sessions, people and the room screen are ready; the QA Facilitator queue is being built.',
+				'links'   => array(),
+			) );
+		}
+		QD_Pages::send( 'Denied.html', 'Not available', array(
+			'heading' => 'This view is for QA Facilitators',
+			'body'    => 'Sign in with an account listed as a QA Facilitator, or scan the code on the screen in the room to ask a question.',
 			'links'   => array(),
 		) );
 	}

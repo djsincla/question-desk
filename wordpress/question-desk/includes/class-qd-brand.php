@@ -42,7 +42,8 @@ class QD_Brand {
 			}
 			$brand['eventName'] = (string) $ev['name'];
 		}
-		if ( $session ) {
+		// The QR sheet passes an event alone, as { eventId }, so there may be no session here.
+		if ( $session && ! empty( $session['id'] ) ) {
 			if ( ! empty( $session['brand']['orgName'] ) ) {
 				$brand['orgName'] = $session['brand']['orgName'];
 			}
