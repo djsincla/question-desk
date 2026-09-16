@@ -7,6 +7,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { webkit, chromium, devices } = require('playwright');
+const { PNG } = require('pngjs');
+const jsQR = require('jsqr');
 const { serve, USERS } = require('../scripts/preview');
 
 const browsers = {};
@@ -345,6 +347,19 @@ test('chromium: event More menu opens the day-of checklist; sessions duplicate; 
     assert.equal(await sheet.locator('.page').first().locator('.qr svg').count(), 1);
     assert.match(await sheet.textContent('#skipped'), /Family Resource Night — September/);
     assert.match(await sheet.textContent('.page .scan'), /扫码提问/, 'the event\'s languages');
+    // The printed page says the event and the session above the code, and nothing under it.
+    assert.equal(await sheet.locator('.page .qr-label').count(), 0);
+
+    // Download QR images: one picture per session, the code with both names written under it.
+    const image = await sheet.evaluate(() => new Promise((resolve) => qrImage(printable[0], resolve)));
+    const png = PNG.sync.read(Buffer.from(image.split(',')[1], 'base64'));
+    const decoded = jsQR(new Uint8ClampedArray(png.data), png.width, png.height);
+    assert.ok(decoded, 'a downloaded code still scans');
+    assert.match(decoded.data, /[?&]s=[a-f0-9]{8}&k=[a-f0-9]{16}$/, decoded.data);
+    assert.ok(png.height > png.width, 'room under the code for the names');
+    const names = await sheet.evaluate(() => [fileName(printable[0]), label(printable[0])]);
+    assert.match(names[0], /^[\w-]+-qr\.png$/, names[0]);
+    assert.match(names[1], / — /, 'the event and the session: ' + names[1]);
     await sheet.close();
   });
 });

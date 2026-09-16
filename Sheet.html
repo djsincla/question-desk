@@ -9,8 +9,10 @@
 <div class="toolbar">
   <p id="intro"></p>
   <button type="button" class="primary" id="print">Print</button>
+  <button type="button" id="images">Download QR images</button>
 </div>
 <div id="pages"></div>
+<div class="save-these" id="saveThese" hidden></div>
 <p class="skipped" id="skipped" hidden></p>
 
 <?!= scripts ?>
@@ -23,6 +25,14 @@
   if (brand.accent) document.documentElement.style.setProperty('--action', brand.accent);
 
 
+
+  /**
+   * What is written under a downloaded code: the event and the session it belongs to. The
+   * printed sheet doesn't need it — the page already says both, above the code.
+   */
+  function label(s) {
+    return BOOT.eventName ? BOOT.eventName + ' — ' + s.name : s.name;
+  }
 
   function qrSvg(url) {
     var scratch = document.createElement('div');
@@ -70,6 +80,105 @@
   }
 
   document.getElementById('print').onclick = function () { window.print(); };
+
+  // ---------------------------------------------------------------- QR images
+
+  /**
+   * One PNG per session: the code with the event and session written under it, so a code
+   * dropped into a slide or a poster still says what it is for. Drawn on a canvas from the
+   * same SVG the sheet shows, at a size that stays sharp when printed.
+   */
+  function qrImage(s, done) {
+    var SIZE = 1000;                 // the code itself
+    var PAD = 60;                    // white margin around everything
+    var CAPTION = 73;                // room under the code for the two lines
+    var canvas = document.createElement('canvas');
+    canvas.width = SIZE + PAD * 2;
+    canvas.height = SIZE + PAD * 2 + CAPTION;
+    var ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    var svg = qrSvg(s.url);
+    svg.setAttribute('width', SIZE);
+    svg.setAttribute('height', SIZE);
+    var source = new XMLSerializer().serializeToString(svg);
+    var image = new Image();
+    image.onload = function () {
+      ctx.drawImage(image, PAD, PAD, SIZE, SIZE);
+      ctx.fillStyle = '#16202b';
+      ctx.textAlign = 'center';
+      ctx.font = 'bold 37px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      ctx.fillText(s.name, canvas.width / 2, SIZE + PAD + 39, canvas.width - PAD * 2);
+      if (BOOT.eventName) {
+        ctx.fillStyle = '#5c6874';
+        ctx.font = '28px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+        ctx.fillText(BOOT.eventName, canvas.width / 2, SIZE + PAD + 81, canvas.width - PAD * 2);
+      }
+      done(canvas.toDataURL('image/png'));
+    };
+    image.onerror = function () { done(''); };
+    image.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(source);
+  }
+
+  function fileName(s) {
+    var name = (label(s) + '-qr').replace(/[^\w -]+/g, '').trim().replace(/\s+/g, '-');
+    return (name || 'question-desk-qr') + '.png';
+  }
+
+  /**
+   * Downloads them one at a time. A page in a sandboxed frame can't save files, so the images
+   * are shown on the sheet instead when that happens: right-click, Save image.
+   */
+  var images = document.getElementById('images');
+  images.hidden = !printable.length;
+  images.onclick = function () {
+    images.disabled = true;
+    var at = 0;
+    var saved = 0;
+    (function next() {
+      if (at >= printable.length) {
+        images.disabled = false;
+        images.textContent = saved ? 'Download QR images' : 'Save each image below';
+        return;
+      }
+      var s = printable[at++];
+      qrImage(s, function (data) {
+        if (data && save(data, fileName(s))) saved++;
+        else if (data) show(s, data);
+        setTimeout(next, 300);   // browsers refuse a burst of downloads
+      });
+    })();
+  };
+
+  function save(data, name) {
+    try {
+      var a = el('a');
+      a.href = data;
+      a.download = name;
+      a.rel = 'noopener';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      return typeof a.download === 'string';
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /** The fallback: the image on the page, ready to save or copy by hand. */
+  function show(s, data) {
+    var box = document.getElementById('saveThese');
+    if (box.hidden) {
+      box.hidden = false;
+      box.appendChild(el('p', null, 'Right-click (or press and hold) each image to save it.'));
+    }
+    var img = el('img');
+    img.src = data;
+    img.alt = 'QR code for ' + label(s);
+    img.title = fileName(s);
+    box.appendChild(img);
+  }
 </script>
 </body>
 </html>

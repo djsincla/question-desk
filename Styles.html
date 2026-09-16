@@ -728,9 +728,12 @@
   .anon { margin: 18px 0 0; color: var(--muted); }
   .link { margin: 22px auto 0; font-size: 0.78rem; color: var(--faint); word-break: break-all; max-width: 34rem; }
   .skipped { max-width: 46rem; margin: 0 auto; color: var(--muted); }
+  .save-these { max-width: 46rem; margin: 0 auto 24px; display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
+  .save-these p { flex: 1 1 100%; margin: 0; color: var(--muted); }
+  .save-these img { width: 220px; height: auto; background: #fff; border-radius: 8px; box-shadow: var(--shadow); }
   @media print {
     body { background: #fff; padding: 0; }
-    .toolbar, .skipped { display: none !important; }
+    .toolbar, .skipped, .save-these { display: none !important; }
     .page { box-shadow: none; border-radius: 0; margin: 0; max-width: none; min-height: 100vh; page-break-after: always; break-after: page; }
     .page:last-of-type { page-break-after: auto; break-after: auto; }
   }
