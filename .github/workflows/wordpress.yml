@@ -2,9 +2,8 @@ name: wordpress
 
 on:
   push:
-    branches: [wordpress]
+    branches: [main, wordpress]
   pull_request:
-    branches: [wordpress]
 
 permissions:
   contents: read
