@@ -86,6 +86,26 @@ class QD_Settings {
 		return $languages[ $code ]['name'] ?? $code;
 	}
 
+	/** The session's languages other than the facilitators', which Gemini translates into. */
+	public static function translation_codes( $session ) {
+		$moderator = QD_App::config( 'moderatorLanguage' );
+		return array_values( array_filter( self::languages_for( $session ), function ( $code ) use ( $moderator ) {
+			return self::language_name( $code ) !== $moderator;
+		} ) );
+	}
+
+	/** [{ language, text }] for each display language that has its own wording (translationList_). */
+	public static function translation_list( $labels, $session ) {
+		$labels = (array) $labels;
+		$out    = array();
+		foreach ( self::translation_codes( $session ) as $code ) {
+			if ( ! empty( $labels[ $code ] ) ) {
+				$out[] = array( 'language' => self::language_name( $code ), 'text' => (string) $labels[ $code ] );
+			}
+		}
+		return $out;
+	}
+
 	/** [{ code, name, native }] for a page's language buttons (languageList_). */
 	public static function language_list( $session ) {
 		$languages = QD_App::config( 'languages' );

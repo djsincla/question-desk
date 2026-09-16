@@ -39,6 +39,18 @@ class QD_Topics {
 		QD_Cache::invalidate( $sid );
 	}
 
+	/**
+	 * Stores a topic's label translations, keeping any it already has: a topic's wording on
+	 * phones must not change between grouping runs (upsertTopics_ with onlyMissingLabels).
+	 */
+	public static function save_labels( $sid, $topic, array $labels ) {
+		$have = self::records( $sid )[ $topic ]['labels'] ?? array();
+		if ( $have ) {
+			return;
+		}
+		self::save( $sid, $topic, array( 'labels' => wp_json_encode( $labels ) ) );
+	}
+
 	// ------------------------------------------------------------ Me too
 
 	/** { key: count } for a session (votesFor_). */
@@ -66,6 +78,11 @@ class QD_Topics {
 			$wpdb->query( $wpdb->prepare( "UPDATE $table SET votes = GREATEST(0, CAST(votes AS SIGNED) - 1) WHERE session_id = %s AND vote_key = %s", $sid, $key ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		}
 		return (int) $wpdb->get_var( $wpdb->prepare( "SELECT votes FROM $table WHERE session_id = %s AND vote_key = %s", $sid, $key ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	}
+
+	public static function clear_votes( $sid, $key ) {
+		global $wpdb;
+		$wpdb->delete( QD_Install::table( 'votes' ), array( 'session_id' => $sid, 'vote_key' => $key ) );
 	}
 
 	/** Me too key for a single question shown on phones (topic names never look like this). */

@@ -45,7 +45,14 @@ edit the pages and `Code.js` at the root, as for the Apps Script version.
   version reload), the present/panel/qrsheet routes with their own key, the Denied page as
   session picker, and the PowerPoint add-in accepting a WordPress room screen link. A browser
   test decodes the QR on screen and follows it to a working participant page.
-- [ ] Phase 4 — queue
+- [x] **Phase 4 — queue.** The QA Facilitator queue on WordPress data: the board (topics sorted
+  by interest, ungrouped questions, dismissed, prepared), answering, dismissing and reopening,
+  pause/resume, show on phones (topics and single questions, carrying Me toos when grouped),
+  Answer now, grouping and ungrouping by hand, and the per-session switches. Gemini does the
+  grouping, translation and read-out questions through `wp_remote_post`, with the same prompts
+  (including the do-not-soften rule), the thinking-level retry, and the three-tries cap. An
+  every-minute WP-Cron run starts and ends scheduled sessions and groups active ones; a queue
+  refresh kicks a session's grouping when it is due, since WP-Cron only fires on traffic.
 - [ ] Phase 5 — reports and operations
 - [ ] Phase 6 — packaging and move-over
 

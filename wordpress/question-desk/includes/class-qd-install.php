@@ -14,6 +14,7 @@ class QD_Install {
 	const DB_VERSION = '1';
 
 	public static function activate() {
+		QD_Schedule::schedule();
 		self::create_tables();
 		self::add_roles();
 		update_option( 'qd_db_version', self::DB_VERSION );
@@ -22,6 +23,7 @@ class QD_Install {
 	}
 
 	public static function deactivate() {
+		QD_Schedule::unschedule();
 		flush_rewrite_rules();
 	}
 

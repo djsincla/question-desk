@@ -69,8 +69,17 @@ class QD_Router {
 		}
 
 		if ( 'moderate' === $view ) {
-			// Phase 4 brings the queue itself; until then say so rather than show nothing.
-			self::notice( current_user_can( 'qd_facilitate' ) ? 'later' : 'denied', $view );
+			if ( ! current_user_can( 'qd_facilitate' ) && ! current_user_can( 'qd_manage' ) ) {
+				self::notice( 'denied', $view );
+			}
+			$session = QD_Store::get_session( $sid );
+			if ( ! $session ) {
+				self::notice( 'pick', $view );
+			}
+			if ( ! QD_People::can_moderate( $session, QD_People::current_email() ) ) {
+				self::notice( 'denied', $view );
+			}
+			QD_Pages::send( 'Moderate.html', 'QA - ' . $session['name'], array( 'sid' => $session['id'] ), $session );
 		}
 
 		if ( 'ask' === $view && empty( $sid ) ) {
@@ -162,13 +171,6 @@ class QD_Router {
 			QD_Pages::send( 'Denied.html', 'Session not found', array(
 				'heading' => 'This room screen link is not valid',
 				'body'    => 'Check the link with whoever is running the session, or scan the code on the screen in the room to ask a question.',
-				'links'   => array(),
-			) );
-		}
-		if ( 'later' === $mode ) {
-			QD_Pages::send( 'Denied.html', 'Not available yet', array(
-				'heading' => 'The queue is not in the WordPress version yet',
-				'body'    => 'Sessions, people and the room screen are ready; the QA Facilitator queue is being built.',
 				'links'   => array(),
 			) );
 		}
