@@ -3,7 +3,7 @@
  * Plugin Name:       Question Desk
  * Plugin URI:        https://github.com/djsincla/question-desk
  * Description:       Anonymous, multilingual audience questions for live events: phones ask, facilitators see them grouped and translated by Gemini, and the room sees what's being answered.
- * Version:           2.27.0
+ * Version:           2.28.0
  * Requires at least: 6.4
  * Requires PHP:      8.1
  * Author:            Question Desk contributors
@@ -14,7 +14,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'QD_VERSION', '2.27.0' );
+define( 'QD_VERSION', '2.28.0' );
 define( 'QD_FILE', __FILE__ );
 define( 'QD_DIR', plugin_dir_path( __FILE__ ) );
 define( 'QD_URL', plugin_dir_url( __FILE__ ) );

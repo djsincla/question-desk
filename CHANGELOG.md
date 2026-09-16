@@ -4,6 +4,23 @@ All notable changes to Question Desk. Versions follow [Semantic Versioning](http
 Each release is tagged `vX.Y.Z` and published as a GitHub release by `scripts/ship.sh`,
 which reads the notes for that version from this file.
 
+## [2.28.0] - 2026-09-16
+
+### Added
+- **QR sheets can hand over the codes as images.** *Download QR images* saves one PNG per
+  shareable-link session: the code with the session name under it and the event under that, so a
+  code dropped into a slide, a poster or someone else's document still says what it is for. The
+  files are named after both. The printed sheet is unchanged — it already names them above the
+  code.
+
+### Changed
+- **The event's "Email QA Facilitators" message carries only queue links.** Each facilitator
+  gets the sessions they are running, each with its QA Facilitator queue link and nothing else;
+  whoever runs the room takes the room screen link from the Sessions tab. Who receives what is
+  unchanged: the list is built per session from that session's QA Facilitators, so nobody is
+  sent a session they are not running (a facilitator assigned to the event itself is a
+  facilitator for every session in it).
+
 ## [2.27.0] - 2026-09-15
 
 ### Added
@@ -842,6 +859,7 @@ Fixes from a full code review.
 - "Merge into one question" for reading a topic aloud.
 - Participant page in English, Korean and Spanish.
 
+[2.28.0]: https://github.com/djsincla/question-desk/releases/tag/v2.28.0
 [2.27.0]: https://github.com/djsincla/question-desk/releases/tag/v2.27.0
 [2.26.0]: https://github.com/djsincla/question-desk/releases/tag/v2.26.0
 [2.25.0]: https://github.com/djsincla/question-desk/releases/tag/v2.25.0
