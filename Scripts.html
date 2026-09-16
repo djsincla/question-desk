@@ -154,6 +154,13 @@
   }
 
   function tellFrame(state) {
-    try { if (window.top !== window) window.top.postMessage({ questionDesk: state, version: BOOT.version || '' }, '*'); } catch (e) {}
+    var message = { questionDesk: state, version: BOOT.version || '' };
+    try {
+      if (window.top === window) return;
+      window.top.postMessage(message, '*');
+      // Inside a guest page inside the PowerPoint add-in, the guest page passes this on: the
+      // add-in can only check the origin it framed, which is the guest page's, not ours.
+      if (window.parent !== window.top) window.parent.postMessage(message, '*');
+    } catch (e) {}
   }
 </script>

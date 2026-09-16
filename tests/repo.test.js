@@ -76,11 +76,12 @@ test('every tracked-to-be file is clean', () => {
   (function walk(dir) {
     fs.readdirSync(path.join(ROOT, dir), { withFileTypes: true }).forEach((d) => {
       const rel = dir ? dir + '/' + d.name : d.name;
-      if (d.isDirectory()) { if (d.name !== '.git' && d.name !== 'node_modules') walk(rel); return; }
+      // Downloaded dependencies (npm, Composer) are ignored by git and never committed.
+      if (d.isDirectory()) { if (['.git', 'node_modules', 'vendor'].indexOf(d.name) === -1) walk(rel); return; }
       files.push(rel);
     });
   })('');
-  const ignored = /(^|\/)(\.clasp\.json|\.clasprc\.json|\.deploy\.env|\.DS_Store)$/;
+  const ignored = /(^|\/)(\.clasp\.json|\.clasprc\.json|\.deploy\.env|\.DS_Store|composer\.lock)$/;
   const findings = secrets.scanFiles(files.filter((f) => !ignored.test(f)), (f) => read(f));
   assert.deepEqual(findings, []);
 });
@@ -91,4 +92,36 @@ test('the GitHub Pages splash page links the donation page and never the app its
   assert.doesNotMatch(html, /script\.google(usercontent)?\.com|AKfycb/, 'no app address in the public repo');
   assert.doesNotMatch(html, /<script|<link|<img|@import|url\(/, 'self-contained: nothing loaded from elsewhere');
   assert.match(html, /<meta name="viewport"/);
+});
+
+test('package authors\' addresses in package-lock.json are allowed, but nothing else is', () => {
+  const author = '"author": "maintainer' + '@' + 'package-author.invalid"';   // built at runtime, so this file stays clean
+  assert.deepEqual(secrets.scanText(author, 'package-lock.json'), []);
+  assert.equal(secrets.scanText(author, 'package.json').length, 1, 'only the lock file');
+  assert.equal(secrets.scanText('key AIza' + 'x'.repeat(35), 'package-lock.json').length, 1, 'keys are still refused');
+});
+
+test('the WordPress plugin ships as one zip, versioned with the app, without its dev files', () => {
+  const app = createApp().app;
+  const plugin = read('wordpress/question-desk/question-desk.php');
+  const version = plugin.match(/^\s*\*\s*Version:\s*([0-9][0-9.]*)\s*$/m);
+  assert.ok(version, 'the plugin header has a Version');
+  assert.equal(version[1], app.APP.version, 'the plugin and the app say the same version');
+  assert.match(plugin, new RegExp("define\\( 'QD_VERSION', '" + app.APP.version.replace(/\./g, '\\.') + "' \\);"));
+
+  const { SKIP } = require('../wordpress/package');
+  ['tests', 'vendor', 'composer.json', 'composer.lock', 'phpunit.xml.dist'].forEach((name) => {
+    assert.ok(SKIP.includes(name), name + ' must stay out of the zip');
+  });
+  // Everything the plugin loads at runtime must be in the folder that gets packaged.
+  const required = Array.from(plugin.matchAll(/QD_DIR \. '([^']+)'/g), (m) => m[1]);
+  assert.ok(required.length > 20, 'the plugin requires ' + required.length + ' files');
+  required.forEach((file) => {
+    assert.ok(fs.existsSync(path.join(ROOT, 'wordpress/question-desk', file)), 'missing: ' + file);
+  });
+  // The docs a new administrator needs.
+  const readme = read('wordpress/README.md');
+  ['Upload Plugin', 'QD_GEMINI_API_KEY', 'wp-cron.php', 'SMTP', 'versions are supported'].forEach((phrase) => {
+    assert.ok(readme.includes(phrase), 'the WordPress README should mention ' + phrase);
+  });
 });

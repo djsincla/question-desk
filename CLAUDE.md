@@ -47,7 +47,11 @@ Workspace account. See SETUP.md for install and deployment.
 - `CHANGELOG.md` — release notes; `ship.sh` publishes the section for `APP.version`
 - `docs/join/` — the guest page: frames guest pages from another site so Safari/Firefox send
   Google no cookies (Google's multi-account "unable to open the file"). `guestLink_()` builds
-  `<guest page>?d=<deployment>&<query>`. Sessions choose it per link
+  `<guest page>?d=<deployment>&<query>`. A copy hosted for the WordPress version instead names
+  that site once (`data-site`), and its links carry no site at all (`?s=…&t=…`), so a link can
+  never make a guest page show another website. A screen inside a guest page inside the add-in
+  posts to `window.parent` as well as `window.top`, and the guest page passes it on, since the
+  add-in can only check the origin it framed. Sessions choose it per link
   (`guestPage: {room, slide, panel, url}`, read via `guestChoice_()`, which also accepts the
   pre-2.4.4 `{mode:'wrapper'}` and pre-2.18 `{room, slide}`, where the panelist view followed
   room): room = room screen link + its QR; slide = the slide link itself + the slide's QR

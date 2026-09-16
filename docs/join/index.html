@@ -1,10 +1,15 @@
 <!DOCTYPE html>
 <!--
-  On your own site, lock this page to your Question Desk: put your deployment ID (the part of
-  your app's address between /macros/s/ and /exec) in data-only-deployment. Then nobody can use your
-  site's address to show some other Apps Script app. Leave it empty on shared copies.
+  On your own site, lock this page to your Question Desk.
+
+  Google Apps Script version: put your deployment ID (the part of your app's address between
+  /macros/s/ and /exec) in data-only-deployment. Then nobody can use your site's address to show
+  some other Apps Script app. Leave it empty on shared copies.
+
+  WordPress version: put your Question Desk address (e.g. https://example.org/questions/) in
+  data-site. Links never carry a site of their own, so this page can only ever show yours.
 -->
-<html lang="en" data-only-deployment="">
+<html lang="en" data-only-deployment="" data-site="">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -26,7 +31,8 @@
 <noscript><div class="problem"><h1>JavaScript is needed</h1><p>Turn on JavaScript to ask a question.</p></div></noscript>
 <script>
   (function () {
-    var url = JoinUrl.target(location.search, document.documentElement.getAttribute('data-only-deployment'));
+    var root = document.documentElement;
+    var url = JoinUrl.target(location.search, root.getAttribute('data-only-deployment'), root.getAttribute('data-site'));
     if (!url) {
       document.body.insertAdjacentHTML('beforeend',
         '<div class="problem"><h1>This link isn’t complete</h1>' +
@@ -49,14 +55,25 @@
 
     // A room screen or panelist view left open for hours: reload it when it stops reporting
     // updates (laptop slept, wifi dropped) or reports that Question Desk has a newer version.
-    // Inside another page (the PowerPoint add-in), updates go to that page, which does this itself.
-    if (!/[?&]view=(present|panel)&/.test(url) || window.top !== window) return;
+    if (!/[?&]view=(present|panel)&/.test(url)) return;
+    // Only the screen this page is showing may be heard: Google's own pages for an Apps Script
+    // Question Desk, or the site named in data-site for a WordPress one.
+    var fromScreen = JoinUrl.origin(url);
+    var nested = window.top !== window;
     window.addEventListener('message', function (e) {
-      if (!/^https:\/\/(script\.google\.com|[a-z0-9-]+\.googleusercontent\.com)$/.test(e.origin)) return;
+      var google = /^https:\/\/(script\.google\.com|[a-z0-9-]+\.googleusercontent\.com)$/.test(e.origin);
+      if (!google && e.origin !== fromScreen) return;
       if (!e.data || typeof e.data.questionDesk !== 'string') return;
       heardAt = Date.now();
+      // Inside another page (the PowerPoint add-in): that page does the reloading, but it can
+      // only check the origin it framed — this one — so the screen's report is passed on.
+      if (nested) {
+        try { window.top.postMessage({ questionDesk: e.data.questionDesk, version: e.data.version || '' }, '*'); } catch (err) {}
+        return;
+      }
       if (e.data.questionDesk === 'outdated' && Date.now() - reloadedAt > 10 * 60000) { reloadedAt = Date.now(); show(); }
     });
+    if (nested) return;
     setInterval(function () {
       if (Date.now() - Math.max(heardAt, loadedAt) > 3 * 60000) show();
     }, 5000);

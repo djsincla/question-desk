@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<phpunit bootstrap="tests/bootstrap.php" colors="true" cacheResultFile=".phpunit.cache/results">
+  <testsuites>
+    <testsuite name="question-desk">
+      <directory suffix=".php">tests</directory>
+      <exclude>tests/bootstrap.php</exclude>
+    </testsuite>
+  </testsuites>
+</phpunit>

@@ -12,3 +12,9 @@ node_modules/
 
 # Screenshots from the last visual test run (baselines live in browser-tests/baselines).
 browser-tests/visual-output/
+wordpress/question-desk/pages/
+wordpress/question-desk/data/
+wordpress/question-desk/vendor/
+wordpress/question-desk/composer.lock
+wordpress/question-desk/.phpunit.cache/
+wordpress/dist/
