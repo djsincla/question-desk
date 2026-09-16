@@ -4,6 +4,25 @@ All notable changes to Question Desk. Versions follow [Semantic Versioning](http
 Each release is tagged `vX.Y.Z` and published as a GitHub release by `scripts/ship.sh`,
 which reads the notes for that version from this file.
 
+## [2.26.0] - 2026-09-15
+
+### Changed
+- **The PowerPoint add-in shows any live web page, however the link is pasted.** A link
+  copied from a browser's address bar without its `https://` (`apnews.com`) now works, and an
+  `http://` link is tried as `https://`, since a slide can only show secure pages. The setup
+  form leads with "any live web page" and takes plain text — its old `type="url"` field
+  silently refused bare domains. Question Desk session links are unchanged in every form
+  (public, domain-scoped and guest page), and still get the live QR handling.
+- **A page that refuses to be framed is explained by name.** Many sites (AP News, autismla.org
+  and most news sites) send `X-Frame-Options` and simply stay blank inside a slide. While
+  editing, the note now names the site and suggests a screenshot or the site's own embed link.
+  Nothing an add-in can do about the header itself.
+
+### Added
+- **The add-in accepts a room screen link served by the WordPress version** of Question Desk
+  (in progress on the `wordpress` branch), and only the site actually on the slide may ask the
+  add-in to reload — Google's pages, or that site.
+
 ## [2.25.0] - 2026-09-14
 
 ### Changed
@@ -803,6 +822,7 @@ Fixes from a full code review.
 - "Merge into one question" for reading a topic aloud.
 - Participant page in English, Korean and Spanish.
 
+[2.26.0]: https://github.com/djsincla/question-desk/releases/tag/v2.26.0
 [2.25.0]: https://github.com/djsincla/question-desk/releases/tag/v2.25.0
 [2.24.1]: https://github.com/djsincla/question-desk/releases/tag/v2.24.1
 [2.24.0]: https://github.com/djsincla/question-desk/releases/tag/v2.24.0
