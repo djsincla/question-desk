@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Question Desk</title>
-<meta name="description" content="Anonymous, multilingual audience questions for live events. Built for the Autism Society of Los Angeles.">
+<meta name="description" content="Anonymous, multilingual audience questions for live events. Runs on Google Workspace or as a WordPress plugin. Built for the Autism Society of Los Angeles.">
 <!--
   Project splash page, served by GitHub Pages at https://djsincla.github.io/question-desk/.
   Deliberately general: no app address or other install-specific value lives in this public repo.
@@ -55,6 +55,10 @@
   .card ul { margin: 0; padding-left: 1.1rem; color: var(--muted); }
   .card li { margin: 4px 0; }
   a { color: var(--accent); }
+  .ways { margin: 36px 0 0; }
+  .ways h2 { font-size: 1.35rem; margin: 0 0 6px; }
+  .ways-lead { color: var(--muted); margin: 0 0 16px; max-width: 40rem; }
+  .card h3 { font-size: 1.05rem; margin: 0 0 8px; }
   .donate {
     display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px 24px;
     background: var(--accent-soft); border: 1px solid var(--rule); border-left: 5px solid var(--accent);
@@ -87,16 +91,33 @@
     <section class="card">
       <h2>Running a session</h2>
       <ul>
-        <li>QA Facilitators and administrators sign in from the link your organization shared.</li>
+        <li>QA Facilitators and administrators sign in with their organization's own account.</li>
         <li>Questions are grouped by topic and translated automatically.</li>
         <li>Show the live QR code on a slide with the <a href="https://github.com/djsincla/question-desk/blob/main/docs/addin/README.md">PowerPoint add-in</a>.</li>
       </ul>
     </section>
     <section class="card">
       <h2>Private by design</h2>
-      <p>It runs inside the organization's own Google account. Participants are anonymous, and nobody sees another person's question unless a facilitator puts it on screen.</p>
+      <p>It runs entirely on your organization's own account or server — there is no third-party service in the middle. Participants are anonymous, and nobody sees another person's question unless a facilitator puts it on screen.</p>
     </section>
   </div>
+
+  <section class="ways" aria-labelledby="ways-title">
+    <h2 id="ways-title">Two ways to run it</h2>
+    <p class="ways-lead">The same Question Desk, the same pages, whichever suits your organization. Both are supported, and sessions move between them.</p>
+    <div class="grid">
+      <section class="card">
+        <h3>Google Workspace</h3>
+        <p>A Google Apps Script web app inside your own Workspace account. Nothing to host, nothing to pay for.</p>
+        <p><a href="https://github.com/djsincla/question-desk/blob/main/SETUP.md">How to set it up</a></p>
+      </section>
+      <section class="card">
+        <h3>WordPress plugin</h3>
+        <p>For organizations that would rather run it on their own site. Staff are WordPress users; questions live in your database.</p>
+        <p><a href="https://github.com/djsincla/question-desk/releases/latest">Download the plugin</a> · <a href="https://github.com/djsincla/question-desk/blob/main/wordpress/README.md">Install guide</a></p>
+      </section>
+    </div>
+  </section>
 
   <section class="donate" aria-labelledby="donate-title">
     <div>
