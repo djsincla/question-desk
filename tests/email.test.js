@@ -261,8 +261,10 @@ test('an event emails each of its QA Facilitators one message with links for the
   const ana = to('ana@example.org')[0].htmlBody;
   assert.match(ana, /Morning panel/);
   assert.match(ana, /Afternoon panel/);
+  assert.match(ana, new RegExp('view=moderate&amp;s=' + one.id));
   assert.match(ana, new RegExp('view=moderate&amp;s=' + two.id));
-  assert.match(ana, new RegExp('view=present&amp;s=' + one.id));
+  // Only the queue: a QA Facilitator's email carries nothing but the sessions they are running.
+  assert.doesNotMatch(ana, /view=present|view=panel|layout=qr/);
   const ben = to('ben@example.org')[0].htmlBody;
   assert.match(ben, /Morning panel/);
   assert.doesNotMatch(ben, /Afternoon panel|Old panel/, 'only their own sessions, not ended ones');

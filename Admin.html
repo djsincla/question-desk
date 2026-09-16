@@ -841,13 +841,13 @@
     mailFacilitators.type = 'button';
     mailFacilitators.disabled = !people.length;
     mailFacilitators.title = people.length
-      ? 'Each QA Facilitator gets one email with the room screen and queue links for their sessions: ' + people.join(', ')
+      ? 'Each QA Facilitator gets one email with the queue link for each session they are running: ' + people.join(', ')
       : 'No QA Facilitators assigned to this event or its sessions';
     mailFacilitators.onclick = function () {
       ask({
         title: 'Email QA Facilitators their links?',
-        body: people.length + (people.length === 1 ? ' QA Facilitator gets' : ' QA Facilitators each get') + ' one email with the room screen and queue links for their ' +
-          'sessions in ' + ev.name + ' (' + open.length + (open.length === 1 ? ' session' : ' sessions') + ' that haven\'t ended): ' + people.join(', ') + '.',
+        body: people.length + (people.length === 1 ? ' QA Facilitator gets' : ' QA Facilitators each get') + ' one email with the queue link for each ' +
+          'session they are running in ' + ev.name + ' (' + open.length + (open.length === 1 ? ' session' : ' sessions') + ' that haven\'t ended): ' + people.join(', ') + '.',
         ok: 'Send'
       }, function () {
         call('emailEventFacilitators', [ev.id], function (res) {

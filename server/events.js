@@ -179,9 +179,9 @@ function emailEventFacilitators(eid) {
   const eventBrand = brand_(sessions[0]);
   people.forEach(function (address) {
     const list = byPerson[address];
-    const body = '<p style="margin:0 0 18px">Your ' + (list.length === 1 ? 'session' : list.length + ' sessions') +
-      ' in ' + esc_(ev.name) + '. Open the room screen on the projector (no sign-in needed; use a private browsing window). ' +
-      'The queue needs your ' + esc_(domain) + ' account.</p>' +
+    const body = '<p style="margin:0 0 18px">The ' + (list.length === 1 ? 'session' : list.length + ' sessions') +
+      ' you are running in ' + esc_(ev.name) + '. Each link opens that session\'s question queue, and needs your ' +
+      esc_(domain) + ' account.</p>' +
       list.map(function (s) {
         const links = sessionLinks_(s);
         const accent = brand_(s).accent;
@@ -190,7 +190,7 @@ function emailEventFacilitators(eid) {
         };
         return '<p style="margin:0 0 20px;padding-left:10px;border-left:3px solid ' + accent + '"><strong>' + esc_(s.name) + '</strong>' +
           (when(s) ? '<br><span style="color:#5c6874">' + esc_(when(s)) + '</span>' : '') +
-          link('Room screen', links.present) + link('QA Facilitator queue', links.moderate) + '</p>';
+          link('QA Facilitator queue', links.moderate) + '</p>';
       }).join('');
     MailApp.sendEmail({
       to: address, subject: ev.name + ' — your Question Desk sessions',

@@ -62,9 +62,9 @@ class QD_EventTools {
 		$event_brand = QD_Brand::for_session( $sessions[0] );
 
 		foreach ( $by_person as $address => $list ) {
-			$body = '<p style="margin:0 0 18px">Your ' . ( 1 === count( $list ) ? 'session' : count( $list ) . ' sessions' )
-				. ' in ' . esc_html( $event['name'] ) . '. Open the room screen on the projector (no sign-in needed). '
-				. 'The queue needs your WordPress account.</p>';
+			$body = '<p style="margin:0 0 18px">The ' . ( 1 === count( $list ) ? 'session' : count( $list ) . ' sessions' )
+				. ' you are running in ' . esc_html( $event['name'] )
+				. '. Each link opens that session\'s question queue, and needs your WordPress account.</p>';
 			foreach ( $list as $s ) {
 				$links  = QD_Sessions::links( $s );
 				$accent = QD_Brand::for_session( $s )['accent'];
@@ -75,7 +75,7 @@ class QD_EventTools {
 				$body  .= '<p style="margin:0 0 20px;padding-left:10px;border-left:3px solid ' . $accent . '"><strong>'
 					. esc_html( $s['name'] ) . '</strong>'
 					. ( $when( $s ) ? '<br><span style="color:#5c6874">' . esc_html( $when( $s ) ) . '</span>' : '' )
-					. $line( 'Room screen', $links['present'] ) . $line( 'QA Facilitator queue', $links['moderate'] ) . '</p>';
+					. $line( 'QA Facilitator queue', $links['moderate'] ) . '</p>';
 			}
 			QD_Summaries::mail( $address, $event['name'] . ' — your Question Desk sessions',
 				QD_Summaries::shell( $event_brand, esc_html( $event['name'] ), $body ), $event_brand );
