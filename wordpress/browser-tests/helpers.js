@@ -16,18 +16,24 @@ async function siteUp() {
   try { return (await fetch(BASE + '/questions/')).status === 200; } catch (err) { return false; }
 }
 
-/** Signs in and opens the Admin page, answering with its frame. */
+/**
+ * Signs in and opens the Admin page, answering with its frame. The sign-in is a plain POST
+ * rather than filling the form: its cookies land in the same context, and there is no
+ * navigation to race (WebKit on a slow runner missed it).
+ */
 async function adminFrame(browser) {
-  const page = await browser.newPage();
-  await page.goto(BASE + '/wp-login.php');
-  await page.fill('#user_login', USER);
-  await page.fill('#user_pass', PASS);
-  await Promise.all([page.waitForNavigation(), page.click('#wp-submit')]);
-  await page.goto(BASE + '/wp-admin/admin.php?page=question-desk');
+  const context = await browser.newContext();
+  const answer = await context.request.post(BASE + '/wp-login.php', {
+    form: { log: USER, pwd: PASS, 'wp-submit': 'Log In', redirect_to: BASE + '/wp-admin/', testcookie: '1' },
+    timeout: 60000
+  });
+  if (!answer.ok()) throw new Error('sign-in failed: ' + answer.status() + ' ' + answer.statusText());
+  const page = await context.newPage();
+  await page.goto(BASE + '/wp-admin/admin.php?page=question-desk', { timeout: 60000 });
   if (page.url().indexOf('wp-login.php') !== -1) throw new Error('not signed in: ' + page.url());
   // A cold PHP container on a CI runner can take a while for the first admin page.
   const frame = await (await page.waitForSelector('iframe[title="Question Desk"]', { timeout: 60000 })).contentFrame();
-  await frame.waitForSelector('#tab-sessions', { state: 'attached', timeout: 30000 });
+  await frame.waitForSelector('#tab-sessions', { state: 'attached', timeout: 60000 });
   return frame;
 }
 
