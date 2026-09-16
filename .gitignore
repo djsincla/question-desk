@@ -17,3 +17,4 @@ wordpress/question-desk/data/
 wordpress/question-desk/vendor/
 wordpress/question-desk/composer.lock
 wordpress/question-desk/.phpunit.cache/
+wordpress/dist/

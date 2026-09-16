@@ -3,7 +3,7 @@
  * Plugin Name:       Question Desk
  * Plugin URI:        https://github.com/djsincla/question-desk
  * Description:       Anonymous, multilingual audience questions for live events: phones ask, facilitators see them grouped and translated by Gemini, and the room sees what's being answered.
- * Version:           0.1.0
+ * Version:           2.26.0
  * Requires at least: 6.4
  * Requires PHP:      8.1
  * Author:            Question Desk contributors
@@ -14,7 +14,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'QD_VERSION', '0.1.0' );
+define( 'QD_VERSION', '2.26.0' );
 define( 'QD_FILE', __FILE__ );
 define( 'QD_DIR', plugin_dir_path( __FILE__ ) );
 define( 'QD_URL', plugin_dir_url( __FILE__ ) );
@@ -39,6 +39,7 @@ require_once QD_DIR . 'includes/class-qd-summaries.php';
 require_once QD_DIR . 'includes/class-qd-csv.php';
 require_once QD_DIR . 'includes/class-qd-eventtools.php';
 require_once QD_DIR . 'includes/class-qd-operations.php';
+require_once QD_DIR . 'includes/class-qd-import.php';
 require_once QD_DIR . 'includes/class-qd-events.php';
 require_once QD_DIR . 'includes/class-qd-sessions.php';
 require_once QD_DIR . 'includes/class-qd-admin.php';
@@ -64,3 +65,4 @@ QD_Summaries::init();
 QD_Csv::init();
 QD_EventTools::init();
 QD_Operations::init();
+QD_Import::init();

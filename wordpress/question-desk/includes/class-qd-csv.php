@@ -460,6 +460,118 @@ class QD_Csv {
 		return $result;
 	}
 
+	// ------------------------------------------------------------ questions from the other version
+
+	/**
+	 * Loads a session's questions from the CSV the Apps Script version attaches to its summary
+	 * email (or exports from the Questions sheet with the same columns), so an event run on one
+	 * version can be kept with the other. Both versions stay in use; this is a bridge, not a move.
+	 *
+	 * Checks with $dry_run first. Rows whose question id already exists are skipped, so
+	 * importing the same file twice changes nothing.
+	 */
+	public static function import_questions( $sid = '', $text = '', $dry_run = true ) {
+		global $wpdb;
+		QD_People::require_admin();
+		$session = QD_Store::get_session( $sid );
+		if ( ! $session ) {
+			throw new QD_Error( 'Session not found.' );
+		}
+		$table = self::parse( $text );
+		if ( ! $table ) {
+			throw new QD_Error( 'The file is empty.' );
+		}
+		$norm  = function ( $header ) {
+			return strtolower( preg_replace( '/[^a-z]/i', '', preg_replace( '/\(.*?\)/', '', (string) $header ) ) );
+		};
+		$known = array(
+			'id' => 'id', 'submitted' => 'submitted', 'status' => 'status', 'topic' => 'topic',
+			'originallanguage' => 'lang', 'originalquestion' => 'text', 'englishtranslation' => 'translation',
+			'mergedquestionfortopic' => 'merged', 'metoo' => 'votes', 'topicshownonphones' => 'shown',
+			'question' => 'text', 'language' => 'lang', 'translation' => 'translation', 'session' => 'session',
+		);
+		$columns = array();
+		foreach ( $table[0] as $header ) {
+			$columns[] = $known[ $norm( $header ) ] ?? null;
+		}
+		if ( ! in_array( 'text', $columns, true ) ) {
+			throw new QD_Error( 'The file needs an "Original question" column. Use the CSV from a Question Desk summary email.' );
+		}
+		$have = array();
+		foreach ( QD_Questions::rows( $sid, true ) as $q ) {
+			$have[ $q['id'] ] = true;
+		}
+		$result = array( 'rows' => array(), 'added' => 0, 'skipped' => 0, 'failed' => 0, 'topics' => array() );
+		$topics = array();
+
+		foreach ( array_slice( $table, 1 ) as $i => $cells ) {
+			$get = array();
+			foreach ( $columns as $c => $key ) {
+				if ( $key ) {
+					$get[ $key ] = trim( (string) ( $cells[ $c ] ?? '' ) );
+				}
+			}
+			$out = array( 'row' => $i + 2, 'text' => mb_substr( $get['text'] ?? '', 0, 80 ), 'action' => '', 'problem' => '' );
+			try {
+				if ( '' === ( $get['text'] ?? '' ) ) {
+					throw new QD_Error( 'No question.' );
+				}
+				$id = ( ! empty( $get['id'] ) && preg_match( QD_Util::ID_RE, $get['id'] ) ) ? $get['id'] : QD_Util::new_id( 8 );
+				if ( isset( $have[ $id ] ) ) {
+					$out['action'] = 'skip';
+					$result['skipped']++;
+					$result['rows'][] = $out;
+					continue;
+				}
+				$status = in_array( $get['status'] ?? '', array( 'new', 'answered', 'dismissed', 'prepared' ), true ) ? $get['status'] : 'new';
+				$when   = ! empty( $get['submitted'] ) ? strtotime( $get['submitted'] ) : false;
+				$topic  = QD_Util::clean_text( $get['topic'] ?? '', 200 );
+				if ( $topic ) {
+					$topics[ $topic ] = array(
+						'merged' => $get['merged'] ?? '',
+						'shown'  => in_array( strtolower( $get['shown'] ?? '' ), array( 'yes', 'y', 'true', '1' ), true ),
+						'votes'  => max( (int) ( $get['votes'] ?? 0 ), (int) ( $topics[ $topic ]['votes'] ?? 0 ) ),
+					);
+				}
+				$out['action'] = 'add';
+				if ( ! $dry_run ) {
+					$wpdb->insert( QD_Install::table( 'questions' ), array(
+						'id'           => $id,
+						'session_id'   => $sid,
+						'submitted'    => $when ? $when * 1000 : QD_Util::now_ms(),
+						'device'       => 'imported',
+						'text'         => $get['text'],
+						'status'       => $status,
+						'topic'        => $topic,
+						'lang'         => mb_substr( $get['lang'] ?? '', 0, 60 ),
+						'translation'  => $get['translation'] ?? '',
+						'translations' => '',
+						'grouping'     => '',
+					) );
+					$have[ $id ] = true;
+				}
+				$result['added']++;
+			} catch ( QD_Error $e ) {
+				$out['action']    = 'error';
+				$out['problem']   = $e->getMessage();
+				$result['failed']++;
+			}
+			$result['rows'][] = $out;
+		}
+		$result['topics'] = array_keys( $topics );
+		if ( ! $dry_run ) {
+			foreach ( $topics as $topic => $about ) {
+				QD_Topics::save( $sid, $topic, array( 'merged' => $about['merged'], 'shown' => $about['shown'] ? 1 : 0 ) );
+				for ( $v = 0; $v < $about['votes']; $v++ ) {
+					QD_Topics::change_vote( $sid, $topic, true );
+				}
+			}
+			QD_Cache::invalidate( $sid );
+			QD_Activity::log( 'Questions imported', $session, $result['added'] . ' questions in ' . count( $topics ) . ' topics' );
+		}
+		return $result;
+	}
+
 	private static function create_event( $name, $me ) {
 		$id = QD_Util::new_id( 8 );
 		QD_Util::with_lock( 'events', function () use ( $id, $name, $me ) {

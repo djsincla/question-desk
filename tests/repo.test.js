@@ -100,3 +100,28 @@ test('package authors\' addresses in package-lock.json are allowed, but nothing 
   assert.equal(secrets.scanText(author, 'package.json').length, 1, 'only the lock file');
   assert.equal(secrets.scanText('key AIza' + 'x'.repeat(35), 'package-lock.json').length, 1, 'keys are still refused');
 });
+
+test('the WordPress plugin ships as one zip, versioned with the app, without its dev files', () => {
+  const app = createApp().app;
+  const plugin = read('wordpress/question-desk/question-desk.php');
+  const version = plugin.match(/^\s*\*\s*Version:\s*([0-9][0-9.]*)\s*$/m);
+  assert.ok(version, 'the plugin header has a Version');
+  assert.equal(version[1], app.APP.version, 'the plugin and the app say the same version');
+  assert.match(plugin, new RegExp("define\\( 'QD_VERSION', '" + app.APP.version.replace(/\./g, '\\.') + "' \\);"));
+
+  const { SKIP } = require('../wordpress/package');
+  ['tests', 'vendor', 'composer.json', 'composer.lock', 'phpunit.xml.dist'].forEach((name) => {
+    assert.ok(SKIP.includes(name), name + ' must stay out of the zip');
+  });
+  // Everything the plugin loads at runtime must be in the folder that gets packaged.
+  const required = Array.from(plugin.matchAll(/QD_DIR \. '([^']+)'/g), (m) => m[1]);
+  assert.ok(required.length > 20, 'the plugin requires ' + required.length + ' files');
+  required.forEach((file) => {
+    assert.ok(fs.existsSync(path.join(ROOT, 'wordpress/question-desk', file)), 'missing: ' + file);
+  });
+  // The docs a new administrator needs.
+  const readme = read('wordpress/README.md');
+  ['Upload Plugin', 'QD_GEMINI_API_KEY', 'wp-cron.php', 'SMTP', 'versions are supported'].forEach((phrase) => {
+    assert.ok(readme.includes(phrase), 'the WordPress README should mention ' + phrase);
+  });
+});

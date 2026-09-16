@@ -1,7 +1,10 @@
 # Question Desk for WordPress — port plan
 
-Branch: `wordpress`. The Google Apps Script app on `main` stays live until the plugin has
-run a real event.
+Branch: `wordpress`. **Both versions are supported, permanently.** The Google Apps Script app on
+`main` stays live, and the plugin is an equal second home for organizations that would rather
+run Question Desk on their own site. Neither replaces the other, and neither is being retired.
+
+See [wordpress/README.md](wordpress/README.md) for installing and running the plugin.
 
 ## Working on the plugin
 
@@ -13,6 +16,7 @@ Needs Docker Desktop running and `npm ci` done.
 | `npm run wp:test` | PHPUnit inside WordPress (`wordpress/question-desk/tests`) |
 | `npm run wp:browsers` | The plugin in WebKit and Chromium (`wordpress/browser-tests`); skips if WordPress isn't running |
 | Admin page | http://localhost:8888/wp-admin/admin.php?page=question-desk (sign in as admin / password) |
+| `npm run wp:package` | Builds the installable zip into `wordpress/dist/` |
 | `npx wp-env stop` | Stops WordPress |
 
 First run only: `npx wp-env run cli wp rewrite structure '/%postname%/'` so `/questions/` works
@@ -59,7 +63,12 @@ edit the pages and `Code.js` at the root, as for the Apps Script version.
   CSV export and import (the same columns as the Apps Script version, from data/app.json), the
   activity log, retention, the weekly report, the health check, and the load test. Every one of
   the Admin page's 41 server functions now answers for real.
-- [ ] Phase 6 — packaging and move-over
+- [x] **Phase 6 — packaging and the bridge between the versions.** `npm run wp:package` builds
+  `wordpress/dist/question-desk-<version>.zip` (the plugin and its built pages, without the
+  tests, composer or vendor), the plugin's version tracks `APP.version` so both versions say the
+  same thing, `wordpress/README.md` covers installing and running it, and **Question Desk →
+  Import questions** loads a session's questions from the CSV a summary email attaches, so an
+  event run on either version can be kept with the other.
 
 ## Decisions
 
@@ -67,7 +76,7 @@ edit the pages and `Code.js` at the root, as for the Apps Script version.
 |---|---|
 | Where it runs | Any standard WordPress (PHP 8.1+, MySQL 5.7+/MariaDB 10.4+). Developed and tested locally with `@wordpress/env` (Docker). |
 | Scope | Full parity with the Apps Script app. |
-| Apps Script app | Kept. `main` stays the live app; the plugin lives on this branch. |
+| Apps Script app | Kept and supported alongside the plugin. `main` stays the live app; the plugin lives on this branch. |
 | Staff sign-in | WordPress users. Site administrators manage everything; a **Question Desk Admin** role (`qd_admin`) manages it without being a site administrator, and a **QA Facilitator** role (`qd_facilitator`) runs the queues it is assigned to. No Google-domain restriction. |
 
 ## What changes and what doesn't
@@ -121,8 +130,9 @@ Room tokens and device tokens stay short-lived (transients), as in Apps Script.
 5. **Reports and operations** — summaries by email with CSV, event summary, facilitator
    link emails, sessions CSV import/export, activity log, retention, weekly report, health
    check, load test.
-6. **Packaging and move-over** — installable zip on GitHub releases, docs, an import from the
-   Apps Script app (sessions via the existing CSV; questions and topics from the sheets as CSV).
+6. **Packaging and the bridge between the versions** — installable zip, docs, and importing an
+   event's questions from the Apps Script version's summary CSV (sessions already move either
+   way through the sessions CSV). Nothing is moved or deleted: both versions stay in use.
 
 Each phase ends with its tests passing (PHPUnit ports of the matching Node tests, and the
 browser tests pointed at the `wp-env` site).
@@ -135,4 +145,7 @@ browser tests pointed at the `wp-env` site).
   from queue refreshes).
 - **Framing headers** set by the host or a security plugin can block the PowerPoint add-in.
 - **Email deliverability** from the host (use an SMTP plugin).
-- **Two codebases:** server fixes need doing twice until one version is retired.
+- **Two codebases, on purpose:** both versions are supported, so a server fix is made twice.
+  What they share keeps them honest — the pages, the participant-facing text, the CONFIG values
+  and the sessions CSV columns are all built from `Code.js` into the plugin, and the same test
+  suites cover both. A fix to a page or to wording is one change for both.

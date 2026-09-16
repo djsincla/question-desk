@@ -9,6 +9,7 @@
     "test:visual": "node --test browser-tests/visual.test.js",
     "test:visual:update": "QD_UPDATE_BASELINES=1 node --test browser-tests/visual.test.js",
     "wp:build": "node wordpress/build.js",
+    "wp:package": "node wordpress/package.js",
     "wp:start": "node wordpress/build.js && wp-env start",
     "wp:test": "node wordpress/build.js && wp-env run tests-cli --env-cwd=wp-content/plugins/question-desk composer update --quiet && wp-env run tests-cli --env-cwd=wp-content/plugins/question-desk vendor/bin/phpunit",
     "wp:browsers": "node --test --test-concurrency=1 wordpress/browser-tests/*.test.js"
