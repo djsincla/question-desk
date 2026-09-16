@@ -90,7 +90,17 @@ test('the GitHub Pages splash page links the donation page and never the app its
   const html = fs.readFileSync(path.join(__dirname, '..', 'docs/index.html'), 'utf8');
   assert.match(html, /<a class="button" href="https:\/\/www\.autismla\.org\/1\/donate\/"[^>]*>Donate<\/a>/);
   assert.doesNotMatch(html, /script\.google(usercontent)?\.com|AKfycb/, 'no app address in the public repo');
-  assert.doesNotMatch(html, /<script|<link|<img|@import|url\(/, 'self-contained: nothing loaded from elsewhere');
+  assert.doesNotMatch(html, /<script|<link|@import|url\(/, 'self-contained: nothing loaded from elsewhere');
+  // Screenshots are the one thing it loads, and only from this same site.
+  const shots = Array.from(html.matchAll(/<img[^>]*src="([^"]+)"[^>]*>/g), (m) => m[0]);
+  assert.ok(shots.length >= 3, 'the page shows what Question Desk looks like');
+  shots.forEach((tag) => {
+    const src = tag.match(/src="([^"]+)"/)[1];
+    assert.match(src, /^screenshots\/[\w-]+\.png$/, src);
+    assert.ok(fs.existsSync(path.join(ROOT, 'docs', src)), 'missing screenshot: ' + src);
+    assert.match(tag, /alt="[^"]{20,}"/, 'every screenshot is described: ' + src);
+    assert.match(tag, /width="\d+" height="\d+"/, 'sized so the page does not jump: ' + src);
+  });
   assert.match(html, /<meta name="viewport"/);
 });
 

@@ -55,6 +55,19 @@
   .card ul { margin: 0; padding-left: 1.1rem; color: var(--muted); }
   .card li { margin: 4px 0; }
   a { color: var(--accent); }
+  .shots { margin: 40px 0 0; }
+  .shots h2 { font-size: 1.35rem; margin: 0 0 6px; }
+  .shot { margin: 0 0 26px; }
+  .shot img {
+    display: block; width: 100%; height: auto; border: 1px solid var(--rule);
+    border-radius: 12px; background: var(--card);
+  }
+  .shot a { display: block; }
+  .shot a:hover img, .shot a:focus-visible img { border-color: var(--accent); }
+  .shot figcaption { color: var(--muted); margin: 10px 2px 0; font-size: 0.95rem; }
+  .shot figcaption strong { color: var(--ink); }
+  .shot-pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 16px 24px; align-items: start; }
+  .shot.narrow img { max-width: 17rem; margin: 0 auto; }
   .ways { margin: 36px 0 0; }
   .ways h2 { font-size: 1.35rem; margin: 0 0 6px; }
   .ways-lead { color: var(--muted); margin: 0 0 16px; max-width: 40rem; }
@@ -101,6 +114,38 @@
       <p>It runs entirely on your organization's own account or server — there is no third-party service in the middle. Participants are anonymous, and nobody sees another person's question unless a facilitator puts it on screen.</p>
     </section>
   </div>
+
+
+  <section class="shots" aria-labelledby="shots-title">
+    <h2 id="shots-title">What it looks like</h2>
+    <p class="ways-lead">From the room, from a phone, and from the facilitator's side. These are the real pages, filled with example questions.</p>
+
+    <figure class="shot">
+      <a href="screenshots/room-screen.png" title="Open the full-size picture"><img src="screenshots/room-screen.png" width="1600" height="900" loading="lazy" decoding="async"
+           alt="A room screen showing a large QR code, the words Scan to ask a question in three languages, and a banner with the question being answered."></a>
+      <figcaption><strong>The room screen.</strong> Goes on the projector, in your organization's colors. The code changes every couple of minutes, so a photo passed on after the event stops working, and a banner shows the question being answered right now — in every language the session uses.</figcaption>
+    </figure>
+
+    <figure class="shot">
+      <a href="screenshots/facilitator-queue.png" title="Open the full-size picture"><img src="screenshots/facilitator-queue.png" width="1280" height="1500" loading="lazy" decoding="async"
+           alt="The QA Facilitator queue: questions grouped under topics like Respite care hours, each with a question to read out, translations, and Answered and Dismiss buttons."></a>
+      <figcaption><strong>The facilitator's queue.</strong> Questions arrive in any language and are grouped by topic, translated, and given one question to read aloud — so twenty people asking the same thing is one card, answered once. Ticking a topic puts it on everyone's phones to support with "Me too".</figcaption>
+    </figure>
+
+    <div class="shot-pair">
+      <figure class="shot narrow">
+        <a href="screenshots/participant-phone.png" title="Open the full-size picture"><img src="screenshots/participant-phone.png" width="780" height="1688" loading="lazy" decoding="async"
+             alt="The participant page on a phone: language buttons, a box to type a question, and a list of topics other people are asking about."></a>
+        <figcaption><strong>Asking, from a phone.</strong> Scan, type, send: no app, no account, no name attached. People can read the page in their own language, and tap "Me too" on what others have asked.</figcaption>
+      </figure>
+
+      <figure class="shot">
+        <a href="screenshots/slide-qr.png" title="Open the full-size picture"><img src="screenshots/slide-qr.png" width="640" height="560" loading="lazy" decoding="async"
+             alt="A PowerPoint slide showing the live Question Desk QR code."></a>
+        <figcaption><strong>On a PowerPoint slide.</strong> The add-in puts the live code straight on a slide, so it keeps changing through the slideshow — no second screen to run. Codes can also be printed, one page per session.</figcaption>
+      </figure>
+    </div>
+  </section>
 
   <section class="ways" aria-labelledby="ways-title">
     <h2 id="ways-title">Two ways to run it</h2>
