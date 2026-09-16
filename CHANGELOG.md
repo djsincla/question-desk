@@ -4,6 +4,26 @@ All notable changes to Question Desk. Versions follow [Semantic Versioning](http
 Each release is tagged `vX.Y.Z` and published as a GitHub release by `scripts/ship.sh`,
 which reads the notes for that version from this file.
 
+## [2.27.0] - 2026-09-15
+
+### Added
+- **Question Desk for WordPress.** The same Question Desk as a WordPress plugin, for
+  organizations that would rather run it on their own site. **Both versions are supported**:
+  neither replaces the other, and the pages, the participant-facing text, the CONFIG values and
+  the sessions CSV columns are generated from this app, so a fix to a page or to wording is one
+  change for both. It lives in `wordpress/`; see [WORDPRESS.md](WORDPRESS.md) and
+  [wordpress/README.md](wordpress/README.md). Nothing about the Apps Script app changes.
+
+### Changed
+- **The guest page (`docs/join`) can serve either version.** A copy hosted for the Apps Script
+  app names the deployment in the link, as before; a copy hosted for a WordPress Question Desk
+  names that site once in the page itself (`data-site`), and its links carry no site at all — so
+  a link can never make a guest page show some other website.
+- **A room screen inside a guest page inside the PowerPoint add-in is heard again.** The screen
+  now reports to `window.parent` as well as `window.top`, and the guest page passes that on. The
+  add-in can only check the origin it framed, so without this it heard nothing from a guest page
+  hosted on another host and reloaded the slide every three minutes.
+
 ## [2.26.0] - 2026-09-15
 
 ### Changed
@@ -822,6 +842,7 @@ Fixes from a full code review.
 - "Merge into one question" for reading a topic aloud.
 - Participant page in English, Korean and Spanish.
 
+[2.27.0]: https://github.com/djsincla/question-desk/releases/tag/v2.27.0
 [2.26.0]: https://github.com/djsincla/question-desk/releases/tag/v2.26.0
 [2.25.0]: https://github.com/djsincla/question-desk/releases/tag/v2.25.0
 [2.24.1]: https://github.com/djsincla/question-desk/releases/tag/v2.24.1
