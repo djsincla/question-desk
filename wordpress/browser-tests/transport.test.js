@@ -5,15 +5,9 @@
  */
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { chromium, webkit } = require('playwright');
+const { BASE, ENGINES, siteUp } = require('./helpers');
 
-const BASE = process.env.QD_WP_URL || 'http://localhost:8888';
-
-async function siteUp() {
-  try { return (await fetch(BASE + '/questions/')).status === 200; } catch (err) { return false; }
-}
-
-for (const [name, engine] of [['chromium', chromium], ['webkit', webkit]]) {
+for (const [name, engine] of ENGINES) {
   test(name + ': the WordPress landing page renders styled, and google.script.run reaches the plugin', async (t) => {
     if (!(await siteUp())) { t.skip('wp-env is not running at ' + BASE); return; }
     const browser = await engine.launch();

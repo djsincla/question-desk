@@ -11,7 +11,7 @@
     "wp:build": "node wordpress/build.js",
     "wp:start": "node wordpress/build.js && wp-env start",
     "wp:test": "node wordpress/build.js && wp-env run tests-cli --env-cwd=wp-content/plugins/question-desk composer update --quiet && wp-env run tests-cli --env-cwd=wp-content/plugins/question-desk vendor/bin/phpunit",
-    "wp:browsers": "node --test wordpress/browser-tests/*.test.js"
+    "wp:browsers": "node --test --test-concurrency=1 wordpress/browser-tests/*.test.js"
   },
   "devDependencies": {
     "@wordpress/env": "11.15.0",
