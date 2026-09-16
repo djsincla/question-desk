@@ -61,7 +61,7 @@ async function openAddin(engine, link, google) {
 }
 
 for (const engine of ['chromium', 'webkit']) {
-  test(`${engine}: add-in shows any https web page, sandboxed, and explains links it can't show`, async () => {
+  test(`${engine}: add-in shows any web page, sandboxed, and explains links it can't show`, async () => {
     const a = await openAddin(engine, 'https://survey.example/fall?ref=slide', () => 'ok');
     try {
       assert.equal(await a.frameSrc(), 'https://survey.example/fall?ref=slide');
@@ -76,11 +76,17 @@ for (const engine of ['chromium', 'webkit']) {
       await a.page.clock.runFor(5 * 60000);
       assert.equal(await a.frameSrc(), 'https://survey.example/fall?ref=slide');
 
-      // Change link: a plain http address is explained, not shown.
+      // Change link: a link pasted without its https:// is understood, as copied from a
+      // browser's address bar.
       await a.page.click('#gear');
-      await a.page.fill('#link', 'http://survey.example/fall');
+      await a.page.fill('#link', 'survey.example/fall');
       await a.page.click('#setup button[type=submit]');
-      assert.match(await a.page.textContent('#error'), /https:\/\//);
+      assert.equal(await a.frameSrc(), 'https://survey.example/fall');
+      // Something that isn't a link at all is explained, not shown.
+      await a.page.click('#gear');
+      await a.page.fill('#link', 'presentation');
+      await a.page.click('#setup button[type=submit]');
+      assert.match(await a.page.textContent('#error'), /web address/);
       // And back to a Question Desk slide link: sandbox off, live QR handling on.
       await a.page.fill('#link', GOOGLE);
       await a.page.click('#setup button[type=submit]');
