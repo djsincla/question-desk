@@ -40,7 +40,11 @@ edit the pages and `Code.js` at the root, as for the Apps Script version.
   cap), Me too counted by the database itself, the topic list phones poll (approved labels
   only, in every session language), Now answering, and a phone's own answered questions.
   25 more PHPUnit tests and a browser test where a phone joins by link and asks.
-- [ ] Phase 3 — room screen, slide, panelist view, QR sheets
+- [x] **Phase 3 — room screen, slide, panelist view, QR sheets.** `getRoomScreen` on
+  WordPress data (rotating joining link, branding, Now answering, the room's question list,
+  version reload), the present/panel/qrsheet routes with their own key, the Denied page as
+  session picker, and the PowerPoint add-in accepting a WordPress room screen link. A browser
+  test decodes the QR on screen and follows it to a working participant page.
 - [ ] Phase 4 — queue
 - [ ] Phase 5 — reports and operations
 - [ ] Phase 6 — packaging and move-over
