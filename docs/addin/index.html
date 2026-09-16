@@ -23,7 +23,7 @@
   h1 { font-size: 16px; margin: 0 0 6px; }
   p { margin: 0 0 10px; color: #5c6874; }
   label { display: block; margin: 10px 0; }
-  input[type=url] { width: 100%; font: inherit; padding: 7px 9px; border: 1px solid #d9dee3; border-radius: 4px; }
+  input[type=text] { width: 100%; font: inherit; padding: 7px 9px; border: 1px solid #d9dee3; border-radius: 4px; }
   button { font: inherit; padding: 7px 14px; border-radius: 4px; border: 1px solid #1b5e5a; background: #1b5e5a; color: #fff; cursor: pointer; }
   button.quiet { background: #fff; color: #5c6874; border-color: #d9dee3; }
   .error { color: #8c2f22; }
@@ -43,13 +43,14 @@
 <iframe id="screen" aria-label="Page shown on this slide" hidden></iframe>
 
 <form id="setup" hidden>
-  <h1>Question Desk QR code</h1>
-  <p>Shows a session's live QR code on this slide. It keeps changing during the slideshow, just like the room screen.</p>
+  <h1>Web page on a slide</h1>
+  <p>Shows any live web page on this slide. For a Question Desk session it shows the live QR code, which keeps changing during the slideshow, just like the room screen.</p>
   <label>Link
-    <input type="url" id="link" placeholder="https://…" autocomplete="off" spellcheck="false" required>
+    <input type="text" id="link" inputmode="url" placeholder="apnews.com" autocomplete="off" spellcheck="false" required>
   </label>
-  <p>For a session's QR code, copy it from the Question Desk Admin page: <strong>Sessions → Links → PowerPoint slide</strong> (the room screen link works too).</p>
-  <p>Any other secure (https://) web page works too, for example a survey or your website. Some sites don't allow being shown inside a slide; those stay blank.</p>
+  <p>Paste any link — with or without the https:// — such as a news site, a survey or your own website.</p>
+  <p>For a session's QR code, copy the link from the Question Desk Admin page: <strong>Sessions → Links → PowerPoint slide</strong> (the room screen link works too).</p>
+  <p>Some sites don't allow being shown inside another page; those stay blank, and a note says so.</p>
   <p class="error" id="error" role="alert" hidden></p>
   <button type="submit">Show on slide</button>
   <button type="button" class="quiet" id="cancel" hidden>Cancel</button>
@@ -100,6 +101,12 @@
   // away, or open dialogs over the slide), but ordinary pages, forms and videos still work.
   var PAGE_SANDBOX = 'allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-presentation';
 
+  /** Just the site, for the note under a page that may refuse to be shown. */
+  function hostOf(url) {
+    var match = /^https:\/\/([^\/?#]+)/.exec(String(url || ''));
+    return match ? match[1] : 'that page';
+  }
+
   /** A fresh frame each time: reloads reliably, and adds nothing to the web view's history. */
   function frameUrl(url) {
     var old = $('screen');
@@ -128,7 +135,9 @@
       if (shown.url !== page) {
         shown.page = true;
         shown.fallback = '';
-        $('note').textContent = 'If this stays blank, that site doesn’t allow being shown inside a slide.';
+        // Many sites (news sites among them) refuse to be shown inside another page. Nothing
+        // here can change that, so say which site it is and what to do instead.
+        $('note').textContent = 'Showing ' + hostOf(page) + '. If it stays blank, that site doesn’t allow being shown inside a slide — use a screenshot, or a link the site offers for embedding.';
         frameUrl(page);
       }
     } else {
@@ -154,7 +163,7 @@
 
   // The room screen (a Google page, possibly inside a guest page) reports each update.
   window.addEventListener('message', function (e) {
-    if (shown.page || !RoomUrl.fromGoogle(e.origin) || !e.data || typeof e.data.questionDesk !== 'string') return;
+    if (shown.page || !RoomUrl.fromScreen(e.origin, saved.link) || !e.data || typeof e.data.questionDesk !== 'string') return;
     shown.heardAt = Date.now();
     // Question Desk was updated since this screen loaded: reload for the new version (at most
     // every 10 minutes, in case Google serves the old version for a while).

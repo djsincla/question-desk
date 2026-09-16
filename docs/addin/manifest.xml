@@ -13,7 +13,7 @@
   <ProviderName>Question Desk</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
   <DisplayName DefaultValue="Question Desk QR" />
-  <Description DefaultValue="Shows a Question Desk session's live QR code on a slide. The code keeps rotating during the slideshow, so only people in the room can ask." />
+  <Description DefaultValue="Shows a live web page on a slide. For a Question Desk session it shows the live QR code, which keeps rotating during the slideshow, so only people in the room can ask." />
   <IconUrl DefaultValue="https://djsincla.github.io/question-desk/addin/icon-32.png" />
   <HighResolutionIconUrl DefaultValue="https://djsincla.github.io/question-desk/addin/icon-80.png" />
   <SupportUrl DefaultValue="https://github.com/djsincla/question-desk/blob/main/docs/addin/README.md" />

@@ -1,16 +1,19 @@
 # Question Desk QR — PowerPoint add-in
 
-Puts a Question Desk session's **live QR code** on a PowerPoint slide. The code keeps
-rotating during the slideshow, exactly like the room screen, so people scan it from the
-slide instead of a separate screen. Works in PowerPoint for Windows, Mac and the web.
+Puts a **live web page** on a PowerPoint slide. For a Question Desk session that page is the
+**live QR code**, which keeps rotating during the slideshow exactly like the room screen, so
+people scan it from the slide instead of a separate screen. Works in PowerPoint for Windows,
+Mac and the web.
 
 - Free, no account, nothing to run: the add-in is two files served from this repository's
   GitHub Pages site.
 - The session link is saved inside the presentation, so the slide works on any computer
   that has the add-in installed.
 - The slide shows a big QR code with "Scan to ask a question" beside it.
-- Any other secure (https://) web page can go on a slide too — a survey, a form, your
-  website. Some sites refuse to be shown inside a slide and stay blank.
+- Any other web page can go on a slide too — a survey, a form, a news site, your own
+  website. Paste the link with or without `https://` (`apnews.com` is enough). Some sites
+  refuse to be shown inside another page and stay blank; that is the site's choice, and no
+  add-in can change it.
 
 Manifest: <https://djsincla.github.io/question-desk/addin/manifest.xml>
 
@@ -108,10 +111,15 @@ again. Existing boxes keep the size they were inserted at; drag their handles to
 4. To change it, click **Change link** in the top corner while editing.
    It never shows during the slideshow.
 
-**Other web pages:** paste any link starting with `https://` instead. It shows as it is,
-with none of the Question Desk handling. Many sites (autismla.org among them) don't allow
-being shown inside another page; the slide stays blank for those, and a note says so while
-editing. `http://` links can't be shown: PowerPoint only shows secure pages.
+**Other web pages:** paste any link instead — `apnews.com`, `example.org/survey`, or the
+full `https://…` address. It shows as it is, with none of the Question Desk handling, and
+runs sandboxed so it can't take over the slide.
+
+Many sites don't allow being shown inside another page (AP News, autismla.org and most news
+sites send an `X-Frame-Options` header that forbids it). The slide stays blank for those and
+a note names the site while editing; use a screenshot, or a link the site offers for
+embedding, instead. A slide can only show secure pages, so an `http://` link is tried as
+`https://`.
 
 ## Before an event
 
