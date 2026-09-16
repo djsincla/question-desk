@@ -302,10 +302,17 @@ class QD_Sessions {
 	}
 
 	/**
-	 * Ends a session for good. The final grouping pass and the summary email come with phases 4
-	 * and 5; for now it closes intake and clears the room code.
+	 * Ends a session for good: one last grouping pass so nothing is left ungrouped, then the
+	 * summary email if the session asks for one. A summary that fails is kept and retried.
 	 */
 	public static function end_session( $sid ) {
+		if ( QD_Gemini::key() ) {
+			try {
+				QD_Gemini::cluster_session( $sid, true );
+			} catch ( Throwable $e ) {
+				error_log( 'Question Desk final grouping for ' . $sid . ': ' . $e->getMessage() ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+			}
+		}
 		$session = QD_Store::update_session( $sid, function ( &$s ) {
 			if ( 'ended' === ( $s['status'] ?? '' ) ) {
 				throw new QD_Error( 'This session has already ended.' );
@@ -316,8 +323,28 @@ class QD_Sessions {
 			$s['nowAnswering'] = null;
 		} );
 		QD_Tokens::clear_room_token( $sid );
+		QD_Cache::invalidate( $sid );
 		QD_Activity::log( 'Session ended', $session, '' );
-		return array( 'emailed' => 0, 'note' => '' );
+
+		$emailed = 0;
+		$note    = '';
+		if ( ! empty( $session['emailOnEnd'] ) ) {
+			$to = QD_Settings::summary_recipients( $session );
+			if ( ! $to ) {
+				$note = 'Nobody is listed as a Session Summary Email Recipient, so no summary was sent.';
+			} else {
+				try {
+					$emailed = QD_Summaries::send( $session, $to );
+					QD_Activity::log( 'Summary emailed', $session, $emailed . ( 1 === $emailed ? ' recipient' : ' recipients' ) );
+				} catch ( Throwable $e ) {
+					$note = 'The summary could not be sent: ' . $e->getMessage() . ' It will be tried again.';
+					QD_Store::update_session( $sid, function ( &$s ) use ( $e ) {
+						$s['summaryPending'] = array( 'error' => $e->getMessage(), 'at' => QD_Util::now_ms() );
+					} );
+				}
+			}
+		}
+		return array( 'emailed' => $emailed, 'note' => $note );
 	}
 
 	public static function delete( $sid, $typed_name ) {
@@ -400,10 +427,20 @@ class QD_Sessions {
 
 	public static function archive( $sid ) {
 		QD_People::require_admin();
-		global $wpdb;
 		$session = QD_Store::get_session( $sid );
 		if ( ! $session || 'ended' !== ( $session['status'] ?? '' ) ) {
 			throw new QD_Error( 'Only ended sessions can be archived.' );
+		}
+		self::archive_now( $sid );
+		return QD_Admin::state();
+	}
+
+	/** Moves one ended session (and its votes) into the archive table. */
+	public static function archive_now( $sid ) {
+		global $wpdb;
+		$session = QD_Store::get_session( $sid );
+		if ( ! $session ) {
+			return;
 		}
 		$votes = $wpdb->get_results( $wpdb->prepare( 'SELECT vote_key, votes FROM ' . QD_Install::table( 'votes' ) . ' WHERE session_id = %s', $sid ) ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
 		$map   = array();
@@ -418,7 +455,6 @@ class QD_Sessions {
 		$wpdb->delete( QD_Install::table( 'votes' ), array( 'session_id' => $sid ) );
 		QD_Tokens::clear_room_token( $sid );
 		QD_Activity::log( 'Session archived', $session, '' );
-		return QD_Admin::state();
 	}
 
 	public static function restore( $sid ) {

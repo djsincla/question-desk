@@ -2,9 +2,7 @@
 /**
  * The Admin page: the state it draws from, its place in the WordPress admin menu, and the
  * server functions it calls (admin.js in the Apps Script version).
- *
- * Functions from later phases are registered too, answering with a plain "not in the WordPress
- * version yet" so the page shows a message instead of failing silently.
+
  */
 
 defined( 'ABSPATH' ) || exit;
@@ -12,26 +10,6 @@ defined( 'ABSPATH' ) || exit;
 class QD_Admin {
 
 	const MENU_SLUG = 'question-desk';
-
-	/** Areas still to come; each names the phase in WORDPRESS.md that brings it. */
-	const LATER = array(
-		'getActivity'            => 'The activity log',
-		'runHealthCheck'         => 'The health check',
-		'listGeminiModels'       => 'Gemini settings',
-		'saveGeminiSettings'     => 'Gemini settings',
-		'testGeminiSettings'     => 'Gemini settings',
-		'saveOpsSettings'        => 'Retention and the weekly report',
-		'sendWeeklyReportNow'    => 'The weekly report',
-		'startLoadTest'          => 'The load test',
-		'stopLoadTest'           => 'The load test',
-		'emailSummary'           => 'Summary emails',
-		'emailEventSummary'      => 'Summary emails',
-		'emailEventFacilitators' => 'Facilitator link emails',
-		'emailLinks'             => 'Link emails',
-		'eventChecklist'         => 'The event checklist',
-		'exportSessionsCsv'      => 'The sessions CSV',
-		'importSessionsCsv'      => 'The sessions CSV',
-	);
 
 	public static function init() {
 		add_action( 'admin_menu', array( __CLASS__, 'add_menu' ) );
@@ -90,9 +68,9 @@ class QD_Admin {
 			'storage'          => array( 'bytes' => 0, 'limit' => 0, 'percent' => 0 ),
 			'geminiKeySet'     => (bool) self::gemini_key(),
 			'sheetUrl'         => admin_url( 'admin.php?page=' . self::MENU_SLUG ),
-			'mailQuota'        => 0,
+			'mailQuota'        => 0,   // WordPress has no daily quota of its own
 			'health'           => (array) get_option( 'qd_health', array() ),
-			'loadTest'         => null,
+			'loadTest'         => QD_Operations::load_test_view(),
 			'limits'           => array(
 				'maxLengthCeiling' => $config['maxLengthCeiling'],
 				'defaultMaxLength' => $config['defaultMaxLength'],
@@ -223,11 +201,6 @@ class QD_Admin {
 		);
 		foreach ( $manage as $name => $callback ) {
 			QD_Api::register( $name, $callback, 'manage' );
-		}
-		foreach ( self::LATER as $name => $what ) {
-			QD_Api::register( $name, function () use ( $what ) {
-				throw new QD_Error( $what . ' is not in the WordPress version yet.' );
-			}, 'manage' );
 		}
 	}
 

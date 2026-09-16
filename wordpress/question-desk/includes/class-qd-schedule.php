@@ -45,6 +45,70 @@ class QD_Schedule {
 				self::group_one( $s['id'] );
 			}
 		}
+		self::maintenance();
+	}
+
+	/**
+	 * The hourly work, from the same run: summaries still owed, archiving old sessions,
+	 * retention, and the weekly report (runMaintenance_).
+	 */
+	public static function maintenance() {
+		$last = (int) get_option( 'qd_maintenance_at', 0 );
+		if ( $last && QD_Util::now_ms() - $last < 3600 * 1000 ) {
+			return false;
+		}
+		update_option( 'qd_maintenance_at', QD_Util::now_ms(), false );
+		foreach ( array(
+			'summaries' => array( __CLASS__, 'retry_summaries' ),
+			'archive'   => array( __CLASS__, 'archive_old' ),
+			'retention' => array( 'QD_Operations', 'apply_retention' ),
+		) as $what => $job ) {
+			try {
+				call_user_func( $job );
+			} catch ( Throwable $e ) {
+				error_log( 'Question Desk ' . $what . ': ' . $e->getMessage() ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+			}
+		}
+		if ( QD_Operations::weekly_report_due() ) {
+			QD_Operations::send_weekly_report();
+		}
+		return true;
+	}
+
+	/** A summary that failed when its session ended is tried again for a day. */
+	public static function retry_summaries() {
+		$sent = 0;
+		foreach ( QD_Store::all_sessions() as $s ) {
+			if ( empty( $s['summaryPending'] ) || ! empty( $s['summarySent'] ) ) {
+				continue;
+			}
+			if ( QD_Util::now_ms() - (int) ( $s['summaryPending']['at'] ?? 0 ) > 24 * 3600 * 1000 ) {
+				continue;   // after a day it stays for an administrator to send by hand
+			}
+			try {
+				$sent += QD_Summaries::send( $s, QD_Settings::summary_recipients( $s ) );
+			} catch ( Throwable $e ) {
+				error_log( 'Question Desk summary retry for ' . $s['id'] . ': ' . $e->getMessage() ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+			}
+		}
+		return $sent;
+	}
+
+	/** Ended sessions move to the archive table after CONFIG.archiveAfterDays. */
+	public static function archive_old() {
+		$cutoff = QD_Util::now_ms() - (int) QD_App::config( 'archiveAfterDays' ) * 24 * 3600 * 1000;
+		$moved  = 0;
+		foreach ( QD_Store::all_sessions() as $s ) {
+			if ( 'ended' !== $s['status'] || empty( $s['ended'] ) || $s['ended'] > $cutoff || ! empty( $s['loadTest'] ) ) {
+				continue;
+			}
+			if ( ! empty( $s['summaryPending'] ) && empty( $s['summarySent'] ) ) {
+				continue;   // still owed a summary
+			}
+			QD_Sessions::archive_now( $s['id'] );
+			$moved++;
+		}
+		return $moved;
 	}
 
 	/** Starts and ends sessions whose time has come (runSchedule_). */

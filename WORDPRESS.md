@@ -53,7 +53,12 @@ edit the pages and `Code.js` at the root, as for the Apps Script version.
   (including the do-not-soften rule), the thinking-level retry, and the three-tries cap. An
   every-minute WP-Cron run starts and ends scheduled sessions and groups active ones; a queue
   refresh kicks a session's grouping when it is due, since WP-Cron only fires on traffic.
-- [ ] Phase 5 — reports and operations
+- [x] **Phase 5 — reports and operations.** Summaries by email with the questions as a CSV
+  (sent when a session ends, retried for a day if the mail fails), the event summary, one email
+  per QA Facilitator with their own sessions, link emails, the day-of checklist, the sessions
+  CSV export and import (the same columns as the Apps Script version, from data/app.json), the
+  activity log, retention, the weekly report, the health check, and the load test. Every one of
+  the Admin page's 41 server functions now answers for real.
 - [ ] Phase 6 — packaging and move-over
 
 ## Decisions
@@ -86,7 +91,7 @@ The **server is rewritten in PHP**, area by area, mirroring `server/*.js`:
 | LockService, the question inbox, batched writes | MySQL: one `INSERT` per question (no inbox, no lock — a test asks 100 in a row and finds 100), `INSERT … ON DUPLICATE KEY UPDATE votes = votes + 1` for Me too, named locks (`GET_LOCK`) only where a whole record is rewritten |
 | Every-minute trigger | WP-Cron event every minute, **plus** grouping kicked from queue refreshes when it's due (WP-Cron only runs when the site gets traffic). Recommend a real system cron on the host. |
 | `UrlFetchApp` (Gemini) | `wp_remote_post`; API key in settings or a `QD_GEMINI_API_KEY` constant in `wp-config.php` |
-| `MailApp` | `wp_mail` (recommend an SMTP plugin on the host) |
+| `MailApp` | `wp_mail`, one message per recipient (recommend an SMTP plugin on the host; the checklist and health check say when there isn't one) |
 | `Session.getActiveUser` / ADMINS / MODERATORS | WordPress users; capabilities `qd_manage` (Administrator) and `qd_facilitate` (QA Facilitator role); session facilitators stored as user IDs |
 | Guest page (`docs/join`) | Not needed for pages served by WordPress: Google's multi-account error doesn't exist there. Kept for the Apps Script version. |
 | PowerPoint add-in | Accepts the WordPress room screen link too (`room-url.js` learns the WordPress form). The room screen and slide must be frameable: the plugin removes `X-Frame-Options` for those two routes — **a host-level header (like autismla.org's) can't be removed by a plugin; test on the real host.** |

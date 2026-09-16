@@ -60,10 +60,13 @@ class Test_QD_Admin extends WP_UnitTestCase {
 		$this->assertSame( 'owner@example.org', $answer['value']['me'] );
 	}
 
-	public function test_later_phases_say_so_instead_of_failing_silently() {
-		$answer = QD_Api::call( 'getActivity', array( array() ) );
-		$this->assertFalse( $answer['ok'] );
-		$this->assertStringContainsString( 'not in the WordPress version yet', $answer['error'] );
+	public function test_every_function_the_admin_page_calls_exists() {
+		do_action( 'rest_api_init' );
+		preg_match_all( "/call\\('([a-zA-Z]+)'/", QD_App::page_file( 'Admin.html' ), $found );
+		$names = array_unique( $found[1] );
+		$this->assertGreaterThan( 30, count( $names ), 'the page calls ' . count( $names ) . ' functions' );
+		$missing = array_values( array_diff( $names, array_keys( QD_Api::registered() ) ) );
+		$this->assertSame( array(), $missing, 'the Admin page calls functions that do not exist' );
 	}
 
 	public function test_the_admin_page_is_in_the_menu_for_administrators_only() {
