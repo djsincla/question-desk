@@ -98,7 +98,7 @@ test('the add-in page only ever frames an address produced by RoomUrl', () => {
   assert.match(page, /var direct = RoomUrl\.direct\(saved\.link\);/);
   assert.match(page, /shown\.fallback = url !== direct \? direct : '';/);
   assert.match(page, /var fallback = shown\.fallback;/);
-  assert.match(page, /if \(shown\.page \|\| !RoomUrl\.fromGoogle\(e\.origin\)/, 'only Google pages showing a Question Desk screen can make the add-in reload');
+  assert.match(page, /if \(shown\.page \|\| !RoomUrl\.fromScreen\(e\.origin, saved\.link\)/, 'only the screen now on the slide can make the add-in reload');
   assert.doesNotMatch(page, /innerHTML/);
   const inline = page.match(/<script>([\s\S]*?)<\/script>/)[1];
   assert.doesNotThrow(() => new Function(inline));
@@ -113,7 +113,9 @@ test('a guest page slide link stays on its guest page, for presenting laptops si
   assert.equal(RoomUrl.forSlide(own), own + '&layout=qr');
   // Not a guest page link: refused.
   assert.equal(RoomUrl.forSlide('https://evil.example/"x"?d=AKfycb' + 'x'.repeat(40) + '&s=1a2b3c4d&r=0123456789abcdef'), null);
-  assert.equal(RoomUrl.forSlide('http://insecure.example/join/?d=AKfycb' + 'x'.repeat(40) + '&s=1a2b3c4d&r=0123456789abcdef'), null);
+  // A slide can only show secure pages, so an http:// guest page is tried as https://.
+  assert.equal(RoomUrl.forSlide('http://insecure.example/join/?d=AKfycb' + 'x'.repeat(40) + '&s=1a2b3c4d&r=0123456789abcdef'),
+    'https://insecure.example/join/?d=AKfycb' + 'x'.repeat(40) + '&view=present&s=1a2b3c4d&r=0123456789abcdef&layout=qr');
 });
 
 test('custom guest page addresses the add-in accepts, in any parameter order', () => {
@@ -156,22 +158,49 @@ test('room screens and panelist views know their version, so a frame can reload 
   assert.equal(h.app.getRoomScreen(s.id, 'qr', r).version, version);
 });
 
-test('any other https web page can be shown on a slide; nothing else can', () => {
+test('any web page can be shown on a slide, however the link was pasted', () => {
   [
     ['https://example.org', 'https://example.org/'],
     ['  https://www.autismla.example/events?when=fall#rsvp ', 'https://www.autismla.example/events?when=fall#rsvp'],
     ['https://docs.google.com/forms/d/e/abc/viewform?embedded=true', 'https://docs.google.com/forms/d/e/abc/viewform?embedded=true'],
-    ['https://Survey.Example.org:8443/q', 'https://survey.example.org:8443/q']
+    ['https://Survey.Example.org:8443/q', 'https://survey.example.org:8443/q'],
+    // Copied from a browser's address bar, which hides the scheme.
+    ['www.apnews.com', 'https://www.apnews.com/'],
+    ['apnews.com/hub/ap-top-news', 'https://apnews.com/hub/ap-top-news'],
+    ['Example.ORG?a=b#c', 'https://example.org?a=b#c'],
+    ['survey.example.org:8443/q', 'https://survey.example.org:8443/q'],
+    // A slide can only show secure pages, so the secure address is the one worth trying.
+    ['http://example.org', 'https://example.org/'],
+    ['http://www.apnews.com/hub/x', 'https://www.apnews.com/hub/x']
   ].forEach(([input, out]) => assert.equal(RoomUrl.webPage(input), out, input));
   [
-    '', 'example.org', 'http://example.org', 'javascript:alert(1)', 'data:text/html,<b>x</b>', 'file:///etc/passwd',
-    'https://user:secret@example.org/', 'https://example.org\\@evil.example', 'https://exa mple.org', 'https://-bad.example/',
-    'https://' + 'a'.repeat(2000) + '.org'
+    '', 'presentation', 'next slide please', 'javascript:alert(1)', 'data:text/html,<b>x</b>', 'file:///etc/passwd',
+    'mailto:someone@example.org', 'https://user:secret@example.org/', 'https://example.org\\@evil.example',
+    'https://exa mple.org', 'https://-bad.example/', 'https://' + 'a'.repeat(2000) + '.org'
   ].forEach((input) => {
     assert.equal(RoomUrl.webPage(input), null, input);
     assert.ok(RoomUrl.problem(input).length > 5, 'explains why: ' + input);
   });
-  assert.match(RoomUrl.problem('http://example.org'), /https:\/\//);
   // Question Desk links still get the live QR handling, not the plain web page.
   assert.ok(RoomUrl.forSlide(PUBLIC + '?view=present&s=1a2b3c4d&r=0123456789abcdef'));
+  assert.equal(RoomUrl.forSlide('script.google.com/macros/s/AbC_12-x/exec?view=present&s=1a2b3c4d&r=0123456789abcdef'),
+    PUBLIC + '?view=present&s=1a2b3c4d&r=0123456789abcdef&layout=qr', 'pasted without https://');
+});
+
+test('a room screen served by the WordPress plugin works on a slide too', () => {
+  const link = 'https://autismla.example/questions/?view=present&s=1a2b3c4d&r=0123456789abcdef';
+  const slide = 'https://autismla.example/questions/?view=present&s=1a2b3c4d&r=0123456789abcdef&layout=qr';
+  assert.equal(RoomUrl.forSlide(link), slide);
+  assert.equal(RoomUrl.forSlide(link + '&layout=qr'), slide);
+  assert.equal(RoomUrl.forSlide('autismla.example/questions/?view=present&s=1a2b3c4d&r=0123456789abcdef'), slide, 'pasted without https://');
+  // No guest page is involved, so there is nothing to fall back to: the site is the address.
+  assert.equal(RoomUrl.direct(link), slide);
+  // Only that site may tell the add-in to reload the screen it is showing.
+  assert.equal(RoomUrl.fromScreen('https://autismla.example', link), true);
+  assert.equal(RoomUrl.fromScreen('https://evil.example', link), false);
+  assert.equal(RoomUrl.fromScreen('https://script.google.com', link), true, 'Google pages always may');
+  assert.equal(RoomUrl.fromScreen('https://autismla.example', PUBLIC + '?view=present&s=1a2b3c4d&r=0123456789abcdef'), false);
+  // A queue or participant link is not a room screen.
+  assert.equal(RoomUrl.forSlide('https://autismla.example/questions/?view=moderate&s=1a2b3c4d&r=0123456789abcdef'), null);
+  assert.equal(RoomUrl.forSlide('https://autismla.example/questions/?s=1a2b3c4d&k=0123456789abcdef'), null);
 });
