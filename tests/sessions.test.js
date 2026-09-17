@@ -148,3 +148,23 @@ test('only admins reorder sessions', () => {
   h.as(h.env.owner);
   assert.throws(() => h.app.reorderSessions('nope'), /new order/);
 });
+
+test('a session can say which room it is in, for staff only', () => {
+  const h = createApp().install({ moderators: [MOD] });
+  const s = h.session({ name: 'Morning panel', room: '  Ballroom   A ', moderators: [MOD], access: 'link', active: true });
+  assert.equal(h.app.getSession_(s.id).room, 'Ballroom A', 'tidied like any other name');
+
+  // The facilitator's queue is told, so it can show it beside the session name.
+  h.as(MOD);
+  assert.equal(h.app.getBoard(s.id).session.room, 'Ballroom A');
+
+  // Participants are not: the room is for the people running it.
+  h.anonymous();
+  const state = h.app.getSessionState(s.id, '');
+  assert.equal(state.room, undefined);
+  assert.doesNotMatch(JSON.stringify(h.app.getRoomScreen(s.id, 'full', h.screenKey(h.app.getSession_(s.id)))), /Ballroom/);
+
+  h.as(h.env.owner);
+  h.app.saveSession({ id: s.id, name: 'Morning panel', room: '' });
+  assert.equal(h.app.getSession_(s.id).room, '', 'and it can be taken away again');
+});

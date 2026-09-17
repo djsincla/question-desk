@@ -127,6 +127,7 @@ function saveSessionAs_(input, me, dryRun) {
   const fields = {
     name: name,
     heading: cleanText_(input.heading, 120) || 'Questions for the panel',
+    room: cleanText_(input.room, 60),
     access: access,
     theme: theme,
     maxLength: maxLength,

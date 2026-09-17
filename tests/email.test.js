@@ -248,7 +248,7 @@ test('original wording is never overwritten by grouping, approval, answering or 
 test('an event emails each of its QA Facilitators one message with links for their own sessions', () => {
   const h = createApp().install({ moderators: ['ana@example.org', 'ben@example.org', 'cal@example.org'] });
   const eid = h.app.saveEvent({ name: 'Fall Conference', moderators: ['cal@example.org'] }).savedEventId;
-  const one = h.session({ name: 'Morning panel', eventId: eid, moderators: ['ana@example.org', 'ben@example.org'] });
+  const one = h.session({ name: 'Morning panel', room: 'Ballroom A', eventId: eid, moderators: ['ana@example.org', 'ben@example.org'] });
   const two = h.session({ name: 'Afternoon panel', eventId: eid, moderators: ['ana@example.org'] });
   const done = h.session({ name: 'Old panel', eventId: eid, moderators: ['ben@example.org'] });
   h.app.endSession(done.id, 'Old panel');
@@ -267,6 +267,7 @@ test('an event emails each of its QA Facilitators one message with links for the
   assert.doesNotMatch(ana, /view=present|view=panel|layout=qr/);
   const ben = to('ben@example.org')[0].htmlBody;
   assert.match(ben, /Morning panel/);
+  assert.match(ben, /Ballroom A/, 'the email says where to be');
   assert.doesNotMatch(ben, /Afternoon panel|Old panel/, 'only their own sessions, not ended ones');
   const cal = to('cal@example.org')[0].htmlBody;
   assert.match(cal, /Morning panel/, 'event-level QA Facilitators get every session');

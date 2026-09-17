@@ -11,6 +11,7 @@
     <img id="logo" alt="" hidden>
     <h1 id="name">Question queue</h1>
     <select id="switcher" aria-label="Switch session" hidden></select>
+    <span class="room" id="room" hidden></span>
     <span class="pill" id="pill"></span>
   </div>
   <div class="nav">
@@ -252,7 +253,10 @@
     state = data;
     ended = data.session.status === 'ended';
     document.getElementById('name').textContent = data.session.name;
-    document.title = 'QA - ' + data.session.name;
+    var room = document.getElementById('room');
+    room.textContent = data.session.room || '';
+    room.hidden = !data.session.room;
+    document.title = 'QA - ' + data.session.name + (data.session.room ? ' (' + data.session.room + ')' : '');
     var pill = document.getElementById('pill');
     pill.textContent = data.session.status === 'active' ? 'Active' : ended ? 'Ended' : 'Not active';
     pill.className = 'pill ' + data.session.status;

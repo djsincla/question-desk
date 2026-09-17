@@ -148,6 +148,13 @@
         <input type="text" id="f-name" maxlength="80" required>
         <div class="hint">For administrators and QA Facilitators, e.g. "Family night — Sept".</div>
       </label>
+      <label class="field"><span>Room</span>
+        <input type="text" id="f-room" maxlength="60" placeholder="Ballroom A">
+        <div class="hint">Where it happens. Shown to staff and in their emails; participants never see it.</div>
+      </label>
+    </div>
+
+    <div class="row">
       <label class="field"><span>Heading participants see</span>
         <input type="text" id="f-heading" maxlength="120" placeholder="Questions for the panel">
       </label>
@@ -977,6 +984,7 @@
 
     var info = el('div');
     var h = el('h3', null, s.name);
+    if (s.room) h.appendChild(el('span', 'room', s.room));
     h.appendChild(el('span', 'pill ' + s.status, statusLabel(s)));
     if (s.loadTest) h.appendChild(el('span', 'pill test', 'Load test'));
     info.appendChild(h);
@@ -1281,6 +1289,7 @@
     select.value = s.id ? (s.eventId && eventById(s.eventId) ? s.eventId : '') : (presetEvent || '');
     $('f-id').value = s.id || '';
     $('f-name').value = s.name || '';
+    $('f-room').value = s.room || '';
     $('f-heading').value = s.heading || '';
     radio('access', s.access || 'room');
     radio('theme', s.theme || 'dark');
@@ -1688,6 +1697,7 @@
       id: $('f-id').value,
       eventId: $('f-event').value,
       name: $('f-name').value,
+      room: $('f-room').value,
       heading: $('f-heading').value,
       access: radio('access'),
       theme: radio('theme'),

@@ -81,6 +81,7 @@ class QD_Sessions {
 		$fields = array(
 			'name'             => $name,
 			'heading'          => QD_Util::clean_text( $input['heading'] ?? '', 120 ) ?: 'Questions for the panel',
+			'room'             => QD_Util::clean_text( $input['room'] ?? '', 60 ),
 			'access'           => $access,
 			'theme'            => $theme,
 			'maxLength'        => $max_length,
@@ -407,6 +408,7 @@ class QD_Sessions {
 		return array(
 			'id'               => $s['id'],
 			'name'             => $s['name'] ?? '',
+			'room'             => $s['room'] ?? '',
 			'heading'          => $s['heading'] ?? '',
 			'access'           => $s['access'] ?? 'room',
 			'theme'            => $s['theme'] ?? 'dark',

@@ -17,7 +17,7 @@ test('export writes every session setting in the app time zone, and parses back'
   const eid = h.app.saveEvent({ name: 'Fall Conference' }).savedEventId;
   const start = Date.UTC(2026, 9, 4, 1, 30);   // 2026-10-03 18:30 in Los Angeles
   h.app.saveSession({
-    name: 'Keynote, "Main" hall', heading: 'Ask the panel', access: 'link', theme: 'light', eventId: eid,
+    name: 'Keynote, "Main" hall', room: 'Ballroom A', heading: 'Ask the panel', access: 'link', theme: 'light', eventId: eid,
     cooldownSeconds: 45, maxLength: 250, emailOnEnd: true, moderators: [MOD, MOD2],
     scheduledStart: start, scheduledEnd: start + 2 * 3600 * 1000,
     summary: { mode: 'custom', facilitators: false, extra: 'board@partner.test' },
@@ -30,13 +30,16 @@ test('export writes every session setting in the app time zone, and parses back'
   assert.equal(out.count, 2);
   assert.match(out.filename, /^question-desk-sessions-\d{4}-\d{2}-\d{2}\.csv$/);
   const rows = h.app.parseCsv_(out.csv);
-  assert.equal(rows[0][8], 'Scheduled start (America/Los_Angeles)');
-  const byName = Object.fromEntries(rows.slice(1).map((r) => [r[1], r]));
+  // Columns are read by their heading, so adding one never breaks this.
+  const at = Object.fromEntries(rows[0].map((header, i) => [header.replace(/\s*\(.*\)$/, ''), i]));
+  assert.equal(rows[0][at['Scheduled start']], 'Scheduled start (America/Los_Angeles)');
+  const byName = Object.fromEntries(rows.slice(1).map((r) => [r[at.Session], r]));
   const k = byName['Keynote, "Main" hall'];
-  assert.deepEqual(k, ['Fall Conference', 'Keynote, "Main" hall', 'Ask the panel', 'link', 'light', '45', '250', 'yes',
-    '2026-10-03 18:30', '2026-10-03 20:30', MOD + '; ' + MOD2, 'yes', 'no', 'yes', '',
-    'Partner', '#123456', 'What is next for teens?\nHow do we give feedback?', 'yes', 'no', 'inactive']);
-  assert.equal(byName["'-starts with a dash"][1], "'-starts with a dash", 'formula guard on export');
+  assert.deepEqual(rows[0].map((header) => k[at[header.replace(/\s*\(.*\)$/, '')]]),
+    ['Fall Conference', 'Keynote, "Main" hall', 'Ballroom A', 'Ask the panel', 'link', 'light', '45', '250', 'yes',
+     '2026-10-03 18:30', '2026-10-03 20:30', MOD + '; ' + MOD2, 'yes', 'no', 'yes', '',
+     'Partner', '#123456', 'What is next for teens?\nHow do we give feedback?', 'yes', 'no', 'inactive']);
+  assert.equal(byName["'-starts with a dash"][at.Session], "'-starts with a dash", 'formula guard on export');
 
   h.as(MOD);
   assert.throws(() => h.app.exportSessionsCsv(), /Only administrators/);

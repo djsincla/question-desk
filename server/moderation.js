@@ -92,6 +92,7 @@ function getBoard(sid) {
     session: {
       id: session.id,
       name: session.name,
+      room: session.room || '',
       eventName: eventName_(session),
       status: session.status,
       access: session.access,

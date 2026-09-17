@@ -27,6 +27,16 @@ class Test_QD_Sessions extends WP_UnitTestCase {
 		$this->assertMatchesRegularExpression( '/^[a-f0-9]{16}$/', $session['screenKey'] );
 	}
 
+	public function test_a_session_can_say_which_room_it_is_in() {
+		$sid = $this->make( array( 'room' => '  Ballroom   A ' ) );
+		$this->assertSame( 'Ballroom A', QD_Store::get_session( $sid )['room'], 'tidied like any other name' );
+		// The queue is told, so it can show it beside the session name; participants are not.
+		$this->assertSame( 'Ballroom A', QD_Moderation::get_board( $sid )['session']['room'] );
+		$this->assertArrayNotHasKey( 'room', QD_Participants::get_session_state( $sid, '' ) );
+		$this->make( array( 'id' => $sid, 'name' => 'Morning panel', 'room' => '' ) );
+		$this->assertSame( '', QD_Store::get_session( $sid )['room'] );
+	}
+
 	public function test_saving_checks_the_input() {
 		$bad = array(
 			array( array( 'name' => '  ' ), 'Give the session a name.' ),

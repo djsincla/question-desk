@@ -87,6 +87,7 @@ class QD_Moderation {
 			'session'              => array(
 				'id'        => $session['id'],
 				'name'      => (string) $session['name'],
+				'room'      => (string) ( $session['room'] ?? '' ),
 				'eventName' => QD_Store::event_name( $session ),
 				'status'    => (string) $session['status'],
 				'access'    => (string) $session['access'],

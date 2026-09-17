@@ -13,6 +13,7 @@
 const SESSION_CSV = [
   ['Event', 'event'],
   ['Session', 'name'],
+  ['Room', 'room'],
   ['Heading participants see', 'heading'],
   ['How people join (room or link)', 'access'],
   ['Room screen theme (dark, light or contrast)', 'theme'],
@@ -49,7 +50,7 @@ function exportSessionsCsv() {
     const guest = guestChoice_(s.guestPage);
     const own = s.brand || {};
     const values = {
-      event: eventName_(s), name: s.name, heading: s.heading, access: s.access, theme: s.theme || 'dark', roomQuestions: yesNo(s.roomQuestions),
+      event: eventName_(s), name: s.name, room: s.room || '', heading: s.heading, access: s.access, theme: s.theme || 'dark', roomQuestions: yesNo(s.roomQuestions),
       cooldownSeconds: cooldownFor_(s), maxLength: s.maxLength || CONFIG.defaultMaxLength, emailOnEnd: yesNo(s.emailOnEnd),
       scheduledStart: time(s.scheduledStart), scheduledEnd: time(s.scheduledEnd),
       moderators: (s.moderators || []).join('; '),
@@ -181,6 +182,7 @@ function importSessionsCsv(text, options, dryRun) {
       // Start from the existing session's settings, so missing columns change nothing.
       const input = match ? sessionInput_(match) : { name: out.name, emailOnEnd: true };
       input.name = out.name;
+      if (has('room')) input.room = get.room;
       if (has('heading')) input.heading = get.heading;
       if (has('access')) {
         const a = get.access.trim().toLowerCase();
@@ -269,7 +271,7 @@ function importSessionsCsv(text, options, dryRun) {
 function sessionInput_(s) {
   const own = s.brand || {};
   return {
-    id: s.id, name: s.name, heading: s.heading, access: s.access, theme: s.theme, maxLength: s.maxLength,
+    id: s.id, name: s.name, room: s.room || '', heading: s.heading, access: s.access, theme: s.theme, maxLength: s.maxLength,
     cooldownSeconds: cooldownFor_(s), moderators: (s.moderators || []).slice(), emailOnEnd: !!s.emailOnEnd,
     translatePrepared: s.translatePrepared !== false, roomQuestions: !!s.roomQuestions,
     scheduledStart: s.scheduledStart || null, scheduledEnd: s.scheduledEnd || null,

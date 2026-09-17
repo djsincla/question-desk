@@ -64,6 +64,7 @@ class QD_Csv {
 			$values = array(
 				'event'             => QD_Store::event_name( $s ),
 				'name'              => $s['name'],
+				'room'              => $s['room'] ?? '',
 				'heading'           => $s['heading'] ?? '',
 				'access'            => $s['access'],
 				'theme'             => $s['theme'] ?? 'dark',
@@ -316,6 +317,9 @@ class QD_Csv {
 				// Start from the session as it is, so missing columns change nothing.
 				$input         = $match ? QD_Sessions::session_input( $match ) : array( 'name' => $out['name'], 'emailOnEnd' => true );
 				$input['name'] = $out['name'];
+				if ( $has( 'room' ) ) {
+					$input['room'] = $get['room'];
+				}
 				if ( $has( 'heading' ) ) {
 					$input['heading'] = $get['heading'];
 				}
