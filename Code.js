@@ -55,6 +55,7 @@ const CONFIG = {
   entryTokenSeconds: 150,         // how often an in-room QR rotates
   deviceTokenSeconds: 21600,      // 6h — CacheService maximum
   clusterBatchSize: 25,
+  reviewMaxQuestions: 400,        // questions sent to Gemini for an event review
   maxPrepared: 100,               // prepared questions per session
   maxImportRows: 200,             // sessions per CSV import
   boardCacheSeconds: 30,          // the queue's board; every change clears it, so this only bounds staleness

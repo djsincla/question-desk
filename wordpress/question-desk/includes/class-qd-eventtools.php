@@ -74,6 +74,7 @@ class QD_EventTools {
 				};
 				$body  .= '<p style="margin:0 0 20px;padding-left:10px;border-left:3px solid ' . $accent . '"><strong>'
 					. esc_html( $s['name'] ) . '</strong>'
+					. ( ! empty( $s['room'] ) ? ' <span style="color:#5c6874">· ' . esc_html( $s['room'] ) . '</span>' : '' )
 					. ( $when( $s ) ? '<br><span style="color:#5c6874">' . esc_html( $when( $s ) ) . '</span>' : '' )
 					. $line( 'QA Facilitator queue', $links['moderate'] ) . '</p>';
 			}
@@ -112,7 +113,14 @@ class QD_EventTools {
 		if ( ! $to ) {
 			throw new QD_Error( 'Add at least one recipient.' );
 		}
-		$brand     = QD_Brand::for_session( $sessions[0] );
+		$brand = QD_Brand::for_session( $sessions[0] );
+		// What the questions say about the event, before the questions themselves.
+		try {
+			$review = self::review_section( QD_Gemini::event_review( $eid ), $brand );
+		} catch ( Throwable $e ) {
+			error_log( 'Question Desk event review: ' . $e->getMessage() ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+			$review = self::review_problem( 'The review could not be made: ' . $e->getMessage() );
+		}
 		$body      = '<p style="color:#5c6874;margin:0 0 8px">' . count( $sessions ) . ( 1 === count( $sessions ) ? ' session' : ' sessions' );
 		$header    = null;
 		$csv_rows  = array();
@@ -128,7 +136,7 @@ class QD_EventTools {
 				$csv_rows[] = array_merge( array( $s['name'] ), $row );
 			}
 		}
-		$body .= ' · ' . $questions . ' questions</p>' . $sections;
+		$body .= ' · ' . $questions . ' questions</p>' . $review . $sections;
 
 		$name     = trim( preg_replace( '/\s+/', '-', preg_replace( '/[^\w -]+/u', '', $event['name'] ) ) );
 		$path     = trailingslashit( get_temp_dir() ) . ( $name ? $name : 'event' ) . '-questions.csv';
@@ -140,6 +148,65 @@ class QD_EventTools {
 		wp_delete_file( $path );
 		QD_Activity::log( 'Event summary emailed', array( 'id' => $eid, 'eventName' => $event['name'] ), 'to ' . implode( ', ', $to ) );
 		return count( $to );
+	}
+
+	/** The review as email HTML, or a line saying why there isn't one (reviewSection_). */
+	private static function review_section( $result, array $brand ) {
+		if ( empty( $result['ok'] ) ) {
+			return self::review_problem( $result['error'] ?? '' );
+		}
+		$r    = $result['review'];
+		$head = function ( $text ) {
+			return '<h2 style="font-size:15px;margin:18px 0 6px;color:#16202b">' . esc_html( $text ) . '</h2>';
+		};
+		$note = function ( $text ) {
+			return '<p style="margin:0 0 10px;color:#3c4854">' . esc_html( $text ) . '</p>';
+		};
+		$html = '<div style="background:#f5f7f9;border-left:4px solid ' . $brand['accent'] . ';padding:14px 18px;margin:0 0 26px">'
+			. '<h1 style="font-size:17px;margin:0 0 4px">What the questions say</h1>'
+			. '<p style="margin:0 0 12px;color:#5c6874;font-size:13px">Written by Gemini from ' . (int) $result['reviewed']
+			. ' of the ' . (int) $result['questions'] . ( 1 === (int) $result['questions'] ? ' question' : ' questions' )
+			. ' asked across ' . (int) $result['sessions'] . ( 1 === (int) $result['sessions'] ? ' session' : ' sessions' )
+			. '. Read it as a starting point, not a verdict.</p>'
+			. $note( $r['sentiment'] );
+
+		if ( ! empty( $r['themes'] ) ) {
+			$html .= $head( 'Themes worth acting on' ) . '<ol style="margin:0 0 4px;padding-left:20px;color:#3c4854">';
+			foreach ( $r['themes'] as $theme ) {
+				$html .= '<li style="margin-bottom:10px"><strong>' . esc_html( $theme['title'] ) . '</strong><br>'
+					. esc_html( $theme['what'] ) . '<br><span style="color:#5c6874">Next time: '
+					. esc_html( $theme['nextTime'] ) . '</span></li>';
+			}
+			$html .= '</ol>';
+		}
+		if ( ! empty( $r['logistics'] ) ) {
+			$html .= $head( 'Running the event' ) . '<ul style="margin:0 0 4px;padding-left:20px;color:#3c4854">';
+			foreach ( $r['logistics'] as $item ) {
+				$html .= '<li style="margin-bottom:8px">' . esc_html( $item['issue'] )
+					. '<br><span style="color:#5c6874">Next time: ' . esc_html( $item['nextTime'] ) . '</span></li>';
+			}
+			$html .= '</ul>';
+		}
+		if ( ! empty( $r['individual']['count'] ) ) {
+			$count = (int) $r['individual']['count'];
+			$html .= $head( 'Questions about one person\'s situation' )
+				. $note( $count . ( 1 === $count ? ' question was' : ' questions were' ) . ' about somebody\'s own circumstances. '
+					. $r['individual']['pattern'] )
+				. $note( 'For everyone in that position: ' . $r['individual']['atScale'] );
+		}
+		if ( ! empty( $r['sessionIdeas'] ) ) {
+			$html .= $head( 'Sessions to consider next time' ) . '<ul style="margin:0;padding-left:20px;color:#3c4854">';
+			foreach ( $r['sessionIdeas'] as $idea ) {
+				$html .= '<li style="margin-bottom:4px">' . esc_html( $idea ) . '</li>';
+			}
+			$html .= '</ul>';
+		}
+		return $html . '</div>';
+	}
+
+	private static function review_problem( $why ) {
+		return '<p style="background:#f5f7f9;padding:12px 16px;margin:0 0 26px;color:#5c6874">'
+			. 'The questions are below, but no review was written this time. ' . esc_html( $why ) . '</p>';
 	}
 
 	/** One session's links by email, to its QA Facilitators or to addresses given. */

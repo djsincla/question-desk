@@ -484,6 +484,17 @@ function defaultGemini(call) {
     const text = JSON.parse(call.prompt.split('\n').pop());
     return { translations: Object.fromEntries(Object.keys(call.schema.properties.translations.properties).map((c) => [c, '[' + c + '] ' + text])) };
   }
+  if (call.schema.properties.sentiment) {
+    // An event review: enough of a reply for the email to be built from it.
+    const asked = call.prompt.split('Questions:\n')[1].split('\n').filter(Boolean).map((line) => JSON.parse(line));
+    return {
+      sentiment: 'Warm but impatient: people came ready with practical questions and several are still waiting on answers.',
+      themes: [{ title: 'Waiting lists', what: asked.length + ' questions touched on waits', nextTime: 'Bring someone who can give real timelines.' }],
+      logistics: [{ issue: 'Interpretation was asked about', nextTime: 'Say on the agenda which sessions are interpreted.' }],
+      individual: { count: 2, pattern: 'Both were about one family\'s own paperwork', atScale: 'A short clinic with staff after the panel.' },
+      sessionIdeas: ['What to do while you wait', 'Paperwork, start to finish']
+    };
+  }
   if (call.schema.properties.question) {
     const wanted = call.schema.properties.translations ? Object.keys(call.schema.properties.translations.properties) : [];
     return { question: 'What does everyone want to know?', translations: Object.fromEntries(wanted.map((c) => [c, '[' + c + '] merged'])) };
