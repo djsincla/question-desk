@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<base target="_top">
+<?!= styles ?>
+</head>
+<body>
+<header>
+  <div class="title">
+    <img id="logo" alt="" hidden>
+    <h1 id="name">Event logistics</h1>
+    <span class="pill" id="pill"></span>
+  </div>
+  <div class="nav">
+    <span class="tally" id="tally">Loading…</span>
+    <a id="adminLink" target="_top" hidden>Admin</a>
+  </div>
+</header>
+
+<p class="lead" id="lead"></p>
+<div class="board" id="board"></div>
+<p class="empty" id="empty" hidden></p>
+
+<?!= scripts ?>
+<script>
+  var BOOT = <?!= boot ?>;
+  var eid = BOOT.eid;
+  var state = null;
+  var pending = 0;
+  var brand = BOOT.brand || {};
+  if (brand.accent) document.documentElement.style.setProperty('--action', brand.accent);
+  if (brand.logo) { var logo = $('logo'); logo.src = brand.logo; logo.alt = brand.orgName || ''; logo.hidden = false; }
+
+  function fmtTime(ms) {
+    if (!ms) return '';
+    var d = new Date(ms);
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ' ' +
+      d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  }
+
+  /** Calls the server; the board it answers with is drawn straight away. */
+  function call(fn, args, button) {
+    if (button) button.disabled = true;
+    pending++;
+    google.script.run
+      .withSuccessHandler(function (board) { pending--; if (button) button.disabled = false; draw(board); })
+      .withFailureHandler(function (err) {
+        pending--;
+        if (button) button.disabled = false;
+        var note = $('empty');
+        note.textContent = (err && err.message) || 'Something went wrong.';
+        note.hidden = false;
+      })[fn].apply(google.script.run, args);
+  }
+
+  function draw(board) {
+    state = board;
+    $('name').textContent = board.event.name;
+    document.title = board.event.name + ' — event logistics';
+    var pill = $('pill');
+    pill.textContent = board.waiting ? board.waiting + ' waiting' : 'All sorted';
+    pill.className = 'pill ' + (board.waiting ? 'active' : 'ended');
+    $('tally').textContent = board.questions.length +
+      (board.questions.length === 1 ? ' question' : ' questions') + ' about running the event';
+    var admin = $('adminLink');
+    admin.href = board.adminUrl;
+    admin.hidden = !board.isAdmin;
+    $('lead').textContent = 'Questions the audience asked about the event itself — rooms, timing, ' +
+      'access, food, signage. They are also in each session’s queue, so a facilitator can answer ' +
+      'from the stage; tick one here when it has been dealt with.';
+
+    var wrap = $('board');
+    wrap.textContent = '';
+    board.questions.forEach(function (q) {
+      var row = el('div', 'item' + (q.sorted ? ' sorted' : ''));
+      var main = el('div', 'what');
+      var words = q.translation || q.text;
+      main.appendChild(el('p', 'text', words));
+      if (q.translation && q.translation !== q.text) {
+        var original = el('p', 'original', q.text);
+        if (q.lang) original.appendChild(el('span', 'chip', q.lang));
+        main.appendChild(original);
+      }
+      var where = el('p', 'where');
+      where.appendChild(el('span', 'session', q.session));
+      if (q.room) where.appendChild(el('span', 'room', q.room));
+      where.appendChild(el('span', 'when', fmtTime(q.submitted)));
+      if (q.answered) where.appendChild(el('span', 'chip', 'Answered in the session'));
+      main.appendChild(where);
+      row.appendChild(main);
+
+      var act = el('button', q.sorted ? 'quiet small' : 'primary small', q.sorted ? 'Put back' : 'Sorted');
+      act.type = 'button';
+      act.onclick = function () { call('setLogisticsSorted', [eid, q.id, !q.sorted], act); };
+      row.appendChild(act);
+      wrap.appendChild(row);
+    });
+
+    var empty = $('empty');
+    empty.textContent = board.questions.length ? '' :
+      'Nothing yet. Questions about rooms, timing, access or anything else about running the event will appear here as they are asked.';
+    empty.hidden = !!board.questions.length;
+  }
+
+  function load() {
+    if (pending) return;   // a tick is in flight; its answer redraws
+    google.script.run.withSuccessHandler(draw).withFailureHandler(function () {}).getCoordinatorBoard(eid);
+  }
+
+  draw(BOOT.board);
+  setInterval(load, (BOOT.board.refreshInSeconds || 15) * 1000);
+</script>
+</body>
+</html>

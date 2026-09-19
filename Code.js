@@ -71,11 +71,12 @@ const COLS = {
   id: 1, submitted: 2, device: 3, text: 4,
   status: 5, topic: 6, lang: 7, translation: 8, session: 9,
   grouping: 10,       // 'ungrouped' when a facilitator took it out of a topic: automatic grouping leaves it
-  translations: 11    // JSON { ko: …, es: … } in the session's languages (from grouping, or prepared-question translation)
+  translations: 11,   // JSON { ko: …, es: … } in the session's languages (from grouping, or prepared-question translation)
+  logistics: 12       // '' | 'yes' (about running the event) | 'sorted' (a coordinator has dealt with it)
 };
 
 const HEADERS = ['ID', 'Submitted', 'Device', 'Question', 'Status', 'Topic',
-                 'Language', 'Translation', 'Session', 'Grouping', 'Translations'];
+                 'Language', 'Translation', 'Session', 'Grouping', 'Translations', 'Logistics'];
 
 const TOPIC_HEADERS = ['Session', 'Topic', 'Merged question', 'Updated',
                        'Label translations', 'Merged translations', 'Shown to participants'];
@@ -141,6 +142,23 @@ function doGet(e) {
     if (panel) return notice_('oldScreenLink');
     if (!currentEmail_()) return notice_('noSession');
     return notice_('pick', view);
+  }
+
+  // The Event Coordinator portal: one link per event, and a sign-in — it shows what people
+  // actually typed, so it is not a link to hand around.
+  if (view === 'coordinator') {
+    const email = currentEmail_();
+    if (!email) return notice_('denied');
+    const ev = getEvent_(p.e);
+    if (!ev || !canCoordinate_(ev, email)) {
+      const mine = eventsForCoordinator_(email);
+      if (!mine.length) return notice_('denied');
+      if (!ev) return notice_('pickEvent');
+      return notice_('denied');
+    }
+    return page_('Coordinator.html', ev.name + ' — event logistics', {
+      eid: ev.id, board: getCoordinatorBoard(ev.id)
+    }, { eventId: ev.id });
   }
 
   if (view === 'moderate') {
@@ -262,6 +280,17 @@ function notice_(mode, view) {
     return page_('Denied.html', 'Choose a session', {
       heading: 'Choose a session',
       body: links.length ? 'Pick the session to open.' : 'You are not assigned to any open sessions.',
+      links: links
+    }, null);
+  }
+  if (mode === 'pickEvent') {
+    const base = baseUrl_();
+    const links = eventsForCoordinator_(currentEmail_()).map(function (ev) {
+      return { label: ev.name, note: '', href: base + '?view=coordinator&e=' + ev.id };
+    });
+    return page_('Denied.html', 'Choose an event', {
+      heading: 'Choose an event',
+      body: links.length ? 'Pick the event to open.' : 'You are not an Event Coordinator for any event.',
       links: links
     }, null);
   }

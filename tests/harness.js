@@ -464,6 +464,10 @@ function defaultGemini(call) {
     const assignments = lines.filter(Boolean).map((line) => {
       const { id, text } = JSON.parse(line);
       const out = { id, topic: 'About ' + text.split(' ')[0].toLowerCase(), language: 'English', translation: text };
+      // Whether it is about running the event, when the request asks (the coordinator portal).
+      if (call.schema.properties.assignments.items.properties.logistics) {
+        out.logistics = /parking|room|wifi|timing|agenda|food|sign|interpret|access|toilet|temperature/i.test(text);
+      }
       // Per-question translations when asked (prepared questions, in the session's languages).
       const item = call.schema.properties.assignments.items.properties;
       if (item.translations) out.translations = Object.fromEntries(Object.keys(item.translations.properties).map((c) => [c, '[' + c + '] ' + text]));

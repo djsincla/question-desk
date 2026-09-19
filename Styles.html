@@ -10,7 +10,7 @@
   Apps Script strips comments when it reads this file, so comment markers never reach the server.
 -->
 
-<style data-pages="Admin Ask Denied Home Moderate Panel Sheet">
+<style data-pages="Admin Ask Coordinator Denied Home Moderate Panel Sheet">
   /* Where a session happens: beside its name, for staff only. */
   .room {
     display: inline-block; margin-left: 8px; padding: 2px 9px; border-radius: 999px;
@@ -228,6 +228,9 @@
   .row > * { flex: 1 1 14rem; }
   .actions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
 
+  /* The People tab: one card per role, every card the same width however many there are. */
+  .people-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 16px; align-items: start; }
+  .people-cards > .panel { margin-bottom: 0; }
   .panel { padding: 18px; margin-bottom: 18px; }
   .panel.form { border-top: 3px solid var(--action); box-shadow: var(--shadow-lg); animation: qd-rise 0.22s var(--ease); }
 
@@ -743,6 +746,36 @@
     .page { box-shadow: none; border-radius: 0; margin: 0; max-width: none; min-height: 100vh; page-break-after: always; break-after: page; }
     .page:last-of-type { page-break-after: auto; break-after: auto; }
   }
+</style>
+
+<style data-pages="Moderate">
+  /* A question the Event Coordinators also have. */
+  .chip.logistics { background: var(--action-soft); color: var(--action); border-color: var(--action-ring); }
+</style>
+
+<style data-pages="Coordinator">
+  /* Event Coordinator portal: the questions about running the event, in one list. */
+  body { max-width: 56rem; margin: 0 auto; padding: 18px 20px 48px; }
+  header { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+  header .title { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  header h1 { font-size: 1.35rem; margin: 0; }
+  header img { max-height: 30px; max-width: 120px; }
+  .nav { display: flex; align-items: center; gap: 14px; }
+  .lead { color: var(--muted); margin: 0 0 18px; max-width: 46rem; }
+  .board { display: flex; flex-direction: column; gap: 10px; }
+  .item {
+    display: flex; gap: 16px; align-items: flex-start; justify-content: space-between;
+    background: var(--card); border: 1px solid var(--rule); border-left: 4px solid var(--action);
+    border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow-sm);
+  }
+  .item.sorted { border-left-color: var(--rule-strong); opacity: 0.62; }
+  .item .what { min-width: 0; }
+  .item .text { margin: 0; font-size: 1.02rem; }
+  .item.sorted .text { text-decoration: line-through; text-decoration-color: var(--faint); }
+  .item .original { margin: 4px 0 0; color: var(--muted); font-size: 0.92rem; }
+  .item .where { margin: 8px 0 0; display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; color: var(--faint); font-size: 0.85rem; }
+  .item .where .session { font-weight: 600; color: var(--muted); }
+  .empty { color: var(--muted); margin: 18px 2px; }
 </style>
 
 <style data-pages="Present">

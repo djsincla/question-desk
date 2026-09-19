@@ -394,6 +394,11 @@ function clusterSessionNow_(sid, force) {
     '   plainly rather than paraphrasing it away. If it is already in ' + lang + ',',
     '   repeat it unchanged.',
     '3. Assign a topic label so the facilitator can answer each theme once.',
+    '   Also mark whether the question is about running the event rather than its subject:',
+    '   parking, rooms, timing, the agenda, food, wifi, signage, registration, interpretation,',
+    '   accessibility, noise, temperature, or how to ask questions. Those go to the event',
+    '   coordinators as well as the facilitator. A question about the subject being discussed',
+    '   is not logistics, however practical it sounds.',
     names.length ? '4. Also translate the question itself into ' + names.join(' and ') + ', just as faithfully, for' : null,
     names.length ? '   participants\' phones and the room screen when a facilitator shows or answers it.' : null,
     '',
@@ -430,7 +435,8 @@ function clusterSessionNow_(sid, force) {
             id: { type: 'STRING' },
             topic: { type: 'STRING' },
             language: { type: 'STRING', description: 'English name of the source language' },
-            translation: { type: 'STRING' }
+            translation: { type: 'STRING' },
+            logistics: { type: 'BOOLEAN', description: 'About running the event, not its subject' }
           },
           required: ['id', 'topic', 'language', 'translation']
         }
@@ -465,7 +471,7 @@ function clusterSessionNow_(sid, force) {
   let written = 0;
   const usedTopics = {};
   withLock_(function () {
-    const rows = sheet.getRange(1, COLS.id, sheet.getLastRow(), COLS.translations).getValues();
+    const rows = sheet.getRange(1, COLS.id, sheet.getLastRow(), COLS.logistics).getValues();
     const rowById = {};
     rows.forEach(function (r, i) {
       const id = String(r[COLS.id - 1]);
@@ -480,9 +486,11 @@ function clusterSessionNow_(sid, force) {
       // Topic through Translations in one write; Session and Grouping are written back as they are.
       const r = rows[rowById[id] - 1];
       const translations = a.translations ? JSON.stringify(pickCodes_(a.translations, codes)) : r[COLS.translations - 1];
-      sheet.getRange(rowById[id], COLS.topic, 1, COLS.translations - COLS.topic + 1).setValues([[
+      // A coordinator's 'sorted' is never undone by a later grouping run.
+      const logistics = String(r[COLS.logistics - 1] || '') === 'sorted' ? 'sorted' : (a.logistics ? 'yes' : '');
+      sheet.getRange(rowById[id], COLS.topic, 1, COLS.logistics - COLS.topic + 1).setValues([[
         sheetSafe_(topicOut), sheetSafe_(a.language || ''), sheetSafe_(a.translation || ''),
-        r[COLS.session - 1], r[COLS.grouping - 1], translations
+        r[COLS.session - 1], r[COLS.grouping - 1], translations, logistics
       ]]);
       delete rowById[id];   // a repeated id in Gemini's reply writes once
       written++;

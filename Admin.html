@@ -87,6 +87,11 @@
       <div id="ev-mods"></div>
       <div class="hint">They can run the queue for all of this event's sessions. Sessions can add more of their own. (Summaries go to the Session Summary Email Recipients on the People tab.)</div>
     </div>
+    <div class="field">
+      <span class="field-label">Event Coordinators</span>
+      <div id="ev-coords"></div>
+      <div class="hint">They get this event's own portal: every question the audience asks about running it — rooms, timing, access, food — from all its sessions. Add people to the role on the People tab first.</div>
+    </div>
     <fieldset>
       <legend>Languages</legend>
       <label class="choice"><input type="radio" name="evLangMode" value="site" checked><span>The site's languages<small id="ev-lang-site"></small></span></label>
@@ -265,7 +270,7 @@
 <!-- People -->
 <section id="tab-people" hidden>
   <p class="hint flush-top" id="domainHint"></p>
-  <div class="row">
+  <div class="people-cards">
     <div class="panel">
       <h2>Administrators</h2>
       <p class="hint flush-top">Can create and run sessions, manage people, and change branding.</p>
@@ -281,6 +286,15 @@
       <ul class="people" id="modList"></ul>
       <form class="adder" data-role="moderator">
         <input type="email" placeholder="name@domain.org" aria-label="QA Facilitator email">
+        <button type="submit">Add</button>
+      </form>
+    </div>
+    <div class="panel">
+      <h2>Event Coordinators</h2>
+      <p class="hint flush-top">See the questions about running an event — rooms, timing, access, food — in their own portal, for the events they are assigned to.</p>
+      <ul class="people" id="coordList"></ul>
+      <form class="adder" data-role="coordinator">
+        <input type="email" placeholder="name@domain.org" aria-label="Event Coordinator email">
         <button type="submit">Add</button>
       </form>
     </div>
@@ -568,6 +582,11 @@
     runner[fn].apply(runner, args);
   }
 
+  function ticked(box) {
+    return Array.prototype.slice.call(box.querySelectorAll('input[type=checkbox]'))
+      .filter(function (cb) { return cb.checked; }).map(function (cb) { return cb.value; });
+  }
+
   function fmtDate(ms) {
     if (!ms) return '';
     var d = new Date(ms);
@@ -821,6 +840,9 @@
     var bits = [sessions.length + (sessions.length === 1 ? ' session' : ' sessions')];
     var active = sessions.filter(function (x) { return x.status === 'active'; }).length;
     if (active) bits.push(active + ' active');
+    if ((ev.coordinators || []).length) {
+      bits.push(ev.coordinators.length + (ev.coordinators.length === 1 ? ' Event Coordinator' : ' Event Coordinators'));
+    }
     if (ev.languages && ev.languages.length) bits.push(languageNames(ev.languages));
     if (b.orgName) bits.push('branded as ' + b.orgName);
     else if (b.accent || b.welcome || b.footer || ev.hasLogo) bits.push('own branding');
@@ -876,6 +898,15 @@
       return b;
     };
     menuItem('Day-of checklist', function () { openChecklist(ev); });
+    if ((ev.coordinators || []).length) {
+      var portal = el('a', null, 'Event Coordinator portal');
+      portal.href = state.appUrl + '?view=coordinator&e=' + ev.id;
+      portal.target = '_blank';
+      portal.rel = 'noopener';
+      portal.title = 'Questions about running this event, for ' + ev.coordinators.join(', ');
+      portal.onclick = function () { more.open = false; };
+      menu.appendChild(portal);
+    }
     var sheet = el('a', null, 'Print QR sheets');
     sheet.href = state.appUrl + '?view=qrsheet&e=' + ev.id;
     sheet.target = '_blank';
@@ -1430,19 +1461,8 @@
     $('ev-dark').value = b.roomBgDark || state.brand.roomBgDark;
     $('ev-light-on').checked = !!b.roomBgLight;
     $('ev-light').value = b.roomBgLight || state.brand.roomBgLight;
-    var modBox = $('ev-mods');
-    modBox.innerHTML = '';
-    if (!state.moderators.length) modBox.appendChild(el('div', 'hint', 'No QA Facilitators yet. Add them on the People tab.'));
-    state.moderators.forEach(function (email) {
-      var label = el('label', 'choice');
-      var cb = el('input');
-      cb.type = 'checkbox';
-      cb.value = email;
-      cb.checked = (ev.moderators || []).indexOf(email) !== -1;
-      label.appendChild(cb);
-      label.appendChild(el('span', null, email));
-      modBox.appendChild(label);
-    });
+    peopleBoxes($('ev-mods'), state.moderators, ev.moderators, 'No QA Facilitators yet. Add them on the People tab.');
+    peopleBoxes($('ev-coords'), state.coordinators, ev.coordinators, 'No Event Coordinators yet. Add them on the People tab.');
     var custom = ev.languages && ev.languages.length;
     radio('evLangMode', custom ? 'custom' : 'site');
     $('ev-lang-site').textContent = languageNames(state.siteLanguages);
@@ -1677,8 +1697,8 @@
       roomBgDark: $('ev-dark-on').checked ? $('ev-dark').value : '',
       roomBgLight: $('ev-light-on').checked ? $('ev-light').value : '',
       languages: radio('evLangMode') === 'custom' ? chosenLanguages($('ev-langs')) : null,
-      moderators: Array.prototype.slice.call($('ev-mods').querySelectorAll('input[type=checkbox]'))
-        .filter(function (cb) { return cb.checked; }).map(function (cb) { return cb.value; })
+      moderators: ticked($('ev-mods')),
+      coordinators: ticked($('ev-coords'))
     };
     call('saveEvent', [input], function (res) {
       $('eventForm').hidden = true;
@@ -1791,10 +1811,27 @@
   // ------------------------------------------------------------ people
 
   function renderPeople() {
-    $('domainHint').textContent = 'Only @' + state.domain + ' accounts can be administrators or QA Facilitators. ' +
+    $('domainHint').textContent = 'Only @' + state.domain + ' accounts can be administrators, QA Facilitators or Event Coordinators. ' +
       'Google does not tell the app who is signed in from any other domain.';
     personList($('adminList'), 'admin', [state.owner].concat(state.admins.filter(function (e) { return e !== state.owner; })));
     personList($('modList'), 'moderator', state.moderators);
+    personList($('coordList'), 'coordinator', state.coordinators);
+  }
+
+  /** Tick boxes for one role's people, with the event's own choices ticked. */
+  function peopleBoxes(box, roster, chosen, empty) {
+    box.innerHTML = '';
+    if (!roster.length) { box.appendChild(el('div', 'hint', empty)); return; }
+    roster.forEach(function (email) {
+      var label = el('label', 'choice');
+      var cb = el('input');
+      cb.type = 'checkbox';
+      cb.value = email;
+      cb.checked = (chosen || []).indexOf(email) !== -1;
+      label.appendChild(cb);
+      label.appendChild(el('span', null, email));
+      box.appendChild(label);
+    });
   }
 
   function personList(ul, role, emails) {
@@ -1811,8 +1848,10 @@
         rm.type = 'button';
         rm.onclick = function () {
           ask({
-            title: 'Remove ' + (role === 'admin' ? 'administrator' : 'QA Facilitator') + '?',
-            body: email + (role === 'moderator' ? ' will also be removed from every session.' : ' will no longer be able to open the Admin page.'),
+            title: 'Remove ' + (role === 'admin' ? 'administrator' : role === 'coordinator' ? 'Event Coordinator' : 'QA Facilitator') + '?',
+            body: email + (role === 'moderator' ? ' will also be removed from every session.'
+              : role === 'coordinator' ? ' will also be removed from every event, and can no longer open a coordinator portal.'
+              : ' will no longer be able to open the Admin page.'),
             ok: 'Remove',
             danger: true
           }, function () {

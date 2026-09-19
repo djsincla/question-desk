@@ -26,6 +26,7 @@ function adminState() {
     domain: domainOf_(ownerEmail_()),
     admins: roster_('ADMINS'),
     moderators: roster_('MODERATORS'),
+    coordinators: roster_('COORDINATORS'),
     sessions: allSessions_().map(function (s) {
       const out = JSON.parse(JSON.stringify(s));
       out.links = sessionLinks_(s);
@@ -445,9 +446,12 @@ function emailLinks(sid, options) {
   return to.length;
 }
 
+const ROLE_KEYS = { admin: 'ADMINS', moderator: 'MODERATORS', coordinator: 'COORDINATORS' };
+const ROLE_NAMES = { admin: 'Administrator', moderator: 'QA Facilitator', coordinator: 'Event Coordinator' };
+
 function addPerson(role, email) {
   const me = requireAdmin_();
-  const key = role === 'admin' ? 'ADMINS' : 'MODERATORS';
+  const key = ROLE_KEYS[role] || 'MODERATORS';
   const address = parseEmails_([email])[0];
   if (!address) throw new Error('Enter an email address.');
   const domain = domainOf_(ownerEmail_());
@@ -461,7 +465,7 @@ function addPerson(role, email) {
     props_().setProperty(key, list.join(','));
   });
   console.log(me + ' added ' + address + ' as ' + role);
-  audit_(role === 'admin' ? 'Administrator added' : 'QA Facilitator added', null, address);
+  audit_((ROLE_NAMES[role] || ROLE_NAMES.moderator) + ' added', null, address);
   return adminState();
 }
 
@@ -472,10 +476,10 @@ function removePerson(role, email) {
     if (address === ownerEmail_()) throw new Error('The script owner is always an administrator.');
     if (address === me) throw new Error('You cannot remove yourself. Ask another administrator.');
   }
-  const key = role === 'admin' ? 'ADMINS' : 'MODERATORS';
+  const key = ROLE_KEYS[role] || 'MODERATORS';
   withLock_(function () {
     props_().setProperty(key, roster_(key).filter(function (e) { return e !== address; }).join(','));
-    if (role !== 'admin') {
+    if (role === 'moderator') {
       allSessions_().forEach(function (s) {
         const i = (s.moderators || []).indexOf(address);
         if (i !== -1) { s.moderators.splice(i, 1); saveSession_(s); }
@@ -485,8 +489,14 @@ function removePerson(role, email) {
         if (j !== -1) { ev.moderators.splice(j, 1); saveEvent_(ev); }
       });
     }
+    if (role === 'coordinator') {
+      allEvents_().forEach(function (ev) {
+        const j = (ev.coordinators || []).indexOf(address);
+        if (j !== -1) { ev.coordinators.splice(j, 1); saveEvent_(ev); }
+      });
+    }
   });
-  audit_(role === 'admin' ? 'Administrator removed' : 'QA Facilitator removed', null, address);
+  audit_((ROLE_NAMES[role] || ROLE_NAMES.moderator) + ' removed', null, address);
   return adminState();
 }
 

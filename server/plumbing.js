@@ -72,6 +72,9 @@ function sessionRows_(sid, includePrepared) {
         translation: r[COLS.translation - 1] ? String(r[COLS.translation - 1]) : '',
         topic: r[COLS.topic - 1] ? String(r[COLS.topic - 1]) : '',
         translations: parseJson_(r[COLS.translations - 1]),
+        // About running the event, and whether a coordinator has dealt with it.
+        logistics: !!r[COLS.logistics - 1],
+        sorted: String(r[COLS.logistics - 1] || '') === 'sorted',
         status: r[COLS.status - 1],
         submitted: r[COLS.submitted - 1] ? new Date(r[COLS.submitted - 1]).getTime() : 0
       };
@@ -291,6 +294,7 @@ function setUp() {
     if (!sheet.getRange(1, COLS.session).getValue()) sheet.getRange(1, COLS.session).setValue('Session');
     if (!sheet.getRange(1, COLS.grouping).getValue()) sheet.getRange(1, COLS.grouping).setValue('Grouping');
     if (!sheet.getRange(1, COLS.translations).getValue()) sheet.getRange(1, COLS.translations).setValue('Translations');
+    if (!sheet.getRange(1, COLS.logistics).getValue()) sheet.getRange(1, COLS.logistics).setValue('Logistics');
   }
 
   let topicSheet = ss.getSheetByName(CONFIG.topicSheetName);

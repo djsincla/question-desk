@@ -42,6 +42,34 @@ function canModerate_(session, email) {
   return onRoster_('MODERATORS', email) && facilitatorsFor_(session).indexOf(email) !== -1;
 }
 
+/** An event's Event Coordinators: the people it names, who must also hold the role. */
+function coordinatorsFor_(ev) {
+  const roster = roster_('COORDINATORS');
+  return ((ev && ev.coordinators) || []).filter(function (e) { return roster.indexOf(e) !== -1; });
+}
+
+/**
+ * Who may open an event's coordinator portal: an administrator, or someone holding the Event
+ * Coordinator role who is named on that event. The portal shows what people actually typed, so
+ * it needs a sign-in — it is not a link to hand around.
+ */
+function canCoordinate_(ev, email) {
+  if (isAdmin_(email)) return true;
+  return !!email && coordinatorsFor_(ev).indexOf(email) !== -1;
+}
+
+/** The events this person coordinates, newest first, for the portal's own picker. */
+function eventsForCoordinator_(email) {
+  return allEvents_().filter(function (ev) { return canCoordinate_(ev, email); });
+}
+
+function requireEvent_(eid) {
+  const ev = getEvent_(eid);
+  if (!ev) throw new Error('Event not found.');
+  if (!canCoordinate_(ev, currentEmail_())) throw new Error('You are not an Event Coordinator for this event.');
+  return ev;
+}
+
 function requireAdmin_() {
   if (!isAdmin_()) throw new Error('Only administrators can do that.');
   return currentEmail_();
