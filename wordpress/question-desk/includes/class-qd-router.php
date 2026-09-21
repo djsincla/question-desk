@@ -64,6 +64,26 @@ class QD_Router {
 			self::notice( QD_People::current_email() ? 'pick' : 'noSession', $view );
 		}
 
+		// The Event Coordinator portal: one link per event, and a sign-in — it shows what people
+		// actually typed, so it is not a link to hand around.
+		if ( 'coordinator' === $view ) {
+			$email = QD_People::current_email();
+			$event = QD_Store::get_event( (string) ( $p['e'] ?? '' ) );
+			if ( ! $email || ! QD_People::events_for( $email ) ) {
+				self::notice( 'denied', $view );
+			}
+			if ( ! $event ) {
+				self::notice( 'pickEvent', $view );
+			}
+			if ( ! QD_People::can_coordinate( $event, $email ) ) {
+				self::notice( 'denied', $view );
+			}
+			QD_Pages::send( 'Coordinator.html', $event['name'] . ' — event logistics', array(
+				'eid'   => $event['id'],
+				'board' => QD_Coordinator::board( $event['id'] ),
+			), array( 'eventId' => $event['id'] ) );
+		}
+
 		if ( 'qrsheet' === $view ) {
 			self::qr_sheet( (string) ( $p['e'] ?? '' ) );
 		}
@@ -157,6 +177,17 @@ class QD_Router {
 			QD_Pages::send( 'Denied.html', 'Choose a session', array(
 				'heading' => 'Choose a session',
 				'body'    => $links ? 'Pick the session to open.' : 'You are not assigned to any open sessions.',
+				'links'   => $links,
+			) );
+		}
+		if ( 'pickEvent' === $mode ) {
+			$links = array();
+			foreach ( QD_People::events_for( QD_People::current_email() ) as $ev ) {
+				$links[] = array( 'label' => $ev['name'], 'note' => '', 'href' => QD_Coordinator::link( $ev ) );
+			}
+			QD_Pages::send( 'Denied.html', 'Choose an event', array(
+				'heading' => 'Choose an event',
+				'body'    => $links ? 'Pick the event to open.' : 'You are not an Event Coordinator for any event.',
 				'links'   => $links,
 			) );
 		}

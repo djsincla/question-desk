@@ -229,8 +229,14 @@
   .actions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
 
   /* The People tab: one card per role, every card the same width however many there are. */
-  .people-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 16px; align-items: start; }
-  .people-cards > .panel { margin-bottom: 0; }
+  .people-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 16px; }
+  /* Equal height per row, with each card's add box at its foot, so a wrapped row leaves no
+     dead space under the shorter cards. */
+  .people-cards > .panel { margin-bottom: 0; display: flex; flex-direction: column; }
+  .people-cards > .panel .people { flex: 1 1 auto; }
+  /* Not a role like the three above it: the recipients card takes the width it lands on,
+     rather than sitting alone with a gap beside it. */
+  .people-cards > #summaryPanel { grid-column: 1 / -1; }
   .panel { padding: 18px; margin-bottom: 18px; }
   .panel.form { border-top: 3px solid var(--action); box-shadow: var(--shadow-lg); animation: qd-rise 0.22s var(--ease); }
 

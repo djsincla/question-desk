@@ -1843,8 +1843,11 @@
   // ------------------------------------------------------------ people
 
   function renderPeople() {
-    $('domainHint').textContent = 'Only @' + state.domain + ' accounts can be administrators, QA Facilitators or Event Coordinators. ' +
-      'Google does not tell the app who is signed in from any other domain.';
+    $('domainHint').textContent = state.domain
+      ? 'Only @' + state.domain + ' accounts can be administrators, QA Facilitators or Event Coordinators. ' +
+        'Google does not tell the app who is signed in from any other domain.'
+      : 'Everyone here signs in with an account on this site. Adding an address that has no account ' +
+        'creates one and sends them a set-your-password email.';
     personList($('adminList'), 'admin', [state.owner].concat(state.admins.filter(function (e) { return e !== state.owner; })));
     personList($('modList'), 'moderator', state.moderators);
     personList($('coordList'), 'coordinator', state.coordinators);

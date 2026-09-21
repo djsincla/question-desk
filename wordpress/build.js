@@ -15,7 +15,7 @@ const { createApp } = require('../tests/harness');
 
 const ROOT = path.join(__dirname, '..');
 const PLUGIN = path.join(__dirname, 'question-desk');
-const PAGES = ['Ask.html', 'Present.html', 'Panel.html', 'Sheet.html', 'Moderate.html', 'Denied.html', 'Admin.html', 'Home.html', 'Styles.html', 'Scripts.html'];
+const PAGES = ['Ask.html', 'Present.html', 'Panel.html', 'Sheet.html', 'Moderate.html', 'Coordinator.html', 'Denied.html', 'Admin.html', 'Home.html', 'Styles.html', 'Scripts.html'];
 
 function build() {
   fs.mkdirSync(path.join(PLUGIN, 'pages'), { recursive: true });

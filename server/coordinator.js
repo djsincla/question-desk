@@ -29,7 +29,9 @@ function getCoordinatorBoard(eid) {
       });
     });
   });
-  questions.sort(function (a, b) { return (a.sorted - b.sorted) || (b.submitted - a.submitted); });
+  questions.sort(function (a, b) {
+    return (a.sorted - b.sorted) || (b.submitted - a.submitted) || (a.id < b.id ? -1 : 1);
+  });
 
   return {
     event: { id: ev.id, name: ev.name },

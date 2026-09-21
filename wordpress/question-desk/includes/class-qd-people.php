@@ -53,6 +53,60 @@ class QD_People {
 		return array_values( array_unique( $emails ) );
 	}
 
+	/** What each role is called on screen and in the activity log. */
+	public static function role_name( $role ) {
+		$names = array( 'admin' => 'Administrator', 'moderator' => 'QA Facilitator', 'coordinator' => 'Event Coordinator' );
+		return $names[ $role ] ?? $names['moderator'];
+	}
+
+	/** Emails of everyone holding the Event Coordinator role. */
+	public static function coordinators() {
+		$emails = array();
+		foreach ( get_users( array( 'role' => 'qd_coordinator', 'fields' => array( 'user_email' ) ) ) as $u ) {
+			$emails[] = strtolower( $u->user_email );
+		}
+		return array_values( array_unique( $emails ) );
+	}
+
+	/** An event's Event Coordinators: the people it names, who must also hold the role. */
+	public static function coordinators_for( $event ) {
+		$roster = self::coordinators();
+		return array_values( array_intersect( (array) ( $event['coordinators'] ?? array() ), $roster ) );
+	}
+
+	/**
+	 * Who may open an event's coordinator portal: an administrator, or someone holding the role
+	 * who is named on that event. The portal shows what people actually typed, so it needs a
+	 * sign-in — it is not a link to hand around.
+	 */
+	public static function can_coordinate( $event, $email ) {
+		if ( ! $event ) {
+			return false;
+		}
+		if ( self::is_admin( $email ) ) {
+			return true;
+		}
+		return $email && in_array( $email, self::coordinators_for( $event ), true );
+	}
+
+	/** The events this person coordinates, for the portal's own picker. */
+	public static function events_for( $email ) {
+		return array_values( array_filter( QD_Store::all_events(), function ( $ev ) use ( $email ) {
+			return self::can_coordinate( $ev, $email );
+		} ) );
+	}
+
+	public static function require_event( $eid ) {
+		$event = QD_Store::get_event( $eid );
+		if ( ! $event ) {
+			throw new QD_Error( 'Event not found.' );
+		}
+		if ( ! self::can_coordinate( $event, self::current_email() ) ) {
+			throw new QD_Error( 'You are not an Event Coordinator for this event.' );
+		}
+		return $event;
+	}
+
 	/** A session's QA Facilitators: its own plus its event's. */
 	public static function facilitators_for( $session ) {
 		$out = array_values( (array) ( $session['moderators'] ?? array() ) );
@@ -110,7 +164,7 @@ class QD_People {
 		if ( ! $address ) {
 			throw new QD_Error( 'Enter an email address.' );
 		}
-		$wp_role = 'admin' === $role ? 'qd_admin' : 'qd_facilitator';
+		$wp_role = 'admin' === $role ? 'qd_admin' : ( 'coordinator' === $role ? 'qd_coordinator' : 'qd_facilitator' );
 		$user    = get_user_by( 'email', $address );
 		if ( $user ) {
 			$user->add_role( $wp_role );
@@ -126,7 +180,7 @@ class QD_People {
 			}
 			wp_new_user_notification( $id, null, 'user' );
 		}
-		QD_Activity::log( 'admin' === $role ? 'Administrator added' : 'QA Facilitator added', null, $address );
+		QD_Activity::log( self::role_name( $role ) . ' added', null, $address );
 		return QD_Admin::state();
 	}
 
@@ -145,6 +199,19 @@ class QD_People {
 			if ( $user ) {
 				$user->remove_role( 'qd_admin' );
 			}
+		} elseif ( 'coordinator' === $role ) {
+			if ( $user ) {
+				$user->remove_role( 'qd_coordinator' );
+			}
+			QD_Util::with_lock( 'events', function () use ( $address ) {
+				foreach ( QD_Store::all_events() as $ev ) {
+					$list = (array) ( $ev['coordinators'] ?? array() );
+					if ( in_array( $address, $list, true ) ) {
+						$ev['coordinators'] = array_values( array_diff( $list, array( $address ) ) );
+						QD_Store::save_event( $ev );
+					}
+				}
+			} );
 		} else {
 			if ( $user ) {
 				$user->remove_role( 'qd_facilitator' );
@@ -166,7 +233,7 @@ class QD_People {
 				}
 			} );
 		}
-		QD_Activity::log( 'admin' === $role ? 'Administrator removed' : 'QA Facilitator removed', null, $address );
+		QD_Activity::log( self::role_name( $role ) . ' removed', null, $address );
 		return QD_Admin::state();
 	}
 }

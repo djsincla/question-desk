@@ -5,7 +5,7 @@
  * Answer: {"ok": true, "value": …} or {"ok": false, "error": "…"} (the page's failure handler).
  *
  * Every function is registered with who may call it: 'public' (anyone, like participant calls
- * in the Apps Script version), 'facilitate' or 'manage'. Functions check finer rules themselves
+ * in the Apps Script version), 'coordinate', 'facilitate' or 'manage'. Functions check finer rules themselves
  * (this session's QA Facilitators, for one). Anything not registered doesn't exist.
  */
 
@@ -23,7 +23,7 @@ class QD_Api {
 	/**
 	 * @param string   $name     The name pages use, e.g. 'getSessionState'.
 	 * @param callable $callback Receives the call's arguments.
-	 * @param string   $access   'public', 'facilitate' or 'manage'.
+	 * @param string   $access   'public', 'coordinate', 'facilitate' or 'manage'.
 	 */
 	public static function register( $name, $callback, $access ) {
 		self::$functions[ $name ] = array( $callback, $access );
@@ -65,6 +65,9 @@ class QD_Api {
 		}
 		if ( 'facilitate' === $access && ! current_user_can( 'qd_facilitate' ) ) {
 			return array( 'ok' => false, 'error' => 'Sign in as a QA Facilitator or administrator to do that.' );
+		}
+		if ( 'coordinate' === $access && ! current_user_can( 'qd_coordinate' ) ) {
+			return array( 'ok' => false, 'error' => 'Sign in as an Event Coordinator or administrator to do that.' );
 		}
 		try {
 			return array( 'ok' => true, 'value' => call_user_func_array( $callback, $args ) );

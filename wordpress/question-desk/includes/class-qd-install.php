@@ -11,7 +11,7 @@ defined( 'ABSPATH' ) || exit;
 
 class QD_Install {
 
-	const DB_VERSION = '1';
+	const DB_VERSION = '2';
 
 	public static function activate() {
 		QD_Schedule::schedule();
@@ -81,6 +81,7 @@ class QD_Install {
   translation text NOT NULL,
   grouping varchar(20) NOT NULL DEFAULT '',
   translations text NOT NULL,
+  logistics varchar(10) NOT NULL DEFAULT '',
   PRIMARY KEY  (id),
   KEY session_status (session_id,status),
   KEY session_topic (session_id,topic(100))
@@ -128,14 +129,19 @@ class QD_Install {
 		if ( ! get_role( 'qd_facilitator' ) ) {
 			add_role( 'qd_facilitator', 'QA Facilitator', array( 'read' => true, 'qd_facilitate' => true ) );
 		}
+		// Sees the questions about running an event, for the events they are assigned to.
+		if ( ! get_role( 'qd_coordinator' ) ) {
+			add_role( 'qd_coordinator', 'Event Coordinator', array( 'read' => true, 'qd_coordinate' => true ) );
+		}
 		// Manages Question Desk without being a WordPress administrator.
 		if ( ! get_role( 'qd_admin' ) ) {
-			add_role( 'qd_admin', 'Question Desk Admin', array( 'read' => true, 'qd_manage' => true, 'qd_facilitate' => true, 'upload_files' => true ) );
+			add_role( 'qd_admin', 'Question Desk Admin', array( 'read' => true, 'qd_manage' => true, 'qd_facilitate' => true, 'qd_coordinate' => true, 'upload_files' => true ) );
 		}
 		$admin = get_role( 'administrator' );
 		if ( $admin ) {
 			$admin->add_cap( 'qd_manage' );
 			$admin->add_cap( 'qd_facilitate' );
+			$admin->add_cap( 'qd_coordinate' );
 		}
 	}
 }

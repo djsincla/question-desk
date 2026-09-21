@@ -93,6 +93,9 @@ class QD_Questions {
 			'topic'        => (string) $r->topic,
 			'translations' => QD_Util::json_array( $r->translations ),
 			'grouping'     => (string) $r->grouping,
+			// About running the event, and whether a coordinator has dealt with it.
+			'logistics'    => '' !== (string) $r->logistics,
+			'sorted'       => 'sorted' === (string) $r->logistics,
 			'status'       => (string) $r->status,
 			'submitted'    => (int) $r->submitted,
 		);
