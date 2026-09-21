@@ -413,47 +413,7 @@
         <dt>Submissions sheet</dt><dd><a id="s-sheet" target="_blank" rel="noopener">Open</a></dd>
       </dl>
     </div>
-    <div class="panel" id="geminiPanel">
-      <h2>Gemini</h2>
-      <p class="hint flush-top">How Question Desk asks Gemini to group, merge and translate. Saved changes apply to the very next request — no redeploy. More thinking can group and translate messy or mixed-language questions better, but takes longer; less thinking answers faster.</p>
-      <form id="gemForm">
-        <label class="field"><span>Model</span>
-          <input type="text" id="gem-model" list="gem-models" autocomplete="off" spellcheck="false" required>
-          <datalist id="gem-models"></datalist>
-          <div class="hint">Google retires model names over time. <button type="button" class="linkish" id="gem-list">Show the models this API key can use</button><span id="gem-list-note"></span></div>
-        </label>
-        <div class="row">
-          <label class="field"><span>Thinking: grouping</span>
-            <select id="gem-think-grouping"></select>
-            <div class="hint">Every minute, in the background. Quality matters most here.</div>
-          </label>
-          <label class="field"><span>Thinking: merging</span>
-            <select id="gem-think-merging"></select>
-            <div class="hint">"Merge into one question": a facilitator is waiting.</div>
-          </label>
-          <label class="field"><span>Thinking: translating one question</span>
-            <select id="gem-think-translating"></select>
-            <div class="hint">Show on phones, Answer now on one question, prepared questions.</div>
-          </label>
-        </div>
-        <div class="row">
-          <label class="field"><span>Temperature</span>
-            <input type="number" id="gem-temperature" min="0" max="1" step="0.05" required>
-            <div class="hint">0–1. Lower keeps topics and translations consistent and literal; 0–0.3 suits Question Desk.</div>
-          </label>
-          <label class="field"><span>Questions per grouping request</span>
-            <input type="number" id="gem-batch" min="5" max="100" step="1" required>
-            <div class="hint">5–100. Smaller answers sooner; larger groups a busy room in fewer requests.</div>
-          </label>
-        </div>
-        <div class="actions">
-          <button type="submit" class="primary" id="gem-save">Save</button>
-          <button type="button" id="gem-test">Try these settings</button>
-          <button type="button" class="quiet" id="gem-reset">Reset to defaults</button>
-        </div>
-        <table class="checks" id="gem-results" hidden></table>
-      </form>
-    </div>
+
     <div class="panel" id="opsPanel">
       <h2>Data and reports</h2>
       <label class="field"><span>Question wording</span>
@@ -494,6 +454,78 @@
       </div>
     </div>
   </div>
+
+  <div class="panel wide" id="promptPanel">
+    <h2>Prompts</h2>
+    <p class="hint flush-top">Exactly what Question Desk asks Gemini, for each thing it does. Edit it to suit your audience; changes apply to the very next request. The rules underneath each prompt are always added and can't be edited — they are what keeps a question from being treated as an instruction, keeps topic labels in one language so questions group across languages, and keeps criticism unsoftened.</p>
+    <label class="field"><span>Prompt</span>
+      <select id="prompt-pick"></select>
+    </label>
+    <label class="field"><span>What Question Desk sends</span>
+      <textarea id="prompt-text" rows="16" spellcheck="false"></textarea>
+      <div class="hint" id="prompt-needs"></div>
+    </label>
+    <div class="actions">
+      <button type="button" class="primary" id="prompt-save">Save prompt</button>
+      <button type="button" class="quiet" id="prompt-reset">Reset to the built-in one</button>
+      <span class="hint" id="prompt-state"></span>
+    </div>
+    <details class="guards">
+      <summary>Always added, whatever you write</summary>
+      <pre id="prompt-guards"></pre>
+    </details>
+  </div>
+    <div class="panel" id="geminiPanel">
+      <h2>Gemini</h2>
+      <p class="hint flush-top">How Question Desk asks Gemini to group, merge and translate. Saved changes apply to the very next request — no redeploy. More thinking can group and translate messy or mixed-language questions better, but takes longer; less thinking answers faster.</p>
+      <form id="keyForm" class="keyform">
+        <label class="field"><span>API key</span>
+          <input type="password" id="gem-key" autocomplete="off" spellcheck="false" placeholder="Paste a new key to replace it">
+          <div class="hint" id="gem-key-state"></div>
+        </label>
+        <div class="actions">
+          <button type="submit" class="primary" id="gem-key-save">Save key</button>
+          <button type="button" class="quiet" id="gem-key-clear">Remove key</button>
+        </div>
+      </form>
+      <form id="gemForm">
+        <label class="field"><span>Model</span>
+          <input type="text" id="gem-model" list="gem-models" autocomplete="off" spellcheck="false" required>
+          <datalist id="gem-models"></datalist>
+          <div class="hint">Google retires model names over time. <button type="button" class="linkish" id="gem-list">Show the models this API key can use</button><span id="gem-list-note"></span></div>
+        </label>
+        <div class="row">
+          <label class="field"><span>Thinking: grouping</span>
+            <select id="gem-think-grouping"></select>
+            <div class="hint">Every minute, in the background. Quality matters most here.</div>
+          </label>
+          <label class="field"><span>Thinking: merging</span>
+            <select id="gem-think-merging"></select>
+            <div class="hint">"Merge into one question": a facilitator is waiting.</div>
+          </label>
+          <label class="field"><span>Thinking: translating one question</span>
+            <select id="gem-think-translating"></select>
+            <div class="hint">Show on phones, Answer now on one question, prepared questions.</div>
+          </label>
+        </div>
+        <div class="row">
+          <label class="field"><span>Temperature</span>
+            <input type="number" id="gem-temperature" min="0" max="1" step="0.05" required>
+            <div class="hint">0–1. Lower keeps topics and translations consistent and literal; 0–0.3 suits Question Desk.</div>
+          </label>
+          <label class="field"><span>Questions per grouping request</span>
+            <input type="number" id="gem-batch" min="5" max="100" step="1" required>
+            <div class="hint">5–100. Smaller answers sooner; larger groups a busy room in fewer requests.</div>
+          </label>
+        </div>
+        <div class="actions">
+          <button type="submit" class="primary" id="gem-save">Save</button>
+          <button type="button" id="gem-test">Try these settings</button>
+          <button type="button" class="quiet" id="gem-reset">Reset to defaults</button>
+        </div>
+        <table class="checks" id="gem-results" hidden></table>
+      </form>
+    </div>
 </section>
 
 </div>
@@ -1960,6 +1992,8 @@
   function renderBranding() {
     renderOps();
     renderGemini();
+    renderKey();
+    renderPrompts();
     $('langMax').textContent = String(state.maxLanguages - 1);
     languageBoxes($('siteLangs'), state.siteLanguages, 'siteLang');
     $('b-org').value = state.brand.orgName;
@@ -2005,6 +2039,93 @@
       $('lt-cmd').textContent = lt.command;
     }
   }
+
+  // The Gemini API key (Health tab). The key itself is never sent back to the page.
+  function renderKey() {
+    $('gem-key-state').textContent = state.geminiKeySet
+      ? 'A key is saved. Paste a new one to replace it; the key itself is never shown again.'
+      : 'No key yet. Without one, questions still arrive and can be answered — they are simply not grouped or translated.';
+    $('gem-key-clear').hidden = !state.geminiKeySet;
+  }
+
+  $('keyForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var box = $('gem-key');
+    if (!box.value.trim()) { toast('Paste a key first.', true); return; }
+    call('saveGeminiKey', [box.value.trim()], function (res) {
+      box.value = '';
+      render(res);
+      toast('Gemini key saved');
+    }, $('gem-key-save'));
+  });
+
+  $('gem-key-clear').onclick = function () {
+    ask({
+      title: 'Remove the Gemini key?',
+      body: 'Questions will still arrive and can be answered, but nothing will be grouped or translated until a key is added again.',
+      ok: 'Remove',
+      danger: true
+    }, function () {
+      call('saveGeminiKey', [''], function (res) { render(res); toast('Gemini key removed'); }, $('gem-key-clear'));
+    });
+  };
+
+  // The prompts (Health tab): one at a time, with the rules that are always added.
+  var promptDirty = false;
+
+  function currentPrompt() {
+    var pick = $('prompt-pick').value;
+    return state.prompts.filter(function (p) { return p.task === pick; })[0] || state.prompts[0];
+  }
+
+  function renderPrompts() {
+    var pick = $('prompt-pick');
+    if (pick.options.length !== state.prompts.length) {
+      pick.innerHTML = '';
+      state.prompts.forEach(function (p) {
+        var o = el('option', null, p.label);
+        o.value = p.task;
+        pick.appendChild(o);
+      });
+    }
+    var p = currentPrompt();
+    state.prompts.forEach(function (x) {
+      var o = pick.querySelector('option[value="' + x.task + '"]');
+      if (o) o.textContent = x.label + (x.custom ? ' — edited' : '');
+    });
+    if (!promptDirty) $('prompt-text').value = p.text;
+    $('prompt-needs').textContent = 'Must still contain ' + p.needs.join(' and ') +
+      '. Question Desk fills those in before sending.';
+    $('prompt-state').textContent = p.custom ? 'Edited here' : 'The built-in prompt';
+    $('prompt-guards').textContent = p.guards;
+    $('prompt-reset').hidden = !p.custom;
+  }
+
+  $('prompt-pick').onchange = function () { promptDirty = false; renderPrompts(); };
+  $('prompt-text').oninput = function () { promptDirty = true; };
+
+  $('prompt-save').onclick = function () {
+    call('savePrompt', [currentPrompt().task, $('prompt-text').value], function (res) {
+      promptDirty = false;
+      render(res);
+      toast('Prompt saved — used from the next request');
+    }, $('prompt-save'));
+  };
+
+  $('prompt-reset').onclick = function () {
+    var p = currentPrompt();
+    ask({
+      title: 'Put the built-in prompt back?',
+      body: 'Your wording for “' + p.label + '” is replaced by the one Question Desk ships with.',
+      ok: 'Reset'
+    }, function () {
+      call('savePrompt', [p.task, ''], function (res) {
+        promptDirty = false;
+        render(res);
+        toast('Built-in prompt restored');
+      }, $('prompt-reset'));
+    });
+  };
 
   // Gemini settings (Health tab).
   var THINKING = [

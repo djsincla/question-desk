@@ -93,7 +93,7 @@
   button.quiet:hover { background: rgba(16, 24, 40, 0.05); color: var(--ink); border-color: transparent; }
 
   /* ---- form fields */
-  input[type=text], input[type=email], input[type=number], input[type=url], input[type=search],
+  input[type=text], input[type=email], input[type=number], input[type=url], input[type=search], input[type=password],
   input[type=datetime-local], select, textarea {
     font: inherit;
     color: inherit;
@@ -216,7 +216,7 @@
   nav.tabs button[aria-selected="true"]::after { transform: scaleX(1); }
   section[id^="tab-"]:not([hidden]) { animation: qd-rise 0.22s var(--ease); }
 
-  input[type=text], input[type=email], input[type=number], input[type=url], input[type=datetime-local], textarea { width: 100%; }
+  input[type=text], input[type=email], input[type=number], input[type=url], input[type=password], input[type=datetime-local], textarea { width: 100%; }
   textarea { min-height: 5rem; resize: vertical; }
   label.field { display: block; margin-bottom: 14px; }
   label.field > span, .field-label { display: block; font-weight: 600; font-size: 0.9rem; margin-bottom: 4px; }
@@ -745,6 +745,20 @@
     .toolbar, .skipped, .save-these { display: none !important; }
     .page { box-shadow: none; border-radius: 0; margin: 0; max-width: none; min-height: 100vh; page-break-after: always; break-after: page; }
     .page:last-of-type { page-break-after: auto; break-after: auto; }
+  }
+</style>
+
+<style data-pages="Admin">
+  /* The Gemini key and the prompt editor (Health tab). */
+  .keyform { padding-bottom: 14px; margin-bottom: 14px; border-bottom: 1px solid var(--rule); }
+  #prompt-text { font: 0.86rem/1.55 ui-monospace, Menlo, monospace; white-space: pre-wrap; }
+  #promptPanel.wide { margin-top: 18px; }
+  .guards { margin-top: 14px; }
+  .guards summary { cursor: pointer; color: var(--muted); font-size: 0.9rem; }
+  .guards pre {
+    margin: 8px 0 0; padding: 12px 14px; background: var(--paper); border: 1px solid var(--rule);
+    border-radius: var(--radius-sm); color: var(--muted); font: 0.84rem/1.5 ui-monospace, Menlo, monospace;
+    white-space: pre-wrap;
   }
 </style>
 

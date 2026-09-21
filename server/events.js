@@ -388,7 +388,7 @@ function eventChecklist(eid) {
   const site = [
     { label: 'Question grouping runs every minute', ok: trigger, detail: trigger ? '' : 'Run setUp() in the Apps Script editor.' },
     { label: 'Gemini is set up', ok: !!props_().getProperty('GEMINI_API_KEY') && !health.failures,
-      detail: !props_().getProperty('GEMINI_API_KEY') ? 'No Gemini API key in Script Properties.' : health.failures ? 'Grouping failed ' + health.failures + ' times in a row: ' + (health.lastError || '') : '' },
+      detail: !props_().getProperty('GEMINI_API_KEY') ? 'No Gemini API key: add one under Health & testing.' : health.failures ? 'Grouping failed ' + health.failures + ' times in a row: ' + (health.lastError || '') : '' },
     { label: 'Email quota', ok: MailApp.getRemainingDailyQuota() >= 20, detail: MailApp.getRemainingDailyQuota() + ' emails left today' }
   ];
   const sessions = allSessions_().filter(function (s) { return s.eventId === eid && !s.loadTest; }).map(function (s) {

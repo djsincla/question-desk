@@ -51,6 +51,7 @@ function adminState() {
     ops: opsSettings_(),
     gemini: geminiSettings_(),
     geminiDefaults: geminiDefaults_(),
+    prompts: promptSettings_(),
     storage: storageUse_(),
     geminiKeySet: !!props_().getProperty('GEMINI_API_KEY'),
     sheetUrl: spreadsheet_().getUrl(),

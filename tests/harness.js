@@ -272,6 +272,7 @@ function createApp(options) {
         const body = JSON.parse(opts.payload);
         const call = {
           url, prompt: body.contents[0].parts[0].text, schema: body.generationConfig.responseSchema,
+          key: (opts.headers || {})['x-goog-api-key'],
           thinking: body.generationConfig.thinkingConfig || null, temperature: body.generationConfig.temperature,
           model: (url.match(/models\/([^:]+):generateContent/) || [])[1]
         };
@@ -458,15 +459,24 @@ function zoneParts(ms, tz) {
   return { y: out.year, mo: out.month, d: out.day, h: out.hour, mi: out.minute };
 }
 
+/** Every line of a prompt that is a JSON object, whatever prose surrounds them. */
+function jsonLines(prompt) {
+  return String(prompt || '').split('\n').map((line) => {
+    const text = line.trim();
+    if (text.charAt(0) !== '{' || text.charAt(text.length - 1) !== '}') return null;
+    try { return JSON.parse(text); } catch (err) { return null; }
+  }).filter(Boolean);
+}
+
 function defaultGemini(call) {
   if (call.schema.properties.assignments) {
-    const lines = call.prompt.split('New questions:\n')[1].split('\n\nDo not invent')[0].split('\n');
-    const assignments = lines.filter(Boolean).map((line) => {
-      const { id, text } = JSON.parse(line);
+    // The questions are the JSON lines in the prompt, wherever an admin's own wording puts them.
+    const lines = jsonLines(call.prompt).filter((q) => q.id && q.text);
+    const assignments = lines.map(({ id, text }) => {
       const out = { id, topic: 'About ' + text.split(' ')[0].toLowerCase(), language: 'English', translation: text };
       // Whether it is about running the event, when the request asks (the coordinator portal).
       if (call.schema.properties.assignments.items.properties.logistics) {
-        out.logistics = /parking|room|wifi|timing|agenda|food|sign|interpret|access|toilet|temperature/i.test(text);
+        out.logistics = /\b(parking|room|rooms|wifi|agenda|schedule|food|lunch|signage|interpreter|interpretation|accessible|accessibility|toilets?|quiet)\b/i.test(text);
       }
       // Per-question translations when asked (prepared questions, in the session's languages).
       const item = call.schema.properties.assignments.items.properties;
@@ -490,7 +500,7 @@ function defaultGemini(call) {
   }
   if (call.schema.properties.sentiment) {
     // An event review: enough of a reply for the email to be built from it.
-    const asked = call.prompt.split('Questions:\n')[1].split('\n').filter(Boolean).map((line) => JSON.parse(line));
+    const asked = jsonLines(call.prompt).filter((q) => q.question);
     return {
       sentiment: 'Warm but impatient: people came ready with practical questions and several are still waiting on answers.',
       themes: [{ title: 'Waiting lists', what: asked.length + ' questions touched on waits', nextTime: 'Bring someone who can give real timelines.' }],
