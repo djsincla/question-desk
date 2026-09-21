@@ -27,7 +27,8 @@ for (const [name, engine] of ENGINES) {
       page.on('pageerror', (e) => errors.push(e.message));
       await page.goto(session.links.participant);
       await page.waitForSelector('#q:not([disabled])');
-      assert.equal(await page.textContent('#heading'), 'Ask the panel');
+      // The heading arrives with the session's state, a moment after the box is enabled.
+      await page.waitForFunction(() => document.getElementById('heading').textContent === 'Ask the panel');
 
       const question = 'What is the plan for the waiting list this year?';
       await page.fill('#q', question);

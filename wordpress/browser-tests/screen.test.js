@@ -45,7 +45,8 @@ for (const [name, engine] of ENGINES) {
           const asking = await phone.newPage();
           await asking.goto(decoded.data);
           await asking.waitForSelector('#q:not([disabled])');
-          assert.equal(await asking.textContent('#heading'), 'Ask the panel');
+          // The heading arrives with the session's state, a moment after the box is enabled.
+          await asking.waitForFunction(() => document.getElementById('heading').textContent === 'Ask the panel');
           await phone.close();
         }
       }
