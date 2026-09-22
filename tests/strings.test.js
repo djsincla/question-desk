@@ -38,7 +38,7 @@ function keysNamed() {
   FILES.forEach((file) => {
     const text = read(file);
     text.replace(/data-w(?:-ph|-t|-a)?="([^"]+)"/g, (whole, key) => named.push(key));
-    text.replace(/\b(?:W|Wn|t_)\(\s*'([^']+)'/g, (whole, key) => named.push(key));
+    text.replace(/\b(?:W|Wn|t_|tn_)\(\s*'([^']+)'/g, (whole, key) => named.push(key));
   });
   return named;
 }
@@ -90,7 +90,7 @@ test('a counted phrase has both forms, and neither is used on its own', () => {
     assert.ok(TEXT[stem + '.one'] && TEXT[stem + '.other'], stem + ' needs both .one and .other');
   });
   FILES.forEach((file) => {
-    assert.doesNotMatch(read(file), /\bW\(\s*'[^']+\.(one|other)'/, file + ' asks for one plural form: use Wn()');
+    assert.doesNotMatch(read(file), /\b(?:W|t_)\(\s*'[^']+\.(one|other)'/, file + ' asks for one plural form: use Wn() or tn_()');
   });
 });
 
@@ -102,7 +102,7 @@ test('every phrase the pages and the server ask for exists, and nothing sits unu
   assert.deepEqual(Object.keys(TEXT).filter((key) => mentioned.indexOf(key) === -1), [],
     'phrases nothing asks for: delete them or use them');
   // A key is written out, never built, or nothing above can see it.
-  FILES.forEach((file) => assert.doesNotMatch(read(file), /\b(?:W|Wn|t_)\(\s*[^,)\n]*\+/,
+  FILES.forEach((file) => assert.doesNotMatch(read(file), /\b(?:W|Wn|t_|tn_)\(\s*[^,)\n]*\+/,
     file + ' builds a phrase key out of pieces: write the key out in full'));
 });
 

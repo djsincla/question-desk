@@ -185,9 +185,9 @@ function emailEventFacilitators(eid) {
   const eventBrand = brand_(sessions[0]);
   people.forEach(function (address) {
     const list = byPerson[address];
-    const body = '<p style="margin:0 0 18px">The ' + (list.length === 1 ? 'session' : list.length + ' sessions') +
-      ' you are running in ' + esc_(ev.name) + '. Each link opens that session\'s question queue, and needs your ' +
-      esc_(domain) + ' account.</p>' +
+    const lang = appLanguage_(address);
+    const body = '<p style="margin:0 0 18px">' +
+      esc_(tn_('mail.linksLead', list.length, { event: ev.name, domain: domain }, lang)) + '</p>' +
       list.map(function (s) {
         const links = sessionLinks_(s);
         const accent = brand_(s).accent;
@@ -197,10 +197,10 @@ function emailEventFacilitators(eid) {
         return '<p style="margin:0 0 20px;padding-left:10px;border-left:3px solid ' + accent + '"><strong>' + esc_(s.name) + '</strong>' +
           (s.room ? ' <span style="color:#5c6874">· ' + esc_(s.room) + '</span>' : '') +
           (when(s) ? '<br><span style="color:#5c6874">' + esc_(when(s)) + '</span>' : '') +
-          link('QA Facilitator queue', links.moderate) + '</p>';
+          link(esc_(t_('mail.linksQueue', null, lang)), links.moderate) + '</p>';
       }).join('');
     MailApp.sendEmail({
-      to: address, subject: ev.name + ' — your Question Desk sessions',
+      to: address, subject: t_('mail.linksSubject', { event: ev.name }, lang),
       htmlBody: emailShell_(eventBrand, esc_(ev.name), body), name: eventBrand.orgName || 'Question Desk'
     });
   });
@@ -210,8 +210,8 @@ function emailEventFacilitators(eid) {
 }
 
 /** The review as email HTML, or a line saying why there isn't one. */
-function reviewSection_(result, brand) {
-  if (!result || !result.ok) return reviewProblem_(result && result.error);
+function reviewSection_(result, brand, lang) {
+  if (!result || !result.ok) return reviewProblem_(result && result.error, lang);
   const r = result.review;
   const head = function (text) {
     return '<h2 style="font-size:15px;margin:18px 0 6px;color:#16202b">' + esc_(text) + '</h2>';
@@ -220,34 +220,35 @@ function reviewSection_(result, brand) {
     return '<p style="margin:0 0 10px;color:#3c4854">' + esc_(text) + '</p>';
   };
   let html = '<div style="background:#f5f7f9;border-left:4px solid ' + brand.accent + ';padding:14px 18px;margin:0 0 26px">' +
-    '<h1 style="font-size:17px;margin:0 0 4px">What the questions say</h1>' +
-    '<p style="margin:0 0 12px;color:#5c6874;font-size:13px">Written by Gemini from ' + result.reviewed +
-    ' of the ' + result.questions + (result.questions === 1 ? ' question' : ' questions') + ' asked across ' +
-    result.sessions + (result.sessions === 1 ? ' session' : ' sessions') + '. Read it as a starting point, not a verdict.</p>' +
+    '<h1 style="font-size:17px;margin:0 0 4px">' + esc_(t_('mail.reviewTitle', null, lang)) + '</h1>' +
+    '<p style="margin:0 0 12px;color:#5c6874;font-size:13px">' + esc_(t_('mail.reviewSource', {
+      reviewed: result.reviewed,
+      questions: tn_('mail.reviewQuestions', result.questions, null, lang),
+      sessions: tn_('mail.reviewSessions', result.sessions, null, lang)
+    }, lang)) + '</p>' +
     note(r.sentiment);
 
   if (r.themes && r.themes.length) {
-    html += head('Themes worth acting on');
+    html += head(t_('mail.reviewThemes', null, lang));
     html += '<ol style="margin:0 0 4px;padding-left:20px;color:#3c4854">' + r.themes.map(function (t) {
       return '<li style="margin-bottom:10px"><strong>' + esc_(t.title) + '</strong><br>' + esc_(t.what) +
-        '<br><span style="color:#5c6874">Next time: ' + esc_(t.nextTime) + '</span></li>';
+        '<br><span style="color:#5c6874">' + esc_(t_('mail.reviewNextTime', { what: t.nextTime }, lang)) + '</span></li>';
     }).join('') + '</ol>';
   }
   if (r.logistics && r.logistics.length) {
-    html += head('Running the event');
+    html += head(t_('mail.reviewLogistics', null, lang));
     html += '<ul style="margin:0 0 4px;padding-left:20px;color:#3c4854">' + r.logistics.map(function (l) {
       return '<li style="margin-bottom:8px">' + esc_(l.issue) +
-        '<br><span style="color:#5c6874">Next time: ' + esc_(l.nextTime) + '</span></li>';
+        '<br><span style="color:#5c6874">' + esc_(t_('mail.reviewNextTime', { what: l.nextTime }, lang)) + '</span></li>';
     }).join('') + '</ul>';
   }
   if (r.individual && r.individual.count) {
-    html += head('Questions about one person\'s situation');
-    html += note(r.individual.count + (r.individual.count === 1 ? ' question was' : ' questions were') +
-      ' about somebody\'s own circumstances. ' + r.individual.pattern);
-    html += note('For everyone in that position: ' + r.individual.atScale);
+    html += head(t_('mail.reviewIndividual', null, lang));
+    html += note(tn_('mail.reviewIndividualCount', r.individual.count, { pattern: r.individual.pattern }, lang));
+    html += note(t_('mail.reviewAtScale', { what: r.individual.atScale }, lang));
   }
   if (r.sessionIdeas && r.sessionIdeas.length) {
-    html += head('Sessions to consider next time');
+    html += head(t_('mail.reviewSessionIdeas', null, lang));
     html += '<ul style="margin:0;padding-left:20px;color:#3c4854">' + r.sessionIdeas.map(function (idea) {
       return '<li style="margin-bottom:4px">' + esc_(idea) + '</li>';
     }).join('') + '</ul>';
@@ -255,9 +256,9 @@ function reviewSection_(result, brand) {
   return html + '</div>';
 }
 
-function reviewProblem_(why) {
+function reviewProblem_(why, lang) {
   return '<p style="background:#f5f7f9;padding:12px 16px;margin:0 0 26px;color:#5c6874">' +
-    'The questions are below, but no review was written this time. ' + esc_(why || '') + '</p>';
+    esc_(t_('mail.reviewMissing', { why: why || '' }, lang)) + '</p>';
 }
 
 function emailEventSummary(eid, recipients) {
@@ -278,7 +279,7 @@ function emailEventSummary(eid, recipients) {
   // What the questions say about the event, before the questions themselves.
   let review = '';
   try {
-    review = reviewSection_(eventReview_(eid), brand);
+    review = reviewSection_(eventReview_(eid), brand, siteLanguage_());
   } catch (err) {
     console.error('Event review: ' + err);
     review = reviewProblem_('The review could not be made: ' + err);
@@ -294,7 +295,7 @@ function emailEventSummary(eid, recipients) {
     body += '<h1 style="font-size:19px;margin:32px 0 4px;padding-top:12px;border-top:1px solid #d9dee3">' + esc_(s.name) + '</h1>' + content.body;
     content.rows.forEach(function (r) { csvRows.push([s.name].concat(r)); });
   });
-  body = body.replace('</p>', ' · ' + questions + ' questions</p>') + '';
+  body = body.replace('</p>', esc_(t_('mail.eventQuestions', { n: questions })) + '</p>') + '';
   body = body.replace('</p>', '</p>' + review);   // the review sits under the counts
   const csv = [header].concat(csvRows).map(function (r) { return r.map(csvCell_).join(','); }).join('\r\n');
   const filename = ev.name.replace(/[^\w -]+/g, '').trim().replace(/\s+/g, '-') || 'event';
@@ -302,8 +303,8 @@ function emailEventSummary(eid, recipients) {
   to.forEach(function (address) {
     MailApp.sendEmail({
       to: address,
-      subject: ev.name + ' — questions summary for the whole event',
-      htmlBody: emailShell_(brand, esc_(ev.name) + ' — questions', body),
+      subject: t_('mail.eventSummarySubject', { event: ev.name }),
+      htmlBody: emailShell_(brand, esc_(t_('mail.eventSummaryTitle', { event: ev.name })), body),
       attachments: [blob],
       name: brand.orgName || 'Question Desk'
     });

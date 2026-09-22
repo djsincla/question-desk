@@ -418,16 +418,14 @@ function emailLinks(sid, options) {
   const items = [];
   if (options.participant) {
     if (!links.participant) throw new Error(t_('err.inRoomSessionsHaveNo'));
-    items.push(['Ask a question', links.participant,
-      'Anyone with this link can submit a question anonymously. If it says "Sorry, unable to open the file", open it in a private browsing window.']);
+    items.push([t_('mail.linkAsk'), links.participant, t_('mail.linkAskNote')]);
   }
   if (options.present) {
-    items.push(['Room screen', links.present,
-      'Open on the projector — no sign-in needed. Anyone with this link can see the join code, so share it only with the people running the room. Use a private browsing window on the projector computer, so no Google sign-in gets in the way.']);
+    items.push([t_('mail.linkPresent'), links.present, t_('mail.linkPresentNote')]);
   }
   if (options.moderate) {
-    items.push(['QA Facilitator queue', links.moderate,
-      'Questions grouped by topic. Requires signing in with an assigned ' + domainOf_(ownerEmail_()) + ' account.']);
+    items.push([t_('mail.linkModerate'), links.moderate,
+      t_('mail.linkModerateNote', { domain: domainOf_(ownerEmail_()) })]);
   }
   if (!items.length) throw new Error(t_('err.chooseAtLeastOneLink'));
 
@@ -441,7 +439,8 @@ function emailLinks(sid, options) {
 
   // One message per recipient so addresses are never exposed to each other.
   to.forEach(function (address) {
-    MailApp.sendEmail({ to: address, subject: session.name + ' — Question Desk links', htmlBody: html, name: brand.orgName || 'Question Desk' });
+    MailApp.sendEmail({ to: address, subject: t_('mail.linksSessionSubject', { name: session.name }),
+      htmlBody: html, name: brand.orgName || 'Question Desk' });
   });
   audit_('Links emailed', session, 'to ' + to.join(', '));
   return to.length;

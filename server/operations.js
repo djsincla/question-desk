@@ -160,19 +160,27 @@ function weeklyReport_() {
   });
   const ops = opsSettings_();
   const checks = [
-    { name: 'Question grouping', ok: !h.failures && trigger, detail: !trigger ? 'The every-minute trigger is missing — run setUp().' : h.failures ? h.failures + ' failed runs in a row: ' + (h.lastError || '') : 'Working' },
-    { name: 'Gemini API key', ok: !!props_().getProperty('GEMINI_API_KEY'), detail: props_().getProperty('GEMINI_API_KEY') ? 'Set' : 'Missing' },
-    { name: 'Email quota', ok: MailApp.getRemainingDailyQuota() >= 20, detail: MailApp.getRemainingDailyQuota() + ' left today' },
-    { name: 'Settings storage', ok: storage.percent < 80, detail: storage.percent + '% of 500 KB used' + (storage.percent >= 80 ? ' — archive or delete old sessions' : '') }
+    { name: t_('ops.check.grouping'), ok: !h.failures && trigger,
+      detail: !trigger ? t_('ops.check.groupingNoTrigger')
+        : h.failures ? t_('ops.check.groupingFailures', { n: h.failures, why: h.lastError || '' })
+        : t_('ops.check.working') },
+    { name: t_('ops.check.key'), ok: !!props_().getProperty('GEMINI_API_KEY'),
+      detail: t_(props_().getProperty('GEMINI_API_KEY') ? 'ops.check.keySet' : 'ops.check.keyMissing') },
+    { name: t_('ops.check.quota'), ok: MailApp.getRemainingDailyQuota() >= 20,
+      detail: t_('ops.check.quotaLeft', { n: MailApp.getRemainingDailyQuota() }) },
+    { name: t_('ops.check.storage'), ok: storage.percent < 80,
+      detail: t_('ops.check.storageUsed', { pct: storage.percent, advice: storage.percent >= 80 ? t_('ops.check.storageAdvice') : '' }) }
   ];
-  if (owed.length) checks.push({ name: 'Summaries not sent', ok: false, detail: owed.map(label).join(', ') });
+  if (owed.length) checks.push({ name: t_('ops.check.summariesOwed'), ok: false, detail: owed.map(label).join(', ') });
   return {
     checks: checks,
     upcoming: upcoming.map(function (x) { return label(x) + ' — ' + fmt(x.scheduledStart); }),
     active: active.map(label),
     ended: ended.map(label),
     asked: asked,
-    retention: ops.retentionMonths ? 'Question wording is removed ' + ops.retentionMonths + ' months after a session ends.' : 'Question wording is kept.'
+    retention: ops.retentionMonths
+      ? t_('ops.retentionOn', { months: ops.retentionMonths })
+      : t_('ops.retentionOff')
   };
 }
 
@@ -186,21 +194,25 @@ function sendWeeklyReport_(onlyTo) {
         : '<p style="color:#5c6874;margin:0">' + esc_(empty) + '</p>');
   };
   const problems = r.checks.filter(function (c) { return !c.ok; }).length;
-  const html = '<p style="margin:0 0 12px">' + (problems ? '<strong>' + problems + ' thing' + (problems === 1 ? '' : 's') + ' need attention.</strong>' : 'Everything looks healthy.') + '</p>' +
+  const html = '<p style="margin:0 0 12px">' + (problems
+    ? '<strong>' + esc_(tn_('mail.weeklyProblems', problems)) + '</strong>'
+    : esc_(t_('mail.weeklyHealthy'))) + '</p>' +
     '<table style="border-collapse:collapse;width:100%">' + r.checks.map(function (c) {
       return '<tr><td style="padding:6px 8px;border-bottom:1px solid #e2e6eb;font-weight:700;color:' + (c.ok ? '#2e7d5b' : '#a3321f') + '">' + (c.ok ? '✓' : '✗') + '</td>' +
         '<td style="padding:6px 8px;border-bottom:1px solid #e2e6eb">' + esc_(c.name) + '</td>' +
         '<td style="padding:6px 8px;border-bottom:1px solid #e2e6eb;color:#5c6874">' + esc_(c.detail) + '</td></tr>';
     }).join('') + '</table>' +
-    list('Coming up in the next 7 days', r.upcoming, 'Nothing scheduled.') +
-    list('Active now', r.active, 'No sessions are active.') +
-    list('Ended in the last 7 days', r.ended, 'None.') +
-    '<p style="margin:20px 0 0;color:#5c6874">' + r.asked + ' questions asked in the last 7 days. ' + esc_(r.retention) + '</p>' +
-    '<p style="margin:8px 0 0;color:#5c6874;font-size:13px">Turn this report off on the Admin page → Health &amp; testing.</p>';
+    list(t_('mail.weeklyUpcoming'), r.upcoming, t_('mail.weeklyNothingScheduled')) +
+    list(t_('mail.weeklyActive'), r.active, t_('mail.weeklyNoneActive')) +
+    list(t_('mail.weeklyEnded'), r.ended, t_('mail.weeklyNone')) +
+    '<p style="margin:20px 0 0;color:#5c6874">' + esc_(t_('mail.weeklyAsked', { n: r.asked, retention: r.retention })) + '</p>' +
+    '<p style="margin:8px 0 0;color:#5c6874;font-size:13px">' + t_('mail.weeklyOff') + '</p>';
   const brand = brand_(null);
   to.forEach(function (address) {
-    MailApp.sendEmail({ to: address, subject: 'Question Desk weekly report' + (problems ? ' — ' + problems + ' need attention' : ''),
-      htmlBody: emailShell_(brand, 'Weekly report', html), name: brand.orgName || 'Question Desk' });
+    MailApp.sendEmail({
+      to: address,
+      subject: problems ? t_('mail.weeklySubjectProblems', { n: problems }) : t_('mail.weeklySubject'),
+      htmlBody: emailShell_(brand, esc_(t_('mail.weeklyTitle')), html), name: brand.orgName || 'Question Desk' });
   });
   return to.length;
 }
@@ -313,18 +325,15 @@ function noteGroupingResult_(error) {
     h.lastErrorAt = now;
     const due = !h.alertedAt || now - h.alertedAt > CONFIG.alertRepeatHours * 3600 * 1000;
     if (h.failures >= CONFIG.alertAfterFailures && due) {
-      if (alertAdmins_('Question grouping is failing',
-        '<p>Questions are arriving but have not been grouped or translated for ' + h.failures +
-        ' runs in a row. QA Facilitators still see every question, ungrouped.</p>' +
-        '<p><strong>Last error:</strong> ' + esc_(h.lastError) + '</p>' +
-        '<p>Open the Admin page → Health and run a health check. A 404 usually means the Gemini model ' +
-        'name (' + esc_(geminiSettings_().model) + ') was retired; a 400 or 403 usually means the API key.</p>')) {
+      if (alertAdmins_(t_('mail.alertGroupingFailing'), t_('mail.alertGroupingBody', {
+        n: h.failures, why: esc_(h.lastError), model: esc_(geminiSettings_().model)
+      }))) {
         h.alertedAt = now;
       }
     }
   } else {
     if (h.alertedAt) {
-      alertAdmins_('Question grouping recovered', '<p>Grouping and translation are working again.</p>');
+      alertAdmins_(t_('mail.alertGroupingRecovered'), t_('mail.alertGroupingRecoveredBody'));
       h.alertedAt = null;
     }
     h.failures = 0;
@@ -338,7 +347,7 @@ function alertAdmins_(subject, html) {
     const to = adminEmails_();
     if (!to.length || MailApp.getRemainingDailyQuota() < to.length) return false;
     const brand = brand_(null);
-    MailApp.sendEmail({ to: to.join(','), subject: 'Question Desk: ' + subject,
+    MailApp.sendEmail({ to: to.join(','), subject: t_('mail.alertSubject', { subject: subject }),
       htmlBody: emailShell_(brand, esc_(subject), html), name: brand.orgName || 'Question Desk' });
     return true;
   } catch (err) {
@@ -353,43 +362,45 @@ function runHealthCheck() {
   const add = function (name, ok, detail) { checks.push({ name: name, ok: !!ok, detail: detail }); };
 
   const key = props_().getProperty('GEMINI_API_KEY');
-  add('Gemini API key', key, key ? 'Set' : 'Missing — add it under Admin → Health & testing → Gemini.');
+  add(t_('ops.check.key'), key, t_(key ? 'ops.check.keySet' : 'ops.check.keyMissingHow'));
   if (key) {
     const started = Date.now();
     const r = geminiRequest_('Health check. Set ok to true.', {
       type: 'OBJECT', properties: { ok: { type: 'BOOLEAN' } }, required: ['ok']
     }, { task: 'grouping' });
-    add('Gemini model ' + geminiSettings_().model, r.ok, r.ok ? 'Responded in ' + (Date.now() - started) + ' ms' : r.error);
+    add(t_('ops.check.model', { model: geminiSettings_().model }), r.ok,
+      r.ok ? t_('ops.check.modelOk', { ms: Date.now() - started }) : r.error);
   }
 
   const trigger = ScriptApp.getProjectTriggers().some(function (t) {
     return t.getHandlerFunction() === 'clusterQuestions';
   });
-  add('Grouping and schedule trigger', trigger, trigger ? 'Runs every minute' : 'Missing — run setUp() from the editor.');
+  add(t_('ops.check.trigger'), trigger, t_(trigger ? 'ops.check.triggerOk' : 'ops.check.triggerMissing'));
 
   try {
     const ss = spreadsheet_();
     const ok = [CONFIG.sheetName, CONFIG.topicSheetName, CONFIG.assetSheetName]
       .every(function (n) { return !!ss.getSheetByName(n); });
-    add('Submissions sheet', ok, ok ? 'Reachable' : 'Some sheets are missing — run setUp() from the editor.');
+    add(t_('ops.check.sheet'), ok, t_(ok ? 'ops.check.sheetOk' : 'ops.check.sheetMissing'));
   } catch (err) {
-    add('Submissions sheet', false, String(err));
+    add(t_('ops.check.sheet'), false, String(err));
   }
 
   const quota = MailApp.getRemainingDailyQuota();
-  add('Email quota', quota >= 10, quota + ' emails left today');
+  add(t_('ops.check.quota'), quota >= 10, t_('ops.check.quotaEmails', { n: quota }));
 
   const url = baseUrl_();
   const dev = /\/dev$/.test(url);
-  add('App address', url && !dev, dev ? 'Points at the /dev test address — set the app address on the Branding tab.' : url);
+  add(t_('ops.check.address'), url && !dev, dev ? t_('ops.check.addressDev') : url);
 
   const storage = storageUse_();
-  add('Settings storage', storage.percent < 80, storage.percent + '% of 500 KB used' + (storage.percent >= 80 ? ' — archive or delete old sessions' : ''));
+  add(t_('ops.check.storage'), storage.percent < 80,
+    t_('ops.check.storageUsed', { pct: storage.percent, advice: storage.percent >= 80 ? t_('ops.check.storageAdvice') : '' }));
 
   const h = health_();
-  add('Recent grouping', (h.failures || 0) < CONFIG.alertAfterFailures,
-    h.failures ? h.failures + ' failed runs in a row. Last error: ' + h.lastError
-      : h.lastOkAt ? 'Working' : 'Nothing grouped yet');
+  add(t_('ops.check.recent'), (h.failures || 0) < CONFIG.alertAfterFailures,
+    h.failures ? t_('ops.check.recentFailures', { n: h.failures, why: h.lastError })
+      : t_(h.lastOkAt ? 'ops.check.working' : 'ops.check.nothingYet'));
 
   return { checks: checks, ranAt: Date.now() };
 }

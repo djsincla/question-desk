@@ -11,19 +11,29 @@ function sendSummary_(session, recipients) {
   checkQuota_(to.length);
 
   const brand = brand_(session);
-  const content = summaryContent_(session, brand);
-  const csv = [content.header].concat(content.rows).map(function (r) { return r.map(csvCell_).join(','); }).join('\r\n');
   const filename = session.name.replace(/[^\w -]+/g, '').trim().replace(/\s+/g, '-') || 'session';
-  const blob = Utilities.newBlob('\ufeff' + csv, 'text/csv', filename + '-questions.csv');
 
-  // One message each, so outside recipients don't see everyone else's address.
+  // Everyone gets their own language, and their own message, so outside recipients don't see
+  // everyone else's address. The questions are read once per language, not once per person.
+  const byLanguage = {};
   to.forEach(function (address) {
-    MailApp.sendEmail({
-      to: address,
-      subject: (brand.eventName ? brand.eventName + ': ' : '') + session.name + ' — questions summary',
-      htmlBody: emailShell_(brand, esc_(session.name) + ' — questions', content.body),
-      attachments: [blob],
-      name: brand.orgName || 'Question Desk'
+    const lang = appLanguage_(address);
+    (byLanguage[lang] = byLanguage[lang] || []).push(address);
+  });
+  Object.keys(byLanguage).forEach(function (lang) {
+    const content = summaryContent_(session, brand, lang);
+    const csv = [content.header].concat(content.rows).map(function (r) { return r.map(csvCell_).join(','); }).join('\r\n');
+    const blob = Utilities.newBlob('\ufeff' + csv, 'text/csv', filename + '-questions.csv');
+    byLanguage[lang].forEach(function (address) {
+      MailApp.sendEmail({
+        to: address,
+        subject: brand.eventName
+          ? t_('mail.summarySubjectEvent', { event: brand.eventName, name: session.name }, lang)
+          : t_('mail.summarySubject', { name: session.name }, lang),
+        htmlBody: emailShell_(brand, t_('mail.summaryTitle', { name: esc_(session.name) }, lang), content.body),
+        attachments: [blob],
+        name: brand.orgName || 'Question Desk'
+      });
     });
   });
   updateSession_(session.id, function (s) { s.summarySent = Date.now(); delete s.summaryPending; });
@@ -31,7 +41,7 @@ function sendSummary_(session, recipients) {
 }
 
 /** One session's summary: the email body (topics and every question) and CSV rows. */
-function summaryContent_(session, brand) {
+function summaryContent_(session, brand, lang) {
   flushInbox_(session.id);
   const rows = sessionRows_(session.id);
   const records = topicRecords_(session.id);
@@ -41,9 +51,10 @@ function summaryContent_(session, brand) {
   const merged = function (t) { return records[t] && records[t].merged ? records[t].merged : ''; };
 
   const kept = rows.filter(function (q) { return q.status !== 'dismissed'; });
+  const notGrouped = t_('mail.summaryNotGrouped', null, lang);
   const groups = {};
   kept.forEach(function (q) {
-    const t = q.topic || 'Not grouped';
+    const t = q.topic || notGrouped;
     (groups[t] = groups[t] || []).push(q);
   });
   const weight = function (t) { return groups[t].length + (votes[t] || 0); };
@@ -51,15 +62,17 @@ function summaryContent_(session, brand) {
 
   let body = '<p style="color:#5c6874;margin:0 0 20px">' +
     esc_(fmt(session.started)) + ' – ' + esc_(fmt(session.ended)) + '<br>' +
-    kept.length + ' questions in ' + order.length + ' topics' +
-    (rows.length - kept.length ? ' · ' + (rows.length - kept.length) + ' dismissed' : '') +
-    '</p>';
+    esc_(t_('mail.summaryCounts', {
+      questions: kept.length,
+      topics: order.length,
+      dismissed: rows.length - kept.length ? t_('mail.summaryDismissed', { n: rows.length - kept.length }, lang) : ''
+    }, lang)) + '</p>';
 
   order.forEach(function (topic) {
     body += '<h2 style="font-size:16px;margin:24px 0 8px;border-left:4px solid ' + brand.accent + ';padding-left:8px">' + esc_(topic) +
       ' <span style="color:#5c6874;font-weight:400">(' + groups[topic].length +
-      (votes[topic] ? ' · ' + votes[topic] + ' me too' : '') + ')' +
-      (records[topic] && records[topic].shown ? ' · shown on phones' : '') + '</span></h2>';
+      (votes[topic] ? esc_(t_('mail.summaryMeToo', { n: votes[topic] }, lang)) : '') + ')' +
+      (records[topic] && records[topic].shown ? esc_(t_('mail.summaryShown', null, lang)) : '') + '</span></h2>';
     if (merged(topic)) {
       body += '<p style="background:#fffdf5;border-left:3px solid #d9c27a;padding:8px 12px;margin:0 0 8px">' +
         esc_(merged(topic)) + '</p>';
@@ -71,13 +84,17 @@ function summaryContent_(session, brand) {
       const tick = q.status === 'answered' ? '<span style="color:' + brand.accent + '">✓ </span>' : '';
       let item;
       if (!q.translation) {
-        item = esc_(q.text) + small + 'Original wording — not translated' + (q.lang ? ' (' + esc_(q.lang) + ')' : '') + '</span>';
+        item = esc_(q.text) + small + esc_(t_('mail.summaryUntranslated', null, lang)) +
+          (q.lang ? esc_(t_('mail.summaryUntranslatedLang', { lang: q.lang }, lang)) : '') + '</span>';
       } else if (sameLanguage_(q)) {
         item = esc_(q.text);
       } else {
-        item = esc_(q.translation) + small + 'Original (' + esc_(q.lang || 'unknown language') + '): ' + esc_(q.text) + '</span>';
+        item = esc_(q.translation) + small +
+          esc_(t_('mail.summaryOriginal', { lang: q.lang || t_('mail.summaryUnknownLanguage', null, lang) }, lang)) +
+          esc_(q.text) + '</span>';
       }
-      const single = !q.topic && votes[singleKey_(q.id)] ? small + votes[singleKey_(q.id)] + ' me too · shown on phones</span>' : '';
+      const single = !q.topic && votes[singleKey_(q.id)]
+        ? small + esc_(t_('mail.summarySingleMeToo', { n: votes[singleKey_(q.id)] }, lang)) + '</span>' : '';
       return '<li style="margin-bottom:8px">' + tick + item + single + '</li>';
     }).join('') + '</ul>';
   });
