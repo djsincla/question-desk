@@ -282,25 +282,39 @@ const UI_TEXT = {
   },
   home: {
     en: {
-      join: 'To ask a question, scan the code on the screen in the room.'
+      join: 'To ask a question, scan the code on the screen in the room.',
+      title: 'Questions welcome',
+      anonymous: 'Questions are anonymous. You can ask in any language.'
     },
     ko: {
-      join: '질문하려면 회의실 화면의 코드를 스캔하세요.'
+      join: '질문하려면 회의실 화면의 코드를 스캔하세요.',
+      title: '질문을 환영합니다',
+      anonymous: '질문은 익명입니다. 어떤 언어로도 질문할 수 있습니다.'
     },
     es: {
-      join: 'Para hacer una pregunta, escanea el código de la pantalla de la sala.'
+      join: 'Para hacer una pregunta, escanea el código de la pantalla de la sala.',
+      title: 'Tus preguntas son bienvenidas',
+      anonymous: 'Las preguntas son anónimas. Puedes preguntar en cualquier idioma.'
     },
     zh: {
-      join: '如需提问，请扫描会场屏幕上的二维码。'
+      join: '如需提问，请扫描会场屏幕上的二维码。',
+      title: '欢迎提问',
+      anonymous: '提问是匿名的，可以用任何语言提问。'
     },
     vi: {
-      join: 'Để đặt câu hỏi, hãy quét mã trên màn hình trong phòng.'
+      join: 'Để đặt câu hỏi, hãy quét mã trên màn hình trong phòng.',
+      title: 'Chào đón câu hỏi của bạn',
+      anonymous: 'Câu hỏi được ẩn danh. Bạn có thể hỏi bằng bất kỳ ngôn ngữ nào.'
     },
     tl: {
-      join: 'Para magtanong, i-scan ang code sa screen sa silid.'
+      join: 'Para magtanong, i-scan ang code sa screen sa silid.',
+      title: 'Malugod na tinatanggap ang mga tanong',
+      anonymous: 'Hindi nagpapakilala ang mga tanong. Maaari kang magtanong sa anumang wika.'
     },
     hy: {
-      join: 'Հարց տալու համար սկանավորեք դահլիճի էկրանի կոդը։'
+      join: 'Հարց տալու համար սկանավորեք դահլիճի էկրանի կոդը։',
+      title: 'Ձեր հարցերը ողջունելի են',
+      anonymous: 'Հարցերն անանուն են։ Կարող եք հարցնել ցանկացած լեզվով։'
     }
   },
   screen: {
