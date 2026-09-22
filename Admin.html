@@ -10,45 +10,45 @@
 <header>
   <div class="title">
     <img id="logo" alt="" hidden>
-    <h1>Question Desk Administration</h1>
+    <h1 data-w="admin.top.questionDeskAdministration">Question Desk Administration</h1>
   </div>
   <div class="who"><span id="who">Loading…</span> · <span id="version"></span> <a id="notes" target="_blank" rel="noopener" hidden>Release notes</a></div>
 </header>
 
 <nav class="tabs" role="tablist">
-  <button type="button" role="tab" data-tab="sessions" aria-selected="true">Sessions</button>
-  <button type="button" role="tab" data-tab="people" aria-selected="false">People</button>
-  <button type="button" role="tab" data-tab="branding" aria-selected="false">Branding</button>
-  <button type="button" role="tab" data-tab="activity" aria-selected="false">Activity</button>
-  <button type="button" role="tab" data-tab="health" aria-selected="false">Health &amp; testing</button>
+  <button type="button" role="tab" data-tab="sessions" aria-selected="true" data-w="admin.top.sessions">Sessions</button>
+  <button type="button" role="tab" data-tab="people" aria-selected="false" data-w="admin.top.people">People</button>
+  <button type="button" role="tab" data-tab="branding" aria-selected="false" data-w="admin.top.branding">Branding</button>
+  <button type="button" role="tab" data-tab="activity" aria-selected="false" data-w="admin.top.activity">Activity</button>
+  <button type="button" role="tab" data-tab="health" aria-selected="false" data-w="admin.top.healthTesting">Health &amp; testing</button>
 </nav>
 
 <!-- Sessions -->
 <section id="tab-sessions">
   <div class="actions space-below-16">
-    <button type="button" class="primary" id="newEvent">New event</button>
-    <button type="button" id="newSession">New session</button>
+    <button type="button" class="primary" id="newEvent" data-w="admin.sessions.newEvent">New event</button>
+    <button type="button" id="newSession" data-w="admin.sessions.newSession">New session</button>
     <span class="grow"></span>
-    <button type="button" class="quiet" id="exportCsv">Export CSV</button>
-    <button type="button" class="quiet" id="importCsv">Import CSV</button>
+    <button type="button" class="quiet" id="exportCsv" data-w="admin.sessions.exportCsv">Export CSV</button>
+    <button type="button" class="quiet" id="importCsv" data-w="admin.sessions.importCsv">Import CSV</button>
   </div>
 
   <div class="panel form" id="exportPanel" hidden>
-    <h2>Sessions CSV</h2>
+    <h2 data-w="admin.sessions.sessionsCsv">Sessions CSV</h2>
     <p class="hint flush-top" id="exportHint"></p>
     <textarea class="full-width code-text" id="exportText" rows="6" readonly spellcheck="false"></textarea>
     <div class="actions space-above-8">
-      <button type="button" id="exportCopy">Copy</button>
-      <button type="button" class="quiet" id="exportClose">Close</button>
+      <button type="button" id="exportCopy" data-w="admin.sessions.exportCopy">Copy</button>
+      <button type="button" class="quiet" id="exportClose" data-w="admin.sessions.exportClose">Close</button>
     </div>
   </div>
 
   <div class="panel form checklist" id="checklistPanel" hidden>
     <div class="actions spread">
-      <h2 class="flush" id="checklistTitle">Day-of checklist</h2>
+      <h2 class="flush" id="checklistTitle" data-w="admin.sessions.checklistTitle">Day-of checklist</h2>
       <span>
-        <button type="button" id="checklistRefresh">Check again</button>
-        <button type="button" class="quiet" id="checklistClose">Close</button>
+        <button type="button" id="checklistRefresh" data-w="admin.sessions.checklistRefresh">Check again</button>
+        <button type="button" class="quiet" id="checklistClose" data-w="admin.sessions.checklistClose">Close</button>
       </span>
     </div>
     <p class="hint" id="checklistWhen"></p>
@@ -56,57 +56,57 @@
   </div>
 
   <form class="panel form" id="importForm" hidden autocomplete="off">
-    <h2>Import sessions from CSV</h2>
+    <h2 data-w="admin.sessions.importSessionsFromCsv">Import sessions from CSV</h2>
     <p class="hint flush-top">Use the format from <b>Export CSV</b> — edit it in Google Sheets or Excel, then save as CSV. Only the <b>Session</b> column is required; columns you leave out keep their current settings. Times are in the app's time zone, like <code>2026-10-03 18:30</code>. Events that don't exist yet are created; a blank Event cell takes a session out of its event. Ended sessions are never changed.</p>
     <label class="field"><span>CSV file</span><input type="file" id="importFile" accept=".csv,text/csv"></label>
     <label class="field"><span>…or paste it</span>
       <textarea class="code-text" id="importText" rows="5" spellcheck="false"></textarea>
     </label>
     <div class="field">
-      <span class="field-label">When a session already exists (same name, start and end — or same name when it has no times)</span>
+      <span class="field-label" data-w="admin.sessions.whenASessionAlready">When a session already exists (same name, start and end — or same name when it has no times)</span>
       <label class="choice"><input type="radio" name="importDup" value="update" checked><span>Update it with the file's values</span></label>
       <label class="choice"><input type="radio" name="importDup" value="skip"><span>Leave it as it is</span></label>
     </div>
     <div id="importPreview"></div>
     <div class="actions">
-      <button type="button" class="primary" id="importCheck">Check file</button>
-      <button type="submit" class="primary" id="importGo" hidden>Import</button>
-      <button type="button" class="quiet" id="importCancel">Cancel</button>
+      <button type="button" class="primary" id="importCheck" data-w="admin.sessions.importCheck">Check file</button>
+      <button type="submit" class="primary" id="importGo" hidden data-w="admin.sessions.importGo">Import</button>
+      <button type="button" class="quiet" id="importCancel" data-w="admin.sessions.importCancel">Cancel</button>
     </div>
   </form>
 
   <form class="panel form" id="eventForm" hidden autocomplete="off">
-    <h2 id="eventFormTitle">New event</h2>
+    <h2 id="eventFormTitle" data-w="admin.sessions.eventFormTitle">New event</h2>
     <input type="hidden" id="ev-id">
     <label class="field"><span>Event name</span>
-      <input type="text" id="ev-name" maxlength="80" required placeholder="Spring Family Conference 2027">
-      <div class="hint">Groups the sessions held at one event, such as a conference with several rooms.</div>
+      <input type="text" id="ev-name" maxlength="80" required data-w-ph="admin.sessions.evname.hint" placeholder="Spring Family Conference 2027">
+      <div class="hint" data-w="admin.sessions.groupsTheSessionsHeld">Groups the sessions held at one event, such as a conference with several rooms.</div>
     </label>
     <div class="field">
-      <span class="field-label">QA Facilitators for every session in this event</span>
+      <span class="field-label" data-w="admin.sessions.qaFacilitatorsForEvery">QA Facilitators for every session in this event</span>
       <div id="ev-mods"></div>
-      <div class="hint">They can run the queue for all of this event's sessions. Sessions can add more of their own. (Summaries go to the Session Summary Email Recipients on the People tab.)</div>
+      <div class="hint" data-w="admin.sessions.theyCanRunThe">They can run the queue for all of this event's sessions. Sessions can add more of their own. (Summaries go to the Session Summary Email Recipients on the People tab.)</div>
     </div>
     <div class="field">
-      <span class="field-label">Event Coordinators</span>
+      <span class="field-label" data-w="admin.sessions.eventCoordinators">Event Coordinators</span>
       <div id="ev-coords"></div>
-      <div class="hint">They get this event's own portal: every question the audience asks about running it — rooms, timing, access, food — from all its sessions. Add people to the role on the People tab first.</div>
+      <div class="hint" data-w="admin.sessions.theyGetThisEvent">They get this event's own portal: every question the audience asks about running it — rooms, timing, access, food — from all its sessions. Add people to the role on the People tab first.</div>
     </div>
     <fieldset>
-      <legend>Languages</legend>
+      <legend data-w="admin.sessions.languages">Languages</legend>
       <label class="choice"><input type="radio" name="evLangMode" value="site" checked><span>The site's languages<small id="ev-lang-site"></small></span></label>
       <label class="choice"><input type="radio" name="evLangMode" value="custom"><span>Choose for this event<small>For example, add Vietnamese for a community partner. English is always included.</small></span></label>
       <div class="lang-grid indent" id="ev-langs" hidden></div>
     </fieldset>
     <fieldset>
-      <legend>Event branding (optional)</legend>
-      <div class="hint flush-top flush-sides space-below-10">Overrides the site branding for this event's sessions. Leave a field blank to use the site's. A session can still set its own name, color and logo.</div>
+      <legend data-w="admin.sessions.eventBrandingOptional">Event branding (optional)</legend>
+      <div class="hint flush-top flush-sides space-below-10" data-w="admin.sessions.overridesTheSiteBranding">Overrides the site branding for this event's sessions. Leave a field blank to use the site's. A session can still set its own name, color and logo.</div>
       <div class="row">
         <label class="field"><span>Organization name</span><input type="text" id="ev-org" maxlength="80"></label>
         <div class="field">
-          <span class="field-label">Accent color</span>
+          <span class="field-label" data-w="admin.sessions.accentColor">Accent color</span>
           <label class="choice"><input type="checkbox" id="ev-accent-on"><span>Use a different accent</span></label>
-          <input type="color" id="ev-accent" aria-label="Event accent color">
+          <input type="color" id="ev-accent" data-w-a="admin.sessions.evaccent.says" aria-label="Event accent color">
         </div>
       </div>
       <div class="row">
@@ -115,34 +115,34 @@
       </div>
       <div class="row">
         <div class="field">
-          <span class="field-label">Room screen background — dark</span>
+          <span class="field-label" data-w="admin.sessions.roomScreenBackgroundDark">Room screen background — dark</span>
           <label class="choice"><input type="checkbox" id="ev-dark-on"><span>Use a different color</span></label>
-          <input type="color" id="ev-dark" aria-label="Event dark background">
+          <input type="color" id="ev-dark" data-w-a="admin.sessions.evdark.says" aria-label="Event dark background">
         </div>
         <div class="field">
-          <span class="field-label">Room screen background — light</span>
+          <span class="field-label" data-w="admin.sessions.roomScreenBackgroundLight">Room screen background — light</span>
           <label class="choice"><input type="checkbox" id="ev-light-on"><span>Use a different color</span></label>
-          <input type="color" id="ev-light" aria-label="Event light background">
+          <input type="color" id="ev-light" data-w-a="admin.sessions.evlight.says" aria-label="Event light background">
         </div>
       </div>
       <div class="field" id="ev-logo-box">
-        <span class="field-label">Logo</span>
+        <span class="field-label" data-w="admin.sessions.logo">Logo</span>
         <div class="logo-preview" id="ev-logo-preview"><span class="hint">Uses the site logo</span></div>
         <div class="actions">
           <input type="file" id="ev-logo" accept="image/png,image/jpeg,image/webp,image/svg+xml">
-          <button type="button" class="danger" id="ev-logo-remove" hidden>Remove event logo</button>
+          <button type="button" class="danger" id="ev-logo-remove" hidden data-w="admin.sessions.evlogoremove">Remove event logo</button>
         </div>
       </div>
-      <div class="hint" id="ev-logo-later" hidden>Save the event first, then edit it to add a logo.</div>
+      <div class="hint" id="ev-logo-later" hidden data-w="admin.sessions.evlogolater">Save the event first, then edit it to add a logo.</div>
     </fieldset>
     <div class="actions">
-      <button type="submit" class="primary" id="saveEvent">Save event</button>
-      <button type="button" class="quiet" id="cancelEvent">Cancel</button>
+      <button type="submit" class="primary" id="saveEvent" data-w="admin.sessions.saveEvent">Save event</button>
+      <button type="button" class="quiet" id="cancelEvent" data-w="admin.sessions.cancelEvent">Cancel</button>
     </div>
   </form>
 
   <form class="panel form" id="sessionForm" hidden autocomplete="off">
-    <h2 id="formTitle">New session</h2>
+    <h2 id="formTitle" data-w="admin.sessions.formTitle">New session</h2>
     <input type="hidden" id="f-id">
     <label class="field"><span>Event</span>
       <select id="f-event"></select>
@@ -151,11 +151,11 @@
     <div class="row">
       <label class="field"><span>Name</span>
         <input type="text" id="f-name" maxlength="80" required>
-        <div class="hint">For administrators and QA Facilitators, e.g. "Family night — Sept".</div>
+        <div class="hint" data-w="admin.sessions.forAdministratorsAndQa">For administrators and QA Facilitators, e.g. "Family night — Sept".</div>
       </label>
       <label class="field"><span>Room</span>
-        <input type="text" id="f-room" maxlength="60" placeholder="Ballroom A">
-        <div class="hint">Where it happens. Shown to staff and in their emails; participants never see it.</div>
+        <input type="text" id="f-room" maxlength="60" data-w-ph="admin.sessions.froom.hint" placeholder="Ballroom A">
+        <div class="hint" data-w="admin.sessions.whereItHappensShown">Where it happens. Shown to staff and in their emails; participants never see it.</div>
       </label>
     </div>
 
@@ -167,14 +167,14 @@
 
     <div class="row">
       <div class="field">
-        <span class="field-label">How people join</span>
+        <span class="field-label" data-w="admin.sessions.howPeopleJoin">How people join</span>
         <label class="choice"><input type="radio" name="access" value="room" checked>
           <span>In-room QR<small>The code on the room screen changes every 150 seconds. Only people in the room can ask.</small></span></label>
         <label class="choice"><input type="radio" name="access" value="link">
           <span>Shareable link<small>A fixed link and QR you can email or print. Anyone with the link can ask.</small></span></label>
       </div>
       <div class="field">
-        <span class="field-label">Room screen theme</span>
+        <span class="field-label" data-w="admin.sessions.roomScreenTheme">Room screen theme</span>
         <label class="choice"><input type="radio" name="theme" value="dark" checked><span>Dark<small>Best for dim rooms and most projectors.</small></span></label>
         <label class="choice"><input type="radio" name="theme" value="light"><span>Light<small>Best for bright rooms and TVs.</small></span></label>
         <label class="choice"><input type="radio" name="theme" value="contrast"><span>High contrast<small>Black, white and yellow, for low vision and washed-out projectors.</small></span></label>
@@ -198,8 +198,8 @@
     </div>
 
     <fieldset>
-      <legend>Use the guest page for</legend>
-      <p class="hint flush-top">Avoids Google's "Sorry, unable to open the file" on phones and browsers signed into several Google accounts. Unticked opens Google's address directly.</p>
+      <legend data-w="admin.sessions.useTheGuestPage">Use the guest page for</legend>
+      <p class="hint flush-top" data-w="admin.sessions.avoidsGoogleSSorry">Avoids Google's "Sorry, unable to open the file" on phones and browsers signed into several Google accounts. Unticked opens Google's address directly.</p>
       <label class="choice"><input type="checkbox" id="f-guest-room">
         <span>Room screen<small>The room screen link, and the QR code on the room screen.</small></span></label>
       <label class="choice"><input type="checkbox" id="f-guest-slide">
@@ -207,60 +207,60 @@
       <label class="choice"><input type="checkbox" id="f-guest-panel">
         <span>Panelist view<small>The panelist view link, for the panel's tablet or laptop.</small></span></label>
       <label class="field indent" id="f-guest-url-box" hidden>
-        <span>Guest page address for this session (optional)</span>
-        <input type="url" id="f-guest-url" placeholder="Uses the address on the Branding tab">
-        <div class="hint">Leave blank to use the organization's guest page. Fill in to use another site, such as a partner's. A shareable questions link uses the guest page when Room screen or PowerPoint slide is ticked.</div>
+        <span data-w="admin.sessions.guestPageAddressFor">Guest page address for this session (optional)</span>
+        <input type="url" id="f-guest-url" data-w-ph="admin.sessions.fguesturl.hint" placeholder="Uses the address on the Branding tab">
+        <div class="hint" data-w="admin.sessions.leaveBlankToUse">Leave blank to use the organization's guest page. Fill in to use another site, such as a partner's. A shareable questions link uses the guest page when Room screen or PowerPoint slide is ticked.</div>
       </label>
     </fieldset>
 
 
     <label class="field"><span>Prepared questions (optional)</span>
-      <textarea id="f-prepared" rows="5" placeholder="One question per line"></textarea>
-      <div class="hint">Loaded ahead of time and kept out of sight. A QA Facilitator adds each one to the queue when it's useful. Saving replaces the ones not yet added.</div>
+      <textarea id="f-prepared" rows="5" data-w-ph="admin.sessions.fprepared.hint" placeholder="One question per line"></textarea>
+      <div class="hint" data-w="admin.sessions.loadedAheadOfTime">Loaded ahead of time and kept out of sight. A QA Facilitator adds each one to the queue when it's useful. Saving replaces the ones not yet added.</div>
     </label>
     <label class="choice tuck-up"><input type="checkbox" id="f-translate-prepared" checked>
       <span>Translate prepared questions when saved<small id="f-translate-hint">Into English and this session's languages, so they're ready to read out and to show on phones and the room screen with Answer now.</small></span></label>
 
     <fieldset>
-      <legend>Schedule (optional)</legend>
+      <legend data-w="admin.sessions.scheduleOptional">Schedule (optional)</legend>
       <div class="row">
         <label class="field"><span>Start automatically</span><input type="datetime-local" id="f-start"></label>
         <label class="field"><span>End automatically</span><input type="datetime-local" id="f-end"></label>
       </div>
-      <div class="hint">Checked every minute. Ending sends the summary if the box above is ticked. You can still start, stop and end by hand.</div>
+      <div class="hint" data-w="admin.sessions.checkedEveryMinuteEnding">Checked every minute. Ending sends the summary if the box above is ticked. You can still start, stop and end by hand.</div>
     </fieldset>
 
     <fieldset>
-      <legend>Session branding (optional)</legend>
-      <div class="hint flush-top flush-sides space-below-10">For partner events. Leave blank to use your organization's branding.</div>
+      <legend data-w="admin.sessions.sessionBrandingOptional">Session branding (optional)</legend>
+      <div class="hint flush-top flush-sides space-below-10" data-w="admin.sessions.forPartnerEventsLeave">For partner events. Leave blank to use your organization's branding.</div>
       <div class="row">
         <label class="field"><span>Organization name</span><input type="text" id="f-org" maxlength="80"></label>
         <div class="field">
-          <span class="field-label">Accent color</span>
+          <span class="field-label" data-w="admin.sessions.accentColor2">Accent color</span>
           <label class="choice"><input type="checkbox" id="f-accent-on"><span>Use a different accent</span></label>
-          <input type="color" id="f-accent" aria-label="Session accent color">
+          <input type="color" id="f-accent" data-w-a="admin.sessions.faccent.says" aria-label="Session accent color">
         </div>
       </div>
       <div class="field" id="f-logo-box">
-        <span class="field-label">Logo</span>
+        <span class="field-label" data-w="admin.sessions.logo2">Logo</span>
         <div class="logo-preview" id="f-logo-preview"><span class="hint">Uses the organization logo</span></div>
         <div class="actions">
           <input type="file" id="f-logo" accept="image/png,image/jpeg,image/webp,image/svg+xml">
-          <button type="button" class="danger" id="f-logo-remove" hidden>Remove session logo</button>
+          <button type="button" class="danger" id="f-logo-remove" hidden data-w="admin.sessions.flogoremove">Remove session logo</button>
         </div>
       </div>
-      <div class="hint" id="f-logo-later" hidden>Save the session first, then edit it to add a logo.</div>
+      <div class="hint" id="f-logo-later" hidden data-w="admin.sessions.flogolater">Save the session first, then edit it to add a logo.</div>
     </fieldset>
 
     <div class="field">
-      <span class="field-label">QA Facilitators for this session</span>
+      <span class="field-label" data-w="admin.sessions.qaFacilitatorsForThis">QA Facilitators for this session</span>
       <div id="f-mods"></div>
-      <div class="hint">Administrators can run every session. Add people to the QA Facilitator list on the People tab.</div>
+      <div class="hint" data-w="admin.sessions.administratorsCanRunEvery">Administrators can run every session. Add people to the QA Facilitator list on the People tab.</div>
     </div>
 
     <div class="actions">
-      <button type="submit" class="primary" id="saveSession">Save session</button>
-      <button type="button" class="quiet" id="cancelSession">Cancel</button>
+      <button type="submit" class="primary" id="saveSession" data-w="admin.sessions.saveSession">Save session</button>
+      <button type="button" class="quiet" id="cancelSession" data-w="admin.sessions.cancelSession">Cancel</button>
     </div>
   </form>
 
@@ -272,39 +272,39 @@
   <p class="hint flush-top" id="domainHint"></p>
   <div class="people-cards">
     <div class="panel">
-      <h2>Administrators</h2>
-      <p class="hint flush-top">Can create and run sessions, manage people, and change branding.</p>
+      <h2 data-w="admin.people.administrators">Administrators</h2>
+      <p class="hint flush-top" data-w="admin.people.canCreateAndRun">Can create and run sessions, manage people, and change branding.</p>
       <ul class="people" id="adminList"></ul>
       <form class="adder" data-role="admin">
-        <input type="email" placeholder="name@domain.org" aria-label="Administrator email">
-        <button type="submit">Add</button>
+        <input type="email" data-w-ph="admin.people.nameDomainOrg" placeholder="name@domain.org" data-w-a="admin.people.administratorEmail" aria-label="Administrator email">
+        <button type="submit" data-w="admin.people.add">Add</button>
       </form>
     </div>
     <div class="panel">
-      <h2>QA Facilitators</h2>
-      <p class="hint flush-top">Run the queue for the sessions they are assigned to: group, merge, approve topics for phones, and mark questions answered.</p>
+      <h2 data-w="admin.people.qaFacilitators">QA Facilitators</h2>
+      <p class="hint flush-top" data-w="admin.people.runTheQueueFor">Run the queue for the sessions they are assigned to: group, merge, approve topics for phones, and mark questions answered.</p>
       <ul class="people" id="modList"></ul>
       <form class="adder" data-role="moderator">
-        <input type="email" placeholder="name@domain.org" aria-label="QA Facilitator email">
-        <button type="submit">Add</button>
+        <input type="email" data-w-ph="admin.people.nameDomainOrg2" placeholder="name@domain.org" data-w-a="admin.people.qaFacilitatorEmail" aria-label="QA Facilitator email">
+        <button type="submit" data-w="admin.people.add2">Add</button>
       </form>
     </div>
     <div class="panel">
-      <h2>Event Coordinators</h2>
-      <p class="hint flush-top">See the questions about running an event — rooms, timing, access, food — in their own portal, for the events they are assigned to.</p>
+      <h2 data-w="admin.people.eventCoordinators">Event Coordinators</h2>
+      <p class="hint flush-top" data-w="admin.people.seeTheQuestionsAbout">See the questions about running an event — rooms, timing, access, food — in their own portal, for the events they are assigned to.</p>
       <ul class="people" id="coordList"></ul>
       <form class="adder" data-role="coordinator">
-        <input type="email" placeholder="name@domain.org" aria-label="Event Coordinator email">
-        <button type="submit">Add</button>
+        <input type="email" data-w-ph="admin.people.nameDomainOrg3" placeholder="name@domain.org" data-w-a="admin.people.eventCoordinatorEmail" aria-label="Event Coordinator email">
+        <button type="submit" data-w="admin.people.add3">Add</button>
       </form>
     </div>
     <div class="panel" id="summaryPanel">
-      <h2>Session Summary Email Recipients</h2>
-      <p class="hint flush-top" id="summaryHint">Get every session's questions summary when it ends. Anyone can be added, even outside your organization.</p>
+      <h2 data-w="admin.people.sessionSummaryEmailRecipients">Session Summary Email Recipients</h2>
+      <p class="hint flush-top" id="summaryHint" data-w="admin.people.summaryHint">Get every session's questions summary when it ends. Anyone can be added, even outside your organization.</p>
       <ul class="people" id="summaryList"></ul>
       <form class="adder" id="summaryAdder">
-        <input type="email" placeholder="name@domain.org" aria-label="Session summary email recipient">
-        <button type="submit">Add</button>
+        <input type="email" data-w-ph="admin.people.nameDomainOrg4" placeholder="name@domain.org" data-w-a="admin.people.sessionSummaryEmailRecipient" aria-label="Session summary email recipient">
+        <button type="submit" data-w="admin.people.add4">Add</button>
       </form>
     </div>
   </div>
@@ -313,72 +313,72 @@
 <!-- Branding & settings -->
 <section id="tab-branding" hidden>
   <form class="panel" id="langForm">
-    <h2>Languages</h2>
+    <h2 data-w="admin.branding.languages">Languages</h2>
     <p class="hint flush-top">Shown on participants' phones, the room screen and topic labels for sessions that aren't in an event (and events that don't choose their own). English is always included; choose up to <span id="langMax">3</span> more so the room screen stays readable. Questions can be asked in any language either way.</p>
     <div class="lang-grid" id="siteLangs"></div>
-    <button type="submit" class="primary" id="saveLangs">Save languages</button>
+    <button type="submit" class="primary" id="saveLangs" data-w="admin.branding.saveLangs">Save languages</button>
   </form>
   <div class="row">
     <form class="panel" id="brandForm">
-      <h2>Branding</h2>
+      <h2 data-w="admin.branding.branding">Branding</h2>
       <label class="field"><span>Organization name</span>
         <input type="text" id="b-org" maxlength="80">
-        <div class="hint">Shown beside the logo and as the sender name on emails.</div>
+        <div class="hint" data-w="admin.branding.shownBesideTheLogo">Shown beside the logo and as the sender name on emails.</div>
       </label>
       <div class="field">
-        <span class="field-label">Accent color</span>
+        <span class="field-label" data-w="admin.branding.accentColor">Accent color</span>
         <div class="swatch">
-          <input type="color" id="b-accent-pick" aria-label="Pick accent color">
-          <input class="hex-input" type="text" id="b-accent" maxlength="7" aria-label="Accent color hex">
+          <input type="color" id="b-accent-pick" data-w-a="admin.branding.baccentpick.says" aria-label="Pick accent color">
+          <input class="hex-input" type="text" id="b-accent" maxlength="7" data-w-a="admin.branding.baccent.says" aria-label="Accent color hex">
         </div>
-        <div class="hint">Used for buttons on the participant page.</div>
+        <div class="hint" data-w="admin.branding.usedForButtonsOn">Used for buttons on the participant page.</div>
       </div>
       <label class="field"><span>Welcome text</span>
         <input type="text" id="b-welcome" maxlength="200">
-        <div class="hint">One line on the landing page and participant page, e.g. "Thank you for joining us tonight."</div>
+        <div class="hint" data-w="admin.branding.oneLineOnThe">One line on the landing page and participant page, e.g. "Thank you for joining us tonight."</div>
       </label>
       <label class="field"><span>Footer</span>
         <input type="text" id="b-footer" maxlength="160">
-        <div class="hint">Website or contact line on every page and email.</div>
+        <div class="hint" data-w="admin.branding.websiteOrContactLine">Website or contact line on every page and email.</div>
       </label>
       <div class="row">
         <div class="field">
-          <span class="field-label">Room screen background — dark</span>
-          <div class="swatch"><input type="color" id="b-bg-dark" aria-label="Dark background"></div>
+          <span class="field-label" data-w="admin.branding.roomScreenBackgroundDark">Room screen background — dark</span>
+          <div class="swatch"><input type="color" id="b-bg-dark" data-w-a="admin.branding.bbgdark.says" aria-label="Dark background"></div>
         </div>
         <div class="field">
-          <span class="field-label">Room screen background — light</span>
-          <div class="swatch"><input type="color" id="b-bg-light" aria-label="Light background"></div>
+          <span class="field-label" data-w="admin.branding.roomScreenBackgroundLight">Room screen background — light</span>
+          <div class="swatch"><input type="color" id="b-bg-light" data-w-a="admin.branding.bbglight.says" aria-label="Light background"></div>
         </div>
       </div>
       <label class="field"><span>Tab icon</span>
-        <input type="url" id="b-favicon" placeholder="https://your-site.org/icon.png">
-        <div class="hint">A link to a square PNG on your website. Google only accepts a public image link here, not an upload.</div>
+        <input type="url" id="b-favicon" data-w-ph="admin.branding.bfavicon.hint" placeholder="https://your-site.org/icon.png">
+        <div class="hint" data-w="admin.branding.aLinkToA">A link to a square PNG on your website. Google only accepts a public image link here, not an upload.</div>
       </label>
       <label class="field"><span>Guest page address</span>
-        <input type="url" id="b-guest" placeholder="https://djsincla.github.io/question-desk/join/">
+        <input type="url" id="b-guest" data-w-ph="admin.branding.bguest.hint" placeholder="https://djsincla.github.io/question-desk/join/">
         <div class="hint">Where the guest page files are hosted — this project's GitHub Pages copy above, or your own site such as https://autismla.org/questions/ (copy <a href="https://github.com/djsincla/question-desk/tree/main/docs/join" target="_blank" rel="noopener">docs/join</a> there). Leave blank to use the GitHub Pages copy. Sessions set to open guest pages through it avoid Google's "Sorry, unable to open the file" in Safari and Firefox.</div>
       </label>
       <details class="field advanced">
-        <summary>Advanced</summary>
+        <summary data-w="admin.branding.advanced">Advanced</summary>
         <label class="field space-above-10"><span>Question Desk Google address</span>
           <input type="url" id="b-url" placeholder="">
           <div class="hint"><strong>Almost always leave this blank</strong> — Question Desk detects it. This is never the guest page address. Only if links open an old version, paste the <code>https://script.google.com/macros/s/…/exec</code> address from the Apps Script editor (Deploy → Manage deployments).</div>
         </label>
       </details>
-      <button type="submit" class="primary">Save branding</button>
+      <button type="submit" class="primary" data-w="admin.branding.saveBranding">Save branding</button>
     </form>
 
     <div class="panel">
-      <h2>Logo</h2>
+      <h2 data-w="admin.branding.logo">Logo</h2>
       <div class="logo-preview" id="logoPreview"><span class="hint">No logo</span></div>
       <div class="actions">
         <label class="choice flush"><input type="file" id="logoFile" accept="image/png,image/jpeg,image/webp,image/svg+xml"></label>
       </div>
       <div class="actions space-above-8">
-        <button type="button" id="removeLogo" class="danger" hidden>Remove logo</button>
+        <button type="button" id="removeLogo" class="danger" hidden data-w="admin.branding.removeLogo">Remove logo</button>
       </div>
-      <div class="hint">Resized in your browser before upload so pages stay fast on venue wifi. A wide logo on a transparent or white background works best.</div>
+      <div class="hint" data-w="admin.branding.resizedInYourBrowser">Resized in your browser before upload so pages stay fast on venue wifi. A wide logo on a transparent or white background works best.</div>
 
     </div>
   </div>
@@ -388,12 +388,12 @@
 <!-- Health & testing -->
 <section id="tab-activity" hidden>
   <div class="panel">
-    <h2>Activity log</h2>
+    <h2 data-w="admin.activity.activityLog">Activity log</h2>
     <p class="hint flush-top">Who changed what, and when: administrators, QA Facilitators and the automatic schedule. Participants' questions aren't listed here. The full log is the <b>Activity log</b> tab of the spreadsheet.</p>
     <div class="actions activity-filters">
-      <input type="search" id="actSearch" placeholder="Search people, actions, sessions…" aria-label="Search the activity log">
-      <select id="actTarget" aria-label="Show one session or event"></select>
-      <button type="button" id="actRefresh">Refresh</button>
+      <input type="search" id="actSearch" data-w-ph="admin.activity.actSearch.hint" placeholder="Search people, actions, sessions…" data-w-a="admin.activity.actSearch.says" aria-label="Search the activity log">
+      <select id="actTarget" data-w-a="admin.activity.actTarget.says" aria-label="Show one session or event"></select>
+      <button type="button" id="actRefresh" data-w="admin.activity.actRefresh">Refresh</button>
     </div>
     <div class="import-wrap"><table class="import-table activity-table" id="actTable"></table></div>
     <p class="hint" id="actNote"></p>
@@ -403,52 +403,52 @@
 <section id="tab-health" hidden>
   <div class="row">
     <div class="panel">
-      <h2>Health check</h2>
-      <p class="hint flush-top">Tests the Gemini key and model, the every-minute trigger, the sheet, email quota and the app address. Admins are also emailed automatically if grouping fails 3 minutes in a row.</p>
-      <button type="button" class="primary" id="runHealth">Run health check</button>
+      <h2 data-w="admin.health.healthCheck">Health check</h2>
+      <p class="hint flush-top" data-w="admin.health.testsTheGeminiKey">Tests the Gemini key and model, the every-minute trigger, the sheet, email quota and the app address. Admins are also emailed automatically if grouping fails 3 minutes in a row.</p>
+      <button type="button" class="primary" id="runHealth" data-w="admin.health.runHealth">Run health check</button>
       <table class="checks" id="checks"></table>
       <dl class="status space-above-14">
-        <dt>Last grouping</dt><dd id="s-grouping"></dd>
-        <dt>Emails left today</dt><dd id="s-quota"></dd>
-        <dt>Submissions sheet</dt><dd><a id="s-sheet" target="_blank" rel="noopener">Open</a></dd>
+        <dt data-w="admin.health.sgrouping">Last grouping</dt><dd id="s-grouping"></dd>
+        <dt data-w="admin.health.squota">Emails left today</dt><dd id="s-quota"></dd>
+        <dt data-w="admin.health.ssheet">Submissions sheet</dt><dd><a id="s-sheet" target="_blank" rel="noopener">Open</a></dd>
       </dl>
     </div>
 
     <div class="panel" id="opsPanel">
-      <h2>Data and reports</h2>
+      <h2 data-w="admin.health.dataAndReports">Data and reports</h2>
       <label class="field"><span>Question wording</span>
         <select id="ops-retention">
-          <option value="0">Keep it</option>
-          <option value="3">Remove it 3 months after a session ends</option>
-          <option value="6">Remove it 6 months after a session ends</option>
-          <option value="12">Remove it 12 months after a session ends</option>
-          <option value="24">Remove it 24 months after a session ends</option>
+          <option value="0" data-w="admin.health.keepIt">Keep it</option>
+          <option value="3" data-w="admin.health.removeIt3Months">Remove it 3 months after a session ends</option>
+          <option value="6" data-w="admin.health.removeIt6Months">Remove it 6 months after a session ends</option>
+          <option value="12" data-w="admin.health.removeIt12Months">Remove it 12 months after a session ends</option>
+          <option value="24" data-w="admin.health.removeIt24Months">Remove it 24 months after a session ends</option>
         </select>
-        <div class="hint">Removing replaces each question's original wording, its translation and merged questions with a note. Topics, languages, answered status, times and counts stay, so summaries and reports still add up. It can't be undone.</div>
+        <div class="hint" data-w="admin.health.removingReplacesEachQuestion">Removing replaces each question's original wording, its translation and merged questions with a note. Topics, languages, answered status, times and counts stay, so summaries and reports still add up. It can't be undone.</div>
       </label>
       <label class="choice"><input type="checkbox" id="ops-weekly"><span>Email administrators a weekly report<small>Mondays after 8 a.m.: grouping, Gemini, email quota and storage health, sessions coming up and just ended, and questions asked.</small></span></label>
       <div class="field space-above-12">
-        <span class="field-label">Settings storage</span>
+        <span class="field-label" data-w="admin.health.settingsStorage">Settings storage</span>
         <div class="meter-bar"><span id="ops-storage-bar"></span></div>
         <div class="hint" id="ops-storage"></div>
       </div>
       <div class="actions">
-        <button type="button" class="primary" id="ops-save">Save</button>
-        <button type="button" id="ops-report">Send me the weekly report now</button>
+        <button type="button" class="primary" id="ops-save" data-w="admin.health.opssave">Save</button>
+        <button type="button" id="ops-report" data-w="admin.health.opsreport">Send me the weekly report now</button>
       </div>
     </div>
     <div class="panel">
-      <h2>Load test</h2>
-      <p class="hint flush-top">Simulates a full room submitting at once, through the same code path phones use, against a throwaway session. Run it before an event, not during one.</p>
+      <h2 data-w="admin.health.loadTest">Load test</h2>
+      <p class="hint flush-top" data-w="admin.health.simulatesAFullRoom">Simulates a full room submitting at once, through the same code path phones use, against a throwaway session. Run it before an event, not during one.</p>
       <div id="lt-off">
-        <button type="button" id="startLoad">Start load test</button>
+        <button type="button" id="startLoad" data-w="admin.health.startLoad">Start load test</button>
       </div>
       <div id="lt-on" hidden>
         <p class="flush">Running until <strong id="lt-expires"></strong>. On your computer, in the project folder, run:</p>
         <pre class="cmd" id="lt-cmd"></pre>
         <div class="actions">
-          <button type="button" id="copyLoad">Copy command</button>
-          <button type="button" class="danger" id="stopLoad">Finish and delete test data</button>
+          <button type="button" id="copyLoad" data-w="admin.health.copyLoad">Copy command</button>
+          <button type="button" class="danger" id="stopLoad" data-w="admin.health.stopLoad">Finish and delete test data</button>
         </div>
         <p class="hint">Increase <code>--count</code> to the size of your largest room. The key only works until the time above.</p>
       </div>
@@ -456,8 +456,8 @@
   </div>
 
   <div class="panel wide" id="promptPanel">
-    <h2>Prompts</h2>
-    <p class="hint flush-top">Exactly what Question Desk asks Gemini, for each thing it does. Edit it to suit your audience; changes apply to the very next request. The rules underneath each prompt are always added and can't be edited — they are what keeps a question from being treated as an instruction, keeps topic labels in one language so questions group across languages, and keeps criticism unsoftened.</p>
+    <h2 data-w="admin.health.prompts">Prompts</h2>
+    <p class="hint flush-top" data-w="admin.health.exactlyWhatQuestionDesk">Exactly what Question Desk asks Gemini, for each thing it does. Edit it to suit your audience; changes apply to the very next request. The rules underneath each prompt are always added and can't be edited — they are what keeps a question from being treated as an instruction, keeps topic labels in one language so questions group across languages, and keeps criticism unsoftened.</p>
     <label class="field"><span>Prompt</span>
       <select id="prompt-pick"></select>
     </label>
@@ -466,26 +466,26 @@
       <div class="hint" id="prompt-needs"></div>
     </label>
     <div class="actions">
-      <button type="button" class="primary" id="prompt-save">Save prompt</button>
-      <button type="button" class="quiet" id="prompt-reset">Reset to the built-in one</button>
+      <button type="button" class="primary" id="prompt-save" data-w="admin.health.promptsave">Save prompt</button>
+      <button type="button" class="quiet" id="prompt-reset" data-w="admin.health.promptreset">Reset to the built-in one</button>
       <span class="hint" id="prompt-state"></span>
     </div>
     <details class="guards">
-      <summary>Always added, whatever you write</summary>
+      <summary data-w="admin.health.alwaysAddedWhateverYou">Always added, whatever you write</summary>
       <pre id="prompt-guards"></pre>
     </details>
   </div>
     <div class="panel" id="geminiPanel">
-      <h2>Gemini</h2>
-      <p class="hint flush-top">How Question Desk asks Gemini to group, merge and translate. Saved changes apply to the very next request — no redeploy. More thinking can group and translate messy or mixed-language questions better, but takes longer; less thinking answers faster.</p>
+      <h2 data-w="admin.health.gemini">Gemini</h2>
+      <p class="hint flush-top" data-w="admin.health.howQuestionDeskAsks">How Question Desk asks Gemini to group, merge and translate. Saved changes apply to the very next request — no redeploy. More thinking can group and translate messy or mixed-language questions better, but takes longer; less thinking answers faster.</p>
       <form id="keyForm" class="keyform">
         <label class="field"><span>API key</span>
-          <input type="password" id="gem-key" autocomplete="off" spellcheck="false" placeholder="Paste a new key to replace it">
+          <input type="password" id="gem-key" autocomplete="off" spellcheck="false" data-w-ph="admin.health.gemkey.hint" placeholder="Paste a new key to replace it">
           <div class="hint" id="gem-key-state"></div>
         </label>
         <div class="actions">
-          <button type="submit" class="primary" id="gem-key-save">Save key</button>
-          <button type="button" class="quiet" id="gem-key-clear">Remove key</button>
+          <button type="submit" class="primary" id="gem-key-save" data-w="admin.health.gemkeysave">Save key</button>
+          <button type="button" class="quiet" id="gem-key-clear" data-w="admin.health.gemkeyclear">Remove key</button>
         </div>
       </form>
       <form id="gemForm">
@@ -497,31 +497,31 @@
         <div class="row">
           <label class="field"><span>Thinking: grouping</span>
             <select id="gem-think-grouping"></select>
-            <div class="hint">Every minute, in the background. Quality matters most here.</div>
+            <div class="hint" data-w="admin.health.everyMinuteInThe">Every minute, in the background. Quality matters most here.</div>
           </label>
           <label class="field"><span>Thinking: merging</span>
             <select id="gem-think-merging"></select>
-            <div class="hint">"Merge into one question": a facilitator is waiting.</div>
+            <div class="hint" data-w="admin.health.mergeIntoOneQuestion">"Merge into one question": a facilitator is waiting.</div>
           </label>
           <label class="field"><span>Thinking: translating one question</span>
             <select id="gem-think-translating"></select>
-            <div class="hint">Show on phones, Answer now on one question, prepared questions.</div>
+            <div class="hint" data-w="admin.health.showOnPhonesAnswer">Show on phones, Answer now on one question, prepared questions.</div>
           </label>
         </div>
         <div class="row">
           <label class="field"><span>Temperature</span>
             <input type="number" id="gem-temperature" min="0" max="1" step="0.05" required>
-            <div class="hint">0–1. Lower keeps topics and translations consistent and literal; 0–0.3 suits Question Desk.</div>
+            <div class="hint" data-w="admin.health.01LowerKeeps">0–1. Lower keeps topics and translations consistent and literal; 0–0.3 suits Question Desk.</div>
           </label>
           <label class="field"><span>Questions per grouping request</span>
             <input type="number" id="gem-batch" min="5" max="100" step="1" required>
-            <div class="hint">5–100. Smaller answers sooner; larger groups a busy room in fewer requests.</div>
+            <div class="hint" data-w="admin.health.5100SmallerAnswers">5–100. Smaller answers sooner; larger groups a busy room in fewer requests.</div>
           </label>
         </div>
         <div class="actions">
-          <button type="submit" class="primary" id="gem-save">Save</button>
-          <button type="button" id="gem-test">Try these settings</button>
-          <button type="button" class="quiet" id="gem-reset">Reset to defaults</button>
+          <button type="submit" class="primary" id="gem-save" data-w="admin.health.gemsave">Save</button>
+          <button type="button" id="gem-test" data-w="admin.health.gemtest">Try these settings</button>
+          <button type="button" class="quiet" id="gem-reset" data-w="admin.health.gemreset">Reset to defaults</button>
         </div>
         <table class="checks" id="gem-results" hidden></table>
       </form>
@@ -532,13 +532,13 @@
 
 <div class="modal" id="emailModal" hidden>
   <form class="panel" id="emailForm">
-    <h2 id="emailTitle">Email links</h2>
+    <h2 id="emailTitle" data-w="admin.health.emailTitle">Email links</h2>
     <label class="field"><span>Recipients</span>
-      <textarea id="e-to" placeholder="one@example.org, two@example.org"></textarea>
-      <div class="hint">Separate addresses with commas or new lines. Each person gets their own email.</div>
+      <textarea id="e-to" data-w-ph="admin.health.eto.hint" placeholder="one@example.org, two@example.org"></textarea>
+      <div class="hint" data-w="admin.health.separateAddressesWithCommas">Separate addresses with commas or new lines. Each person gets their own email.</div>
     </label>
     <div class="field" id="e-kinds">
-      <span class="field-label">Include</span>
+      <span class="field-label" data-w="admin.health.include">Include</span>
       <label class="choice"><input type="checkbox" id="e-participant">
         <span>Participant link<small id="e-participant-hint">Anyone with this link can ask a question.</small></span></label>
       <label class="choice"><input type="checkbox" id="e-present">
@@ -547,8 +547,8 @@
         <span>QA Facilitator queue link<small>Only works for assigned QA Facilitators and administrators.</small></span></label>
     </div>
     <div class="actions">
-      <button type="submit" class="primary" id="e-send">Send</button>
-      <button type="button" class="quiet" id="e-cancel">Cancel</button>
+      <button type="submit" class="primary" id="e-send" data-w="admin.health.esend">Send</button>
+      <button type="button" class="quiet" id="e-cancel" data-w="admin.health.ecancel">Cancel</button>
     </div>
   </form>
 </div>
@@ -562,8 +562,8 @@
       <input type="text" id="dialogType" autocomplete="off" spellcheck="false">
     </label>
     <div class="actions">
-      <button type="submit" class="primary" id="dialogOk">OK</button>
-      <button type="button" class="quiet" id="dialogCancel">Cancel</button>
+      <button type="submit" class="primary" id="dialogOk" data-w="admin.health.dialogOk">OK</button>
+      <button type="button" class="quiet" id="dialogCancel" data-w="admin.health.dialogCancel">Cancel</button>
     </div>
   </form>
 </div>
@@ -573,6 +573,7 @@
 <?!= scripts ?>
 <script>
   var BOOT = <?!= boot ?>;
+  fillWords();
   var state = null;
   var openLinks = {};
 

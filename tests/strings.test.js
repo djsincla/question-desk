@@ -12,6 +12,11 @@ const { createApp } = require('./harness');
 const { ROOT, SERVER_FILES } = require('./server-source');
 
 const read = (f) => fs.readFileSync(path.join(ROOT, f), 'utf8');
+/** What a browser shows for a piece of markup: entities resolved, spacing normalized. */
+const shown = (text) => text
+  .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+  .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, ' ')
+  .replace(/\s+/g, ' ').trim();
 const SOURCE = read('server/strings.js');
 const PAGES = ['Admin.html', 'Coordinator.html', 'Home.html', 'Moderate.html', 'Panel.html', 'Present.html', 'Sheet.html'];
 // Everything that asks for a phrase — not the catalog itself, whose keys are the definitions.
@@ -106,7 +111,7 @@ test('the markup keeps the English, so an English page substitutes nothing', () 
     const html = read(file);
     html.replace(/<(\w+)[^>]*\sdata-w="([^"]+)"[^>]*>([^<]*)</g, (whole, tag, key, text) => {
       if (!TEXT[key]) return '';
-      assert.equal(text.replace(/\s+/g, ' ').trim(), TEXT[key].en.replace(/\s+/g, ' ').trim(),
+      assert.equal(shown(text), shown(TEXT[key].en),
         file + ': the markup under ' + key + ' says something the catalog does not');
       return '';
     });
@@ -114,7 +119,7 @@ test('the markup keeps the English, so an English page substitutes nothing', () 
       const re = new RegExp('<\\w+[^>]*\\s' + pair[0] + '="([^"]+)"[^>]*>', 'g');
       html.replace(re, (whole, key) => {
         const said = new RegExp('\\s' + pair[1] + '="([^"]*)"').exec(whole);
-        if (TEXT[key] && said) assert.equal(said[1], TEXT[key].en, whole.slice(0, 60) + ' does not match ' + key);
+        if (TEXT[key] && said) assert.equal(shown(said[1]), shown(TEXT[key].en), whole.slice(0, 60) + ' does not match ' + key);
         return '';
       });
     });
@@ -123,20 +128,26 @@ test('the markup keeps the English, so an English page substitutes nothing', () 
 
 test('what must stay English is not in the catalog', () => {
   const values = Object.keys(TEXT).map((key) => TEXT[key].en);
-  const keep = []
-    .concat(Object.keys(app.CONFIG.languages).map((c) => app.CONFIG.languages[c].name))
-    .concat(app.HEADERS, app.TOPIC_HEADERS)
-    .concat(app.SESSION_CSV.map((pair) => pair[0]))
+  // A language name is matched against Gemini's answer and against moderatorLanguage; the default
+  // heading and the two room-screen messages Present.html recognises are compared as values too.
+  // A screen may of course say the same words — what must never happen is the value coming from
+  // the catalog, which is what the file checks below enforce.
+  const keep = Object.keys(app.CONFIG.languages).map((c) => app.CONFIG.languages[c].name)
     .concat(['Questions for the panel'])
     .concat(['Session not found.', 'This room screen link is out of date. Copy the new one from the Admin page.']);
   keep.forEach((word) => {
     assert.ok(values.indexOf(word) === -1,
-      '"' + word + '" is written into a sheet or compared as a value (a column header, a language ' +
-      'name, a grouping key); translating it breaks the app, so it must not be a phrase');
+      '"' + word + '" is compared as a value somewhere; translating it breaks the app, so it must ' +
+      'not be a phrase');
   });
 
-  // The activity log is a record and the Admin tab searches what is stored, so an action name is
-  // never a phrase — even where a button on the queue happens to say the same English word.
+  // Files that write things read back later — a spreadsheet, an exported file, the log — never
+  // take their words from the catalog, however much a screen elsewhere says the same English.
+  ['server/csv.js', 'server/activity.js'].forEach((file) => {
+    assert.doesNotMatch(read(file), /\bt_\(/, file + ' takes a phrase from the catalog: its ' +
+      'columns and entries are read back later, so they stay in one language');
+  });
+  assert.doesNotMatch(read('Code.js').split('const HEADERS')[1].split(';')[0], /t_\(/, 'sheet headers stay English');
   SERVER_FILES.forEach((file) => {
     assert.doesNotMatch(read(file), /audit_\(\s*(?:t_|W)\(/, file + ' logs a translated action name');
   });
