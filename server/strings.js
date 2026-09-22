@@ -31,6 +31,14 @@ const APP_TEXT = {
   'home.link.present': { en: 'Room screen' },
   'home.link.queue': { en: 'Queue' },
 
+  'panel.nowAnswering': { en: 'Now answering' },
+  'panel.timerTitle': { en: 'Time on this question' },
+  'panel.waiting': { en: 'Waiting for the facilitator to choose a question.' },
+  'panel.ended': { en: 'This session has ended. Thank you.' },
+  'panel.notStarted': { en: 'This session hasn\'t started yet.' },
+  'panel.live': { en: 'Updates automatically' },
+  'panel.stale': { en: 'Not updating — check the connection' },
+
   'sheet.pageTitle': { en: '{event} — QR sheets' },
   'sheet.print': { en: 'Print' },
   'sheet.download': { en: 'Download QR images' },
