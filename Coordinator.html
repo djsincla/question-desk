@@ -8,12 +8,12 @@
 <header>
   <div class="title">
     <img id="logo" alt="" hidden>
-    <h1 id="name">Event logistics</h1>
+    <h1 id="name" data-w="coord.title">Event logistics</h1>
     <span class="pill" id="pill"></span>
   </div>
   <div class="nav">
-    <span class="tally" id="tally">Loading…</span>
-    <a id="adminLink" target="_top" hidden>Admin</a>
+    <span class="tally" id="tally" data-w="coord.loading">Loading…</span>
+    <a id="adminLink" target="_top" hidden data-w="coord.adminLink">Admin</a>
   </div>
 </header>
 
@@ -34,8 +34,8 @@
   function fmtTime(ms) {
     if (!ms) return '';
     var d = new Date(ms);
-    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ' ' +
-      d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+    return d.toLocaleDateString(BOOT.lang, { month: 'short', day: 'numeric' }) + ' ' +
+      d.toLocaleTimeString(BOOT.lang, { hour: 'numeric', minute: '2-digit' });
   }
 
   /** Calls the server; the board it answers with is drawn straight away. */
@@ -48,7 +48,7 @@
         pending--;
         if (button) button.disabled = false;
         var note = $('empty');
-        note.textContent = (err && err.message) || 'Something went wrong.';
+        note.textContent = (err && err.message) || W('shared.failed');
         note.hidden = false;
       })[fn].apply(google.script.run, args);
   }
@@ -56,18 +56,15 @@
   function draw(board) {
     state = board;
     $('name').textContent = board.event.name;
-    document.title = board.event.name + ' — event logistics';
+    document.title = W('coord.pageTitle', { event: board.event.name });
     var pill = $('pill');
-    pill.textContent = board.waiting ? board.waiting + ' waiting' : 'All sorted';
+    pill.textContent = board.waiting ? W('coord.waiting', { n: board.waiting }) : W('coord.allSorted');
     pill.className = 'pill ' + (board.waiting ? 'active' : 'ended');
-    $('tally').textContent = board.questions.length +
-      (board.questions.length === 1 ? ' question' : ' questions') + ' about running the event';
+    $('tally').textContent = Wn('coord.tally', board.questions.length);
     var admin = $('adminLink');
     admin.href = board.adminUrl;
     admin.hidden = !board.isAdmin;
-    $('lead').textContent = 'Questions the audience asked about the event itself — rooms, timing, ' +
-      'access, food, signage. They are also in each session’s queue, so a facilitator can answer ' +
-      'from the stage; tick one here when it has been dealt with.';
+    $('lead').textContent = W('coord.lead');
 
     var wrap = $('board');
     wrap.textContent = '';
@@ -85,11 +82,11 @@
       where.appendChild(el('span', 'session', q.session));
       if (q.room) where.appendChild(el('span', 'room', q.room));
       where.appendChild(el('span', 'when', fmtTime(q.submitted)));
-      if (q.answered) where.appendChild(el('span', 'chip', 'Answered in the session'));
+      if (q.answered) where.appendChild(el('span', 'chip', W('coord.answered')));
       main.appendChild(where);
       row.appendChild(main);
 
-      var act = el('button', q.sorted ? 'quiet small' : 'primary small', q.sorted ? 'Put back' : 'Sorted');
+      var act = el('button', q.sorted ? 'quiet small' : 'primary small', W(q.sorted ? 'coord.putBack' : 'coord.sorted'));
       act.type = 'button';
       act.onclick = function () { call('setLogisticsSorted', [eid, q.id, !q.sorted], act); };
       row.appendChild(act);
@@ -97,8 +94,7 @@
     });
 
     var empty = $('empty');
-    empty.textContent = board.questions.length ? '' :
-      'Nothing yet. Questions about rooms, timing, access or anything else about running the event will appear here as they are asked.';
+    empty.textContent = board.questions.length ? '' : W('coord.empty');
     empty.hidden = !!board.questions.length;
   }
 
@@ -107,6 +103,7 @@
     google.script.run.withSuccessHandler(draw).withFailureHandler(function () {}).getCoordinatorBoard(eid);
   }
 
+  fillWords();
   draw(BOOT.board);
   setInterval(load, (BOOT.board.refreshInSeconds || 15) * 1000);
 </script>

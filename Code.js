@@ -45,6 +45,12 @@ const CONFIG = {
   },
   defaultLanguages: ['en', 'ko', 'es'],
   maxLanguages: 4,
+  // Languages the app itself is read in: the queue, Admin, the coordinator portal, emails and
+  // the room screen footer. Separate from languages above, whose names are compared as values.
+  appLanguages: {
+    en: { name: 'English', native: 'English' },
+    es: { name: 'Spanish', native: 'Español' }
+  },
   defaultMaxLength: 300,          // per session, admin can change
   maxLengthCeiling: 1024,         // no session may allow more than this
   cooldownSeconds: 300,           // default wait between questions per phone; each session can change it
@@ -189,6 +195,13 @@ function page_(file, title, boot, session) {
   template.scripts = scriptsFor_(file);
   boot.brand = brand_(session);
   if (UI_TEXT_FOR[file]) boot.text = UI_TEXT[UI_TEXT_FOR[file]];
+  if (APP_TEXT_FOR[file]) {
+    // Nobody is signed in at a venue laptop, so the room screen and the panelist view read the
+    // session's language; every other page reads the language of the person in front of it.
+    const room = file === 'Present.html' || file === 'Panel.html';
+    boot.lang = room ? roomLanguage_(session) : appLanguage_();
+    boot.words = wordsFor_(boot.lang);
+  }
   template.boot = JSON.stringify(boot)
     .replace(/</g, '\\u003c')
     .split(String.fromCharCode(0x2028)).join('\\u2028')
