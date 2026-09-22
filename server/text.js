@@ -323,49 +323,91 @@ const UI_TEXT = {
       scan: 'Point your camera at the code. Ask in any language.',
       help: 'Page won’t open? Try a private browsing window.',
       caption: 'Scan to ask a question',
-      anonymous: 'Questions are anonymous. Ask in any language.'
+      anonymous: 'Questions are anonymous. Ask in any language.',
+      ended: 'This session has ended',
+      openSoon: 'Questions open soon',
+      loading: 'Loading…',
+      qrLabel: 'QR code to ask a question',
+      person: '1 person',
+      people: '{n} people'
     },
     ko: {
       asked: '참석자 질문',
       scan: '카메라로 코드를 스캔하세요. 어떤 언어로도 질문할 수 있습니다.',
       help: '페이지가 열리지 않으면 시크릿(개인 정보 보호) 창에서 열어 보세요.',
       caption: '질문하려면 스캔하세요',
-      anonymous: '질문은 익명입니다. 어떤 언어로도 질문할 수 있습니다.'
+      anonymous: '질문은 익명입니다. 어떤 언어로도 질문할 수 있습니다.',
+      ended: '이 세션은 종료되었습니다',
+      openSoon: '곧 질문을 받습니다',
+      loading: '불러오는 중…',
+      qrLabel: '질문하기 위한 QR 코드',
+      person: '1명',
+      people: '{n}명'
     },
     es: {
       asked: 'Preguntas del público',
       scan: 'Apunta la cámara al código. Pregunta en cualquier idioma.',
       help: '¿No se abre la página? Prueba en una ventana privada.',
       caption: 'Escanea para preguntar',
-      anonymous: 'Las preguntas son anónimas. Pregunta en cualquier idioma.'
+      anonymous: 'Las preguntas son anónimas. Pregunta en cualquier idioma.',
+      ended: 'Esta sesión ha terminado',
+      openSoon: 'Las preguntas se abrirán pronto',
+      loading: 'Cargando…',
+      qrLabel: 'Código QR para hacer una pregunta',
+      person: '1 persona',
+      people: '{n} personas'
     },
     zh: {
       asked: '现场提问',
       scan: '用相机扫描二维码。可以用任何语言提问。',
       help: '页面打不开？请试试无痕浏览窗口。',
       caption: '扫码提问',
-      anonymous: '提问是匿名的，可以用任何语言提问。'
+      anonymous: '提问是匿名的，可以用任何语言提问。',
+      ended: '本环节已结束',
+      openSoon: '即将开放提问',
+      loading: '加载中…',
+      qrLabel: '用于提问的二维码',
+      person: '1 人',
+      people: '{n} 人'
     },
     vi: {
       asked: 'Câu hỏi từ khán giả',
       scan: 'Hướng camera vào mã. Hỏi bằng bất kỳ ngôn ngữ nào.',
       help: 'Không mở được trang? Hãy thử cửa sổ duyệt riêng tư.',
       caption: 'Quét để đặt câu hỏi',
-      anonymous: 'Câu hỏi được ẩn danh. Hỏi bằng bất kỳ ngôn ngữ nào.'
+      anonymous: 'Câu hỏi được ẩn danh. Hỏi bằng bất kỳ ngôn ngữ nào.',
+      ended: 'Phiên này đã kết thúc',
+      openSoon: 'Sắp mở phần đặt câu hỏi',
+      loading: 'Đang tải…',
+      qrLabel: 'Mã QR để đặt câu hỏi',
+      person: '1 người',
+      people: '{n} người'
     },
     tl: {
       asked: 'Mga tanong mula sa mga dumalo',
       scan: 'Itutok ang camera sa code. Magtanong sa anumang wika.',
       help: 'Hindi bumubukas ang page? Subukan ang private browsing window.',
       caption: 'I-scan para magtanong',
-      anonymous: 'Hindi nagpapakilala ang mga tanong. Magtanong sa anumang wika.'
+      anonymous: 'Hindi nagpapakilala ang mga tanong. Magtanong sa anumang wika.',
+      ended: 'Tapos na ang sesyong ito',
+      openSoon: 'Malapit nang buksan ang mga tanong',
+      loading: 'Naglo-load…',
+      qrLabel: 'QR code para magtanong',
+      person: '1 katao',
+      people: '{n} katao'
     },
     hy: {
       asked: 'Հարցեր դահլիճից',
       scan: 'Ուղղեք տեսախցիկը կոդին։ Հարցրեք ցանկացած լեզվով։',
       help: 'Էջը չի՞ բացվում։ Փորձեք գաղտնի դիտարկման պատուհան։',
       caption: 'Սկանավորեք՝ հարց տալու համար',
-      anonymous: 'Հարցերն անանուն են։ Հարցրեք ցանկացած լեզվով։'
+      anonymous: 'Հարցերն անանուն են։ Հարցրեք ցանկացած լեզվով։',
+      ended: 'Այս նիստն ավարտվել է',
+      openSoon: 'Հարցերը շուտով կբացվեն',
+      loading: 'Բեռնվում է…',
+      qrLabel: 'QR կոդ՝ հարց տալու համար',
+      person: '1 մարդ',
+      people: '{n} մարդ'
     }
   }
 };

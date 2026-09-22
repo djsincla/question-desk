@@ -39,6 +39,13 @@ const APP_TEXT = {
   'panel.live': { en: 'Updates automatically' },
   'panel.stale': { en: 'Not updating — check the connection' },
 
+  'present.waitingToStart': { en: 'Waiting for this session to start' },
+  'present.codeRefreshes': { en: 'Code refreshes automatically' },
+  'present.paused': { en: 'Questions are paused' },
+  'present.lostConnection': { en: 'Lost connection — retrying' },
+  'present.stale': { en: 'Not updating — check the internet connection. This code may have expired.' },
+  'present.codeUpdated': { en: ' · code updated {at}' },
+
   'sheet.pageTitle': { en: '{event} — QR sheets' },
   'sheet.print': { en: 'Print' },
   'sheet.download': { en: 'Download QR images' },
