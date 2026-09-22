@@ -661,7 +661,7 @@
     all.value = '';
     select.appendChild(all);
     (state ? state.events : []).forEach(function (ev) {
-      var o = el('option', null, 'Event: ' + ev.name);
+      var o = el('option', null, W('admin.eventOption', { name: ev.name }));
       o.value = ev.id;
       select.appendChild(o);
     });
@@ -693,7 +693,10 @@
         table.appendChild(tr);
       });
       $('actNote').textContent = !res.entries.length ? W('admin.nothingMatches')
-        : 'Showing the ' + res.entries.length + ' most recent' + (res.total > res.scanned ? ' of the last ' + res.scanned + ' entries' : '') + '.';
+        : W('admin.activityShowing', {
+          shown: res.entries.length,
+          scanned: res.total > res.scanned ? W('admin.activityOfLast', { n: res.scanned }) : ''
+        });
     }, $('actRefresh'), function () { $('actNote').textContent = ''; });
   }
 
@@ -708,8 +711,8 @@
 
   function render(next) {
     state = next;
-    $('who').textContent = 'Signed in as ' + state.me;
-    $('version').textContent = 'Version ' + state.app.version;
+    $('who').textContent = W('admin.signedInAs', { email: state.me });
+    $('version').textContent = W('admin.version', { version: state.app.version });
     $('notes').href = state.app.releaseNotes;
     $('notes').hidden = false;
     renderLogo(state.brand.logo);
@@ -729,7 +732,8 @@
   function waitLabel(seconds) {
     if (!seconds) return W('admin.noWaitBetweenQuestions');
     var m = Math.floor(seconds / 60), r = seconds % 60;
-    return (m ? m + ' min' : '') + (m && r ? ' ' : '') + (r ? r + ' s' : '') + ' between questions';
+    if (m && r) return W('admin.waitMinutesSeconds', { m: m, s: r });
+    return m ? W('admin.waitMinutes', { m: m }) : W('admin.waitSeconds', { s: r });
   }
 
   function statusLabel(s) {
@@ -870,14 +874,14 @@
       dot.style.background = b.accent;
       meta.appendChild(dot);
     }
-    var bits = [sessions.length + (sessions.length === 1 ? ' session' : ' sessions')];
+    var bits = [Wn('admin.evSessions', sessions.length)];
     var active = sessions.filter(function (x) { return x.status === 'active'; }).length;
-    if (active) bits.push(active + ' active');
+    if (active) bits.push(W('admin.evActive', { n: active }));
     if ((ev.coordinators || []).length) {
-      bits.push(ev.coordinators.length + (ev.coordinators.length === 1 ? ' Event Coordinator' : ' Event Coordinators'));
+      bits.push(Wn('admin.evCoordinators', ev.coordinators.length));
     }
     if (ev.languages && ev.languages.length) bits.push(languageNames(ev.languages));
-    if (b.orgName) bits.push('branded as ' + b.orgName);
+    if (b.orgName) bits.push(W('admin.brandedAs', { name: b.orgName }));
     else if (b.accent || b.welcome || b.footer || ev.hasLogo) bits.push(W('admin.ownBranding'));
     else bits.push(W('admin.siteBranding'));
     meta.appendChild(document.createTextNode(bits.join(' · ')));
@@ -908,12 +912,16 @@
     mailFacilitators.onclick = function () {
       ask({
         title: W('admin.emailQaFacilitatorsTheir'),
-        body: people.length + (people.length === 1 ? ' QA Facilitator gets' : ' QA Facilitators each get') + ' one email with the queue link for each ' +
-          'session they are running in ' + ev.name + ' (' + open.length + (open.length === 1 ? ' session' : ' sessions') + ' that haven\'t ended): ' + people.join(', ') + '.',
+        body: Wn('admin.mailFacilitatorsBody', people.length, {
+          event: ev.name, open: Wn('admin.openSessions', open.length), people: people.join(', ')
+        }),
         ok: W('admin.send')
       }, function () {
         call('emailEventFacilitators', [ev.id], function (res) {
-          toast('Sent ' + res.facilitators + (res.facilitators === 1 ? ' email' : ' emails') + ' covering ' + res.sessions + (res.sessions === 1 ? ' session' : ' sessions'));
+          toast(W('admin.sentFacilitators', {
+            emails: Wn('admin.sentEmails', res.facilitators),
+            sessions: Wn('admin.evSessions', res.sessions)
+          }));
         }, mailFacilitators);
       });
     };
@@ -948,7 +956,10 @@
     menu.appendChild(sheet);
     menuItem(W('admin.emailSummaryForThe'), function () { openEmail({ id: ev.id, name: ev.name, eventSummary: true, sessions: sessions }, 'eventSummary'); });
     menuItem(W('admin.duplicateEvent'), function (b) {
-      call('duplicateEvent', [ev.id], function (res) { render(res); toast('Copied ' + ev.name + ' with its ' + sessions.length + (sessions.length === 1 ? ' session' : ' sessions')); });
+      call('duplicateEvent', [ev.id], function (res) {
+        render(res);
+        toast(W('admin.copiedEventWith', { name: ev.name, sessions: Wn('admin.evSessions', sessions.length) }));
+      });
     });
     menu.appendChild(el('hr'));
     var del = menuItem(W('admin.deleteEvent'), function () {}, 'danger');
@@ -958,7 +969,7 @@
       ask({
         title: W('admin.deleteThisEvent'),
         body: sessions.length
-          ? 'Its ' + sessions.length + (sessions.length === 1 ? ' session is' : ' sessions are') + ' kept and move to "Not in an event", with the site branding. Event branding and logo are deleted.'
+          ? Wn('admin.deleteEventBody', sessions.length)
           : W('admin.itsBrandingAndLogo'),
         ok: W('admin.deleteEvent'),
         danger: true,
@@ -987,17 +998,18 @@
   function renderArchived(list) {
     if (!state.archived || !state.archived.length) return;
     var box = el('details', 'panel archived');
-    box.appendChild(el('summary', null, 'Archived sessions · ' + state.archived.length));
-    box.appendChild(el('p', 'hint', 'Ended sessions move here ' + 30 + ' days after ending, to keep the app fast. Their questions stay in the spreadsheet. Restore one to email its summary again.'));
+    box.appendChild(el('summary', null, W('admin.archivedSessions', { n: state.archived.length })));
+    box.appendChild(el('p', 'hint', W('admin.archivedHint', { days: 30 })));
     var ul = el('ul');
     state.archived.forEach(function (a) {
       var li = el('li');
       var ev = a.eventId ? eventById(a.eventId) : null;
-      li.appendChild(el('span', null, (ev ? ev.name + ' — ' : '') + a.name + (a.ended ? ' · ended ' + fmtDate(a.ended) : '')));
+      li.appendChild(el('span', null, (ev ? ev.name + ' — ' : '') + a.name +
+        (a.ended ? W('admin.archivedEnded', { at: fmtDate(a.ended) }) : '')));
       var restore = el('button', 'quiet', W('admin.restore'));
       restore.type = 'button';
       restore.onclick = function () {
-        call('restoreSession', [a.id], function (res) { render(res); toast('Restored ' + a.name); }, restore);
+        call('restoreSession', [a.id], function (res) { render(res); toast(W('admin.restored', { name: a.name })); }, restore);
       };
       li.appendChild(restore);
       ul.appendChild(li);
@@ -1055,23 +1067,23 @@
     var meta = [
       s.access === 'link' ? W('admin.shareableLink') : W('admin.inRoomQr'),
       (s.theme === 'light' ? 'Light screen' : s.theme === 'contrast' ? 'High-contrast screen' : 'Dark screen') + (s.roomQuestions ? ' listing questions' : ''),
-      s.questionCount + (s.questionCount === 1 ? ' question' : ' questions') +
-        (s.prepared && s.prepared.length ? ' (+' + s.prepared.length + ' prepared)' : ''),
-      s.moderators.length + (s.moderators.length === 1 ? ' QA Facilitator' : ' QA Facilitators'),
-      'max ' + s.maxLength + ' chars',
+      Wn('admin.metaQuestions', s.questionCount) +
+        (s.prepared && s.prepared.length ? W('admin.metaPrepared', { n: s.prepared.length }) : ''),
+      Wn('admin.metaFacilitators', s.moderators.length),
+      W('admin.metaMaxChars', { n: s.maxLength }),
       waitLabel(typeof s.cooldownSeconds === 'number' ? s.cooldownSeconds : state.limits.cooldownSeconds)
     ];
-    if (s.ended) meta.push('ended ' + fmtDate(s.ended));
-    else if (s.started) meta.push('started ' + fmtDate(s.started));
-    else meta.push('created ' + fmtDate(s.created));
+    if (s.ended) meta.push(W('admin.metaEnded', { at: fmtDate(s.ended) }));
+    else if (s.started) meta.push(W('admin.metaStarted', { at: fmtDate(s.started) }));
+    else meta.push(W('admin.metaCreated', { at: fmtDate(s.created) }));
     if (s.status !== 'ended' && s.scheduledStart && !s.scheduleStarted) meta.push('starts ' + fmtDate(s.scheduledStart));
     if (s.status !== 'ended' && s.scheduledEnd) meta.push('ends ' + fmtDate(s.scheduledEnd));
-    if (s.brand && s.brand.orgName) meta.push('branded for ' + s.brand.orgName);
-    if (s.summaryPending && !s.summarySent) meta.push('summary email not sent yet (' + s.summaryPending.error + ') — retrying every 30 minutes, or use Email summary');
+    if (s.brand && s.brand.orgName) meta.push(W('admin.metaBrandedFor', { name: s.brand.orgName }));
+    if (s.summaryPending && !s.summarySent) meta.push(W('admin.metaSummaryPending', { why: s.summaryPending.error }));
     var gp = s.guestPage || {};
     var gpUses = [gp.room ? W('admin.roomScreen') : '', gp.slide ? 'slide' : '', gp.panel ? W('admin.panelistView') : ''].filter(Boolean);
     if (gpUses.length) meta.push('guest page for ' + gpUses.join(', '));
-    if (s.summarySent) meta.push('summary emailed ' + fmtDate(s.summarySent));
+    if (s.summarySent) meta.push(W('admin.metaSummarySent', { at: fmtDate(s.summarySent) }));
     info.appendChild(el('div', 'meta', meta.join(' · ')));
     head.appendChild(info);
 
@@ -1125,7 +1137,7 @@
       mailMods.title = s.moderators.length ? s.moderators.join(', ') : 'No QA Facilitators assigned';
       mailMods.onclick = function () {
         call('emailLinks', [s.id, { toModerators: true, present: true, moderate: true }], function (n) {
-          toast('Sent room screen and queue links to ' + n + (n === 1 ? ' QA Facilitator' : ' QA Facilitators'));
+          toast(Wn('admin.sentLinksTo', n));
         }, mailMods);
       };
       acts.appendChild(mailMods);
@@ -1144,7 +1156,10 @@
           end.textContent = W('admin.ending');
           call('endSession', [s.id, typed], function (res) {
             render(res.state);
-            toast('Session ended' + (res.emailed ? ' — summary emailed to ' + res.emailed : '') + (res.note ? '. ' + res.note : ''), !!res.note);
+            toast(W('admin.sessionEnded', {
+              emailed: res.emailed ? W('admin.sessionEndedEmailed', { to: res.emailed }) : '',
+              note: res.note ? '. ' + res.note : ''
+            }), !!res.note);
           }, end, function () { end.textContent = W('admin.endSession'); });
         });
       };
@@ -1159,7 +1174,7 @@
         archive.type = 'button';
         archive.title = W('admin.moveOutOfThe');
         archive.onclick = function () {
-          call('archiveSession', [s.id], function (res) { render(res); toast('Archived ' + s.name); }, archive);
+          call('archiveSession', [s.id], function (res) { render(res); toast(W('admin.archived', { name: s.name })); }, archive);
         };
         acts.appendChild(archive);
       }
@@ -1170,8 +1185,7 @@
       del.onclick = function () {
         ask({
           title: W('admin.deleteThisSession'),
-          body: 'This permanently deletes the session and all ' + s.questionCount +
-            (s.questionCount === 1 ? ' question' : ' questions') + ', topics and votes. It cannot be undone.',
+          body: Wn('admin.deleteSessionBody', s.questionCount),
           ok: W('admin.deleteSession'),
           danger: true,
           typeToConfirm: s.name
