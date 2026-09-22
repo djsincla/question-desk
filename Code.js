@@ -286,13 +286,13 @@ function notice_(mode, view) {
         const ev = eventName_(s);
         return {
           label: ev ? ev + ' — ' + s.name : s.name,
-          note: s.status === 'active' ? 'Active' : 'Not active',
+          note: t_(s.status === 'active' ? 'notice.pick.active' : 'notice.pick.inactive'),
           href: view === 'present' ? sessionLinks_(s).present : base + '?view=' + view + '&s=' + s.id
         };
       });
-    return page_('Denied.html', 'Choose a session', {
-      heading: 'Choose a session',
-      body: links.length ? 'Pick the session to open.' : 'You are not assigned to any open sessions.',
+    return page_('Denied.html', t_('notice.pick.title'), {
+      heading: t_('notice.pick.title'),
+      body: t_(links.length ? 'notice.pick.body' : 'notice.pick.none'),
       links: links
     }, null);
   }
@@ -301,29 +301,29 @@ function notice_(mode, view) {
     const links = eventsForCoordinator_(currentEmail_()).map(function (ev) {
       return { label: ev.name, note: '', href: base + '?view=coordinator&e=' + ev.id };
     });
-    return page_('Denied.html', 'Choose an event', {
-      heading: 'Choose an event',
-      body: links.length ? 'Pick the event to open.' : 'You are not an Event Coordinator for any event.',
+    return page_('Denied.html', t_('notice.pickEvent.title'), {
+      heading: t_('notice.pickEvent.title'),
+      body: t_(links.length ? 'notice.pickEvent.body' : 'notice.pickEvent.none'),
       links: links
     }, null);
   }
   if (mode === 'oldScreenLink') {
-    return page_('Denied.html', 'Room screen link out of date', {
-      heading: 'This room screen link is out of date',
-      body: 'Room screen and PowerPoint slide links changed. Ask whoever runs the session to copy the new one from the Admin page (Sessions → Links). To ask a question, scan the code on the screen in the room.',
+    return page_('Denied.html', t_('notice.oldScreenLink.tab'), {
+      heading: t_('notice.oldScreenLink.title'),
+      body: t_('notice.oldScreenLink.body'),
       links: []
     }, null);
   }
   if (mode === 'noSession') {
-    return page_('Denied.html', 'Session not found', {
-      heading: 'This room screen link is not valid',
-      body: 'Check the link with whoever is running the session, or scan the code on the screen in the room to ask a question.',
+    return page_('Denied.html', t_('notice.noSession.tab'), {
+      heading: t_('notice.noSession.title'),
+      body: t_('notice.noSession.body'),
       links: []
     }, null);
   }
-  return page_('Denied.html', 'Not available', {
-    heading: 'This view is for QA Facilitators',
-    body: 'Sign in with an account listed as a QA Facilitator, or scan the code on the screen in the room to ask a question.',
+  return page_('Denied.html', t_('notice.denied.tab'), {
+    heading: t_('notice.denied.title'),
+    body: t_('notice.denied.body'),
     links: []
   }, null);
 }

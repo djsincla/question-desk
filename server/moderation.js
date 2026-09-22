@@ -192,7 +192,7 @@ function buildBoard_(session) {
 function setStatus(sid, ids, status) {
   const session = requireOpenSession_(sid);
   flushInbox_(sid);
-  if (['new', 'answered', 'dismissed'].indexOf(status) === -1) throw new Error('Unknown status.');
+  if (['new', 'answered', 'dismissed'].indexOf(status) === -1) throw new Error(t_('err.unknownStatus'));
 
   const changedText = changeQuestions_(sid, ids, function (r) { return r[COLS.status - 1] !== 'prepared'; }, { status: status })
     .map(function (r) { return String(r[COLS.text - 1]); });
@@ -228,7 +228,7 @@ function setTopicShown(sid, topic, shown) {
   const session = requireOpenSession_(sid);
   topic = String(topic || '');
   const exists = sessionRows_(sid).some(function (q) { return q.topic === topic && q.status !== 'dismissed'; });
-  if (!exists) throw new Error('That topic has no questions.');
+  if (!exists) throw new Error(t_('err.thatTopicHasNoQuestions'));
   const update = {};
   update[topic] = { shown: !!shown };
   upsertTopics_(sid, update, true);
@@ -243,10 +243,10 @@ function setTopicShown(sid, topic, shown) {
  */
 function usePrepared(sid, ids) {
   const session = requireOpenSession_(sid);
-  if (!Array.isArray(ids) || !ids.length) throw new Error('Choose a prepared question to add.');
+  if (!Array.isArray(ids) || !ids.length) throw new Error(t_('err.chooseAPreparedQuestionTo'));
   const added = changeQuestions_(sid, ids, function (r) { return r[COLS.status - 1] === 'prepared'; },
     { submitted: new Date(), status: 'new' }).length;
-  if (!added) throw new Error('Those prepared questions were already added or removed.');
+  if (!added) throw new Error(t_('err.thosePreparedQuestionsWereAlready'));
   invalidateTopics_(sid);
   audit_('Prepared question added', session, added + (added === 1 ? ' question' : ' questions'));
   return getBoard(sid);
@@ -263,8 +263,8 @@ function setQuestionShown(sid, questionId, shown) {
   flushInbox_(sid);
   questionId = String(questionId || '');
   const question = sessionRows_(sid).filter(function (q) { return q.id === questionId; })[0];
-  if (!question || question.status === 'dismissed') throw new Error('That question is no longer in the queue.');
-  if (question.topic && shown) throw new Error('That question is in a topic now: show the topic on phones instead.');
+  if (!question || question.status === 'dismissed') throw new Error(t_('err.thatQuestionIsNoLonger2'));
+  if (question.topic && shown) throw new Error(t_('err.thatQuestionIsInA'));
   showSingle_(session, question, !!shown);
   invalidateTopics_(sid);
   audit_(shown ? 'Question shown on phones' : 'Question hidden from phones', session, '"' + (question.translation || question.text).slice(0, 120) + '"');
@@ -301,7 +301,7 @@ function setNowAnswering(sid, topic, questionId) {
   let question = null;
   if (questionId) {
     question = sessionRows_(sid).filter(function (q) { return q.id === questionId; })[0];
-    if (!question) throw new Error('That question is no longer in the queue.');
+    if (!question) throw new Error(t_('err.thatQuestionIsNoLonger2'));
   }
   updateSession_(sid, function (s) {
     s.nowAnswering = question ? { topic: '', question: question.id, at: Date.now() }
@@ -350,12 +350,12 @@ function groupQuestions(sid, ids, topic) {
   const session = requireOpenSession_(sid);
   flushInbox_(sid);
   topic = cleanText_(topic, 80);
-  if (!topic) throw new Error('Give the group a topic name.');
-  if (!Array.isArray(ids) || !ids.length) throw new Error('Choose the questions to group.');
+  if (!topic) throw new Error(t_('err.giveTheGroupATopic'));
+  if (!Array.isArray(ids) || !ids.length) throw new Error(t_('err.chooseTheQuestionsToGroup'));
   // Clearing Grouping lets the every-minute run translate them again (it keeps the topic).
   const moved = changeQuestions_(sid, ids, function (r) { return r[COLS.status - 1] !== 'prepared'; },
     { topic: sheetSafe_(topic), grouping: '' }).length;
-  if (!moved) throw new Error('Those questions are no longer in the queue.');
+  if (!moved) throw new Error(t_('err.thoseQuestionsAreNoLonger'));
   // Single questions that were on phones: their topic goes on phones, with their Me too taps.
   const wanted = {};
   ids.forEach(function (id) { wanted[String(id)] = true; });
@@ -398,7 +398,7 @@ function setAutoGroup(sid, on) {
 /** Takes questions out of their topic. Automatic grouping leaves them alone afterwards. */
 function ungroupQuestions(sid, ids) {
   const session = requireOpenSession_(sid);
-  if (!Array.isArray(ids) || !ids.length) throw new Error('Choose the questions to ungroup.');
+  if (!Array.isArray(ids) || !ids.length) throw new Error(t_('err.chooseTheQuestionsToUngroup'));
   // Marked, so the every-minute grouping doesn't put them straight back.
   const moved = changeQuestions_(sid, ids, function (r) { return !!r[COLS.topic - 1]; }, { topic: '', grouping: 'ungrouped' }).length;
   invalidateTopics_(sid);

@@ -341,10 +341,10 @@ function cleanLanguages_(input) {
     .filter(Boolean);
   const out = ['en'];
   list.forEach(function (c) {
-    if (!CONFIG.languages[c]) throw new Error('Unknown language: ' + c + '. Choose from ' + Object.keys(CONFIG.languages).join(', ') + '.');
+    if (!CONFIG.languages[c]) throw new Error(t_('err.unknownLanguage', { code: c, codes: Object.keys(CONFIG.languages).join(', ') }));
     if (out.indexOf(c) === -1) out.push(c);
   });
-  if (out.length > CONFIG.maxLanguages) throw new Error('Choose at most ' + CONFIG.maxLanguages + ' languages, including English, so the room screen stays readable.');
+  if (out.length > CONFIG.maxLanguages) throw new Error(t_('err.tooManyLanguages', { max: CONFIG.maxLanguages }));
   return out;
 }
 

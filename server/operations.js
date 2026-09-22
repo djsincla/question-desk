@@ -20,7 +20,7 @@ function saveOpsSettings(input) {
   requireAdmin_();
   input = input || {};
   const months = Number(input.retentionMonths);
-  if ([0, 3, 6, 12, 24].indexOf(months) === -1) throw new Error('Choose to keep question wording, or remove it after 3, 6, 12 or 24 months.');
+  if ([0, 3, 6, 12, 24].indexOf(months) === -1) throw new Error(t_('err.chooseToKeepQuestionWording'));
   const next = { retentionMonths: months, weeklyReport: input.weeklyReport !== false };
   props_().setProperty('OPS', JSON.stringify(next));
   props_().deleteProperty('MAINT_AT');   // apply on the next scheduled run, not up to an hour later
@@ -236,7 +236,7 @@ function archiveSession_(sid) {
   withLock_(function () {
     const session = getSession_(sid);
     archived = session;
-    if (!session || session.status !== 'ended') throw new Error('Only ended sessions can be archived.');
+    if (!session || session.status !== 'ended') throw new Error(t_('err.onlyEndedSessionsCanBe'));
     archiveSheet_().appendRow([
       sid, sheetSafe_(session.name), session.eventId || '', new Date(session.ended || Date.now()), new Date(),
       JSON.stringify(session), props_().getProperty('VOTES_' + sid) || '{}'
@@ -260,7 +260,7 @@ function restoreSession(sid) {
     const values = sheet.getDataRange().getValues();
     for (let i = values.length - 1; i >= 1; i--) {
       if (String(values[i][0]) !== String(sid)) continue;
-      if (getSession_(sid)) throw new Error('That session is already restored.');
+      if (getSession_(sid)) throw new Error(t_('err.thatSessionIsAlreadyRestored'));
       const session = JSON.parse(values[i][5]);
       if (session.eventId && !getEvent_(session.eventId)) delete session.eventId;   // its event was deleted
       saveSession_(session);
@@ -269,7 +269,7 @@ function restoreSession(sid) {
       audit_('Session restored', session, '');
       return;
     }
-    throw new Error('Archived session not found.');
+    throw new Error(t_('err.archivedSessionNotFound'));
   });
   return adminState();
 }

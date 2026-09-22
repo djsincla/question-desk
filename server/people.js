@@ -65,27 +65,27 @@ function eventsForCoordinator_(email) {
 
 function requireEvent_(eid) {
   const ev = getEvent_(eid);
-  if (!ev) throw new Error('Event not found.');
-  if (!canCoordinate_(ev, currentEmail_())) throw new Error('You are not an Event Coordinator for this event.');
+  if (!ev) throw new Error(t_('err.eventNotFound'));
+  if (!canCoordinate_(ev, currentEmail_())) throw new Error(t_('err.youAreNotAnEvent'));
   return ev;
 }
 
 function requireAdmin_() {
-  if (!isAdmin_()) throw new Error('Only administrators can do that.');
+  if (!isAdmin_()) throw new Error(t_('err.onlyAdministratorsCanDoThat'));
   return currentEmail_();
 }
 
 function requireSession_(sid) {
   const session = getSession_(sid);
   if (!session) throw new Error('Session not found.');
-  if (!canModerate_(session, currentEmail_())) throw new Error('You are not a QA Facilitator for this session.');
+  if (!canModerate_(session, currentEmail_())) throw new Error(t_('err.youAreNotAQa'));
   return session;
 }
 
 /** requireSession_ for changes to the queue, which an ended session no longer takes. */
 function requireOpenSession_(sid) {
   const session = requireSession_(sid);
-  if (session.status === 'ended') throw new Error('This session has ended.');
+  if (session.status === 'ended') throw new Error(t_('err.thisSessionHasEnded'));
   return session;
 }
 

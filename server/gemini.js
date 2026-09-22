@@ -50,17 +50,17 @@ function validModel_(name) {
 function cleanGeminiSettings_(input) {
   input = input || {};
   const model = String(input.model || '').trim().replace(/^models\//, '');
-  if (!validModel_(model)) throw new Error('Enter a Gemini model name, like ' + CONFIG.model + '.');
+  if (!validModel_(model)) throw new Error(t_('err.modelName', { example: CONFIG.model }));
   const thinking = {};
   GEMINI_TASKS.forEach(function (task) {
     const level = input.thinking && input.thinking[task];
-    if (GEMINI_THINKING.indexOf(level) === -1) throw new Error('Choose a thinking level for ' + task + '.');
+    if (GEMINI_THINKING.indexOf(level) === -1) throw new Error(t_('err.thinkingLevel', { task: task }));
     thinking[task] = level;
   });
   const temperature = Number(input.temperature);
-  if (!(temperature >= 0 && temperature <= 1)) throw new Error('Temperature must be between 0 and 1.');
+  if (!(temperature >= 0 && temperature <= 1)) throw new Error(t_('err.temperatureMustBeBetween0'));
   const batchSize = Number(input.batchSize);
-  if (!(batchSize >= 5 && batchSize <= 100) || Math.floor(batchSize) !== batchSize) throw new Error('Questions per grouping request must be a whole number from 5 to 100.');
+  if (!(batchSize >= 5 && batchSize <= 100) || Math.floor(batchSize) !== batchSize) throw new Error(t_('err.questionsPerGroupingRequestMust'));
   return { model: model, thinking: thinking, temperature: Math.round(temperature * 100) / 100, batchSize: batchSize };
 }
 
@@ -297,7 +297,7 @@ function promptSettings_() {
 /** Saves one task's prompt, or puts the built-in one back (empty text). */
 function savePrompt(task, text) {
   requireAdmin_();
-  if (PROMPT_TASKS.indexOf(task) === -1) throw new Error('Unknown prompt.');
+  if (PROMPT_TASKS.indexOf(task) === -1) throw new Error(t_('err.unknownPrompt'));
   const clean = String(text || '').trim();
   const saved = savedPrompts_();
   if (!clean || clean === promptDefaults_()[task]) {
@@ -306,11 +306,10 @@ function savePrompt(task, text) {
     audit_('Prompt reset', null, PROMPT_LABELS[task]);
     return adminState();
   }
-  if (clean.length > 8000) throw new Error('That prompt is too long: keep it under 8000 characters.');
+  if (clean.length > 8000) throw new Error(t_('err.thatPromptIsTooLong'));
   const missing = PROMPT_NEEDS[task].filter(function (need) { return clean.indexOf(need) === -1; });
   if (missing.length) {
-    throw new Error('The prompt must still contain ' + missing.join(' and ') +
-      ', or Question Desk has nothing to send. Put it back, or use Reset.');
+    throw new Error(t_('err.promptNeeds', { tokens: missing.join(t_('err.promptNeedsJoin')) }));
   }
   saved[task] = clean;
   props_().setProperty('PROMPTS', JSON.stringify(saved));
@@ -328,7 +327,7 @@ function saveGeminiKey(key) {
     return adminState();
   }
   if (!/^[A-Za-z0-9_-]{20,120}$/.test(clean)) {
-    throw new Error('That does not look like a Gemini API key. Copy it from aistudio.google.com.');
+    throw new Error(t_('err.thatDoesNotLookLike'));
   }
   props_().setProperty('GEMINI_API_KEY', clean);
   audit_('Gemini API key changed', null, '');
@@ -497,7 +496,7 @@ function clusterQuestions(e) {
   const fromTrigger = !!uid && ScriptApp.getProjectTriggers().some(function (t) {
     return t.getUniqueId && String(t.getUniqueId()) === String(uid);
   });
-  if (!fromTrigger && !isAdmin_()) throw new Error('Not allowed.');
+  if (!fromTrigger && !isAdmin_()) throw new Error(t_('err.notAllowed'));
   return clusterAll_();
 }
 
@@ -639,9 +638,9 @@ function clusterSessionNow_(sid, force) {
       cache.put('tries:' + q.id, String(Number(cache.get('tries:' + q.id) || 0) + 1), 21600);
     });
   }
-  if (!response.ok) throw new Error('Grouping failed: ' + response.error);
+  if (!response.ok) throw new Error(t_('err.groupingFailed', { why: response.error }));
   const result = response.data;
-  if (!result || !result.assignments) throw new Error('Grouping failed: Gemini returned no assignments.');
+  if (!result || !result.assignments) throw new Error(t_('err.groupingFailedGeminiReturnedNo'));
 
   const pendingIds = {};
   pending.forEach(function (q) { pendingIds[q.id] = true; });
@@ -690,7 +689,7 @@ function clusterSessionNow_(sid, force) {
     upsertTopics_(sid, byTopic, true);
   }
   invalidateTopics_(sid);
-  if (!written) throw new Error('Grouping failed: Gemini returned no usable topics for ' + pending.length + ' question(s).');
+  if (!written) throw new Error(t_('err.groupingNoTopics', { n: pending.length }));
   return written;
 }
 
@@ -718,7 +717,7 @@ function setMergedQuestion(sid, topic, text) {
   const session = requireSession_(sid);
   topic = String(topic || '');
   if (!sessionRows_(sid).some(function (q) { return q.topic === topic && q.status !== 'dismissed'; })) {
-    throw new Error('That topic has no questions.');
+    throw new Error(t_('err.thatTopicHasNoQuestions'));
   }
   const clean = cleanText_(text, 400);
   let labels = {};
@@ -804,7 +803,7 @@ function mergeTopic(sid, topic) {
  */
 function eventReview_(eid) {
   const ev = getEvent_(eid);
-  if (!ev) throw new Error('Event not found.');
+  if (!ev) throw new Error(t_('err.eventNotFound'));
   const sessions = allSessions_().filter(function (s) { return s.eventId === eid && !s.loadTest; });
   const lines = [];
   let asked = 0;

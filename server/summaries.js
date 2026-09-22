@@ -112,5 +112,5 @@ function emailShell_(brand, title, inner) {
 
 function checkQuota_(needed) {
   const left = MailApp.getRemainingDailyQuota();
-  if (left < needed) throw new Error('Daily email quota reached (' + left + ' left). Try again tomorrow.');
+  if (left < needed) throw new Error(t_('err.emailQuota', { left: left }));
 }

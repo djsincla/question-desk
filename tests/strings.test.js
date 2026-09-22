@@ -141,12 +141,13 @@ test('what must stay English is not in the catalog', () => {
       'not be a phrase');
   });
 
-  // Files that write things read back later — a spreadsheet, an exported file, the log — never
-  // take their words from the catalog, however much a screen elsewhere says the same English.
-  ['server/csv.js', 'server/activity.js'].forEach((file) => {
-    assert.doesNotMatch(read(file), /\bt_\(/, file + ' takes a phrase from the catalog: its ' +
-      'columns and entries are read back later, so they stay in one language');
-  });
+  // Things written once and read back later — a sheet header, an exported column, a log entry —
+  // never take their words from the catalog, however much a screen elsewhere says the same
+  // English. Messages thrown along the way are ordinary phrases and may.
+  assert.doesNotMatch(read('server/csv.js').split('const SESSION_CSV')[1].split('];')[0], /t_\(/,
+    'the CSV columns are matched again on import, so they stay in one language');
+  assert.doesNotMatch(read('server/activity.js'), /\bt_\(/,
+    'the activity log is a record: what it stores stays in one language');
   assert.doesNotMatch(read('Code.js').split('const HEADERS')[1].split(';')[0], /t_\(/, 'sheet headers stay English');
   SERVER_FILES.forEach((file) => {
     assert.doesNotMatch(read(file), /audit_\(\s*(?:t_|W)\(/, file + ' logs a translated action name');

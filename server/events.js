@@ -43,10 +43,10 @@ function saveEvent(input) {
   const me = requireAdmin_();
   input = input || {};
   const name = cleanText_(input.name, 80);
-  if (!name) throw new Error('Give the event a name.');
+  if (!name) throw new Error(t_('err.giveTheEventAName'));
   const color = function (value, label) {
     const v = String(value || '').trim();
-    if (v && !HEX_RE.test(v)) throw new Error(label + ' must be a color like #1b5e5a.');
+    if (v && !HEX_RE.test(v)) throw new Error(t_('err.colorFormat', { label: label }));
     return v.toLowerCase();
   };
   const languages = input.languages === undefined || input.languages === null || (Array.isArray(input.languages) && !input.languages.length)
@@ -71,7 +71,7 @@ function saveEvent(input) {
   withLock_(function () {
     if (id) {
       const ev = getEvent_(id);
-      if (!ev) throw new Error('Event not found.');
+      if (!ev) throw new Error(t_('err.eventNotFound'));
       ev.name = name;
       ev.brand = brand;
       if (input.languages !== undefined) ev.languages = languages;   // null: use the site's
@@ -97,7 +97,7 @@ function saveEvent(input) {
 
 function reorderEvents(ids) {
   requireAdmin_();
-  if (!Array.isArray(ids)) throw new Error('Send the events in their new order.');
+  if (!Array.isArray(ids)) throw new Error(t_('err.sendTheEventsInTheir'));
   withLock_(function () {
     const events = allEvents_();
     const byId = {};
@@ -115,7 +115,7 @@ function reorderEvents(ids) {
 function deleteEvent(eid, typedName) {
   requireAdmin_();
   const ev = getEvent_(eid);
-  if (!ev) throw new Error('Event not found.');
+  if (!ev) throw new Error(t_('err.eventNotFound'));
   requireTypedName_(ev, typedName, 'event');
   withLock_(function () {
     allSessions_().forEach(function (s) {
@@ -130,7 +130,7 @@ function deleteEvent(eid, typedName) {
 
 function saveEventLogo(eid, dataUrl) {
   requireAdmin_();
-  if (!getEvent_(eid)) throw new Error('Event not found.');
+  if (!getEvent_(eid)) throw new Error(t_('err.eventNotFound'));
   setAsset_('event:' + eid, cleanLogo_(dataUrl));
   withLock_(function () { const ev = getEvent_(eid); ev.hasLogo = true; saveEvent_(ev); });
   audit_('Event logo changed', { id: eid, eventName: getEvent_(eid).name }, '');
@@ -139,7 +139,7 @@ function saveEventLogo(eid, dataUrl) {
 
 function removeEventLogo(eid) {
   requireAdmin_();
-  if (!getEvent_(eid)) throw new Error('Event not found.');
+  if (!getEvent_(eid)) throw new Error(t_('err.eventNotFound'));
   setAsset_('event:' + eid, '');
   withLock_(function () { const ev = getEvent_(eid); ev.hasLogo = false; saveEvent_(ev); });
   audit_('Event logo removed', { id: eid, eventName: getEvent_(eid).name }, '');
@@ -163,16 +163,16 @@ function getEventLogo(eid) {
 function emailEventFacilitators(eid) {
   requireAdmin_();
   const ev = getEvent_(eid);
-  if (!ev) throw new Error('Event not found.');
+  if (!ev) throw new Error(t_('err.eventNotFound'));
   const sessions = allSessions_().filter(function (s) { return s.eventId === eid && !s.loadTest && s.status !== 'ended'; })
     .sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
-  if (!sessions.length) throw new Error('This event has no sessions that haven\'t ended.');
+  if (!sessions.length) throw new Error(t_('err.thisEventHasNoSessions'));
   const byPerson = {};
   sessions.forEach(function (s) {
     facilitatorsFor_(s).forEach(function (e) { (byPerson[e] = byPerson[e] || []).push(s); });
   });
   const people = Object.keys(byPerson);
-  if (!people.length) throw new Error('No QA Facilitators are assigned to this event or its sessions.');
+  if (!people.length) throw new Error(t_('err.noQaFacilitatorsAreAssigned'));
   checkQuota_(people.length);
 
   const tz = Session.getScriptTimeZone();
@@ -263,15 +263,15 @@ function reviewProblem_(why) {
 function emailEventSummary(eid, recipients) {
   requireAdmin_();
   const ev = getEvent_(eid);
-  if (!ev) throw new Error('Event not found.');
+  if (!ev) throw new Error(t_('err.eventNotFound'));
   const sessions = allSessions_().filter(function (s) { return s.eventId === eid && !s.loadTest; });
-  if (!sessions.length) throw new Error('This event has no sessions yet.');
+  if (!sessions.length) throw new Error(t_('err.thisEventHasNoSessions2'));
   let to = recipients && recipients.length ? parseEmails_(recipients) : [];
   if (!to.length) {
     sessions.forEach(function (s) { summaryRecipients_(s).forEach(function (e) { if (to.indexOf(e) === -1) to.push(e); }); });
     to = to.slice(0, CONFIG.maxRecipients);
   }
-  if (!to.length) throw new Error('Add at least one recipient.');
+  if (!to.length) throw new Error(t_('err.addAtLeastOneRecipient'));
   checkQuota_(to.length);
 
   const brand = brand_(sessions[0]);
@@ -344,7 +344,7 @@ function duplicateSession_(sid, eventId, me, keepName) {
 function duplicateEvent(eid) {
   const me = requireAdmin_();
   const ev = getEvent_(eid);
-  if (!ev) throw new Error('Event not found.');
+  if (!ev) throw new Error(t_('err.eventNotFound'));
   const copy = createEvent_(cleanText_(ev.name + ' (copy)', 80), me);
   withLock_(function () {
     const fresh = getEvent_(copy.id);
@@ -379,7 +379,7 @@ function duplicateEvent(eid) {
 function eventChecklist(eid) {
   requireAdmin_();
   const ev = getEvent_(eid);
-  if (!ev) throw new Error('Event not found.');
+  if (!ev) throw new Error(t_('err.eventNotFound'));
   const tz = Session.getScriptTimeZone();
   const fmt = function (ms) { return Utilities.formatDate(new Date(ms), tz, 'EEE MMM d, h:mm a'); };
   const now = Date.now();

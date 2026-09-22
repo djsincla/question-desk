@@ -180,7 +180,7 @@ function cleanGuestPageUrl_(value) {
   let url = String(value || '').trim();
   if (!url) return '';
   if (!/^https:\/\/[a-z0-9.-]+(:\d+)?(\/[A-Za-z0-9._~%\/-]*)?$/i.test(url) || url.length > 300) {
-    throw new Error('The guest page address must be an https:// link to the folder or page with the guest page files, without ? or #.');
+    throw new Error(t_('err.theGuestPageAddressMust'));
   }
   if (!/\.html?$/i.test(url) && !/\/$/.test(url)) url += '/';
   return url;

@@ -261,10 +261,10 @@ function parseEmails_(input) {
   list.forEach(function (raw) {
     const e = String(raw || '').trim().toLowerCase();
     if (!e) return;
-    if (!EMAIL_RE.test(e)) throw new Error('Not an email address: ' + e);
+    if (!EMAIL_RE.test(e)) throw new Error(t_('err.notAnEmail', { value: e }));
     if (!seen[e]) { seen[e] = true; out.push(e); }
   });
-  if (out.length > CONFIG.maxRecipients) throw new Error('Send to at most ' + CONFIG.maxRecipients + ' people at a time.');
+  if (out.length > CONFIG.maxRecipients) throw new Error(t_('err.tooManyRecipients', { max: CONFIG.maxRecipients }));
   return out;
 }
 
@@ -274,7 +274,7 @@ function parseEmails_(input) {
  * Admin only, since google.script.run can reach any public function.
  */
 function setUp() {
-  if (!isAdmin_()) throw new Error('Run setUp() from the Apps Script editor as the script owner.');
+  if (!isAdmin_()) throw new Error(t_('err.runSetupFromTheApps'));
   const props = props_();
 
   let ss;
