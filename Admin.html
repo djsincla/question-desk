@@ -581,6 +581,14 @@
 
 
 
+  /** A single-line row in the checks and Gemini tables, while they are working or when they fail. */
+  function noteRow(text, mark, symbol) {
+    var tr = el('tr');
+    tr.appendChild(el('td', mark || null, symbol || ''));
+    tr.appendChild(el('td', null, text));
+    return tr;
+  }
+
   var toastTimer = null;
   function toast(message, isError) {
     var t = $('toast');
@@ -623,8 +631,8 @@
   function fmtDate(ms) {
     if (!ms) return '';
     var d = new Date(ms);
-    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ' ' +
-      d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+    return d.toLocaleDateString(BOOT.lang, { month: 'short', day: 'numeric' }) + ' ' +
+      d.toLocaleTimeString(BOOT.lang, { hour: 'numeric', minute: '2-digit' });
   }
 
   function copyInput(input) {
@@ -1147,8 +1155,9 @@
       end.onclick = function () {
         ask({
           title: W('admin.endThisSession'),
-          body: 'Participants can no longer ask questions, and an ended session cannot be reopened.' +
-            (s.emailOnEnd && s.summaryTo.length ? '\n\nThe questions summary will be emailed to ' + s.summaryTo.join(', ') + '.' : ''),
+          body: W('admin.endSessionBody', {
+            summary: s.emailOnEnd && s.summaryTo.length ? W('admin.endSessionSummaryTo', { to: s.summaryTo.join(', ') }) : ''
+          }),
           ok: W('admin.endSession'),
           danger: true,
           typeToConfirm: s.name
@@ -1374,10 +1383,9 @@
     $('f-max').value = s.maxLength || state.limits.defaultMaxLength;
     $('f-cooldown').value = typeof s.cooldownSeconds === 'number' ? s.cooldownSeconds : state.limits.cooldownSeconds;
     $('f-cooldown').max = state.limits.cooldownCeiling;
-    $('cooldownHint').textContent = '0 for no wait, up to ' + state.limits.cooldownCeiling +
-      ' (one hour). Changes apply immediately, even to phones already waiting.';
+    $('cooldownHint').textContent = W('admin.cooldownHint', { max: state.limits.cooldownCeiling });
     $('f-max').max = state.limits.maxLengthCeiling;
-    $('maxHint').textContent = 'Between 50 and ' + state.limits.maxLengthCeiling + '. Shorter questions are easier to read aloud.';
+    $('maxHint').textContent = W('admin.maxHint', { max: state.limits.maxLengthCeiling });
     $('f-email').checked = s.id ? !!s.emailOnEnd : true;
     $('f-prepared').value = (s.prepared || []).join('\n');
     loadedPrepared = $('f-prepared').value;
@@ -1389,7 +1397,7 @@
     $('f-guest-panel').checked = !!guest.panel;
     $('f-guest-url').value = guest.url || '';
     $('f-guest-url-box').hidden = !(guest.room || guest.slide || guest.panel);
-    $('f-guest-url').placeholder = 'Uses ' + (state.guestPageUrl || state.guestPageDefault);
+    $('f-guest-url').placeholder = W('admin.guestUrlHint', { url: state.guestPageUrl || state.guestPageDefault });
     $('f-summary-to').textContent = (state.summaryDefaults.extra || []).join(', ') || 'nobody yet — add them on the People tab';
     $('f-start').value = toLocalInput(s.scheduledStart);
     $('f-end').value = toLocalInput(s.scheduledEnd);
@@ -1573,7 +1581,7 @@
     $('sessionForm').hidden = true;
     $('eventForm').hidden = true;
     $('importForm').hidden = true;
-    $('checklistTitle').textContent = 'Day-of checklist — ' + ev.name;
+    $('checklistTitle').textContent = W('admin.checklistTitle', { event: ev.name });
     $('checklistBody').innerHTML = '';
     $('checklistWhen').textContent = W('admin.checking');
     $('checklistPanel').hidden = false;
@@ -1600,8 +1608,11 @@
     var count = function (checks) { checks.forEach(function (c) { if (c.ok === false) problems++; else if (c.ok === null) warnings++; }); };
     count(res.site);
     res.sessions.forEach(function (s) { count(s.checks); });
-    $('checklistWhen').textContent = (problems ? problems + (problems === 1 ? ' problem' : ' problems') : 'No problems') +
-      (warnings ? ', ' + warnings + ' to look at' : '') + ' · checked ' + fmtDate(res.generated) + '. ✓ ready · ! worth a look · ✗ needs fixing.';
+    $('checklistWhen').textContent = W('admin.checklistWhen', {
+      problems: problems ? Wn('admin.checklistProblems', problems) : W('admin.checklistNoProblems'),
+      warnings: warnings ? W('admin.checklistWarnings', { n: warnings }) : '',
+      at: fmtDate(res.generated)
+    });
     body.appendChild(el('h3', null, W('admin.wholeApp')));
     body.appendChild(checkTable(res.site));
     if (!res.sessions.length) body.appendChild(el('p', 'hint', W('admin.thisEventHasNo')));
@@ -1640,8 +1651,7 @@
         a.click();
         setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
       } catch (e) {}
-      $('exportHint').textContent = res.count + (res.count === 1 ? ' session' : ' sessions') + ' exported as ' + res.filename +
-        '. If the download didn\'t start, copy the text below into a file ending in .csv.';
+      $('exportHint').textContent = Wn('admin.exportHint', res.count, { file: res.filename });
       $('exportText').value = res.csv.replace(/^\ufeff/, '');
       $('exportPanel').hidden = false;
     }, btn);
@@ -1684,9 +1694,11 @@
     var box = $('importPreview');
     box.innerHTML = '';
     var summary = done
-      ? 'Imported: ' + res.created + ' created, ' + res.updated + ' updated, ' + res.skipped + ' skipped, ' + res.failed + ' with problems (not imported).'
-      : 'Check: ' + res.created + ' to create, ' + res.updated + ' to update, ' + res.skipped + ' to skip, ' + res.failed + ' with problems.' +
-        (res.events.length ? ' New events: ' + res.events.join(', ') + '.' : '');
+      ? W('admin.imported', { created: res.created, updated: res.updated, skipped: res.skipped, failed: res.failed })
+      : W('admin.checked', {
+          created: res.created, updated: res.updated, skipped: res.skipped, failed: res.failed,
+          events: res.events.length ? W('admin.checkedNewEvents', { names: res.events.join(', ') }) : ''
+        });
     box.appendChild(el('p', res.failed ? 'hint error-text' : 'hint', summary));
     var wrap = el('div', 'import-wrap');
     var table = el('table', 'import-table');
@@ -1714,7 +1726,7 @@
       drawImport(res, false);
       checkedText = text;
       var n = res.created + res.updated;
-      $('importGo').textContent = 'Import ' + n + (n === 1 ? ' session' : ' sessions');
+      $('importGo').textContent = Wn('admin.importGo', n);
       $('importGo').hidden = !n;
     }, this);
   };
@@ -1727,7 +1739,10 @@
       render(res.state);
       $('importGo').hidden = true;
       checkedText = null;
-      toast('Imported ' + (res.created + res.updated) + ' sessions' + (res.failed ? ' — ' + res.failed + ' rows had problems' : ''), !!res.failed);
+      toast(W('admin.importDone', {
+        n: res.created + res.updated,
+        problems: res.failed ? W('admin.importProblems', { n: res.failed }) : ''
+      }), !!res.failed);
     }, $('importGo'));
   });
   $('cancelEvent').onclick = function () { $('eventForm').hidden = true; };
@@ -1832,14 +1847,14 @@
     if (emailMode === 'eventSummary') {
       call('emailEventSummary', [emailTarget.id, to.split(/[\s,;]+/).filter(Boolean)], function (n) {
         closeEmail();
-        toast('Event summary sent to ' + n + (n === 1 ? ' person' : ' people'));
+        toast(Wn('admin.sentEventSummary', n));
       }, $('e-send'));
       return;
     }
     if (emailMode === 'summary') {
       call('emailSummary', [emailTarget.id, to.split(/[\s,;]+/).filter(Boolean)], function (n) {
         closeEmail();
-        toast('Summary sent to ' + n + (n === 1 ? ' person' : ' people'));
+        toast(Wn('admin.sentSummary', n));
         call('adminState', [], render);
       }, $('e-send'));
       return;
@@ -1851,7 +1866,7 @@
       moderate: $('e-moderate').checked
     }], function (n) {
       closeEmail();
-      toast('Links sent to ' + n + (n === 1 ? ' person' : ' people'));
+      toast(Wn('admin.sentLinks', n));
     }, $('e-send'));
   });
 
@@ -1859,10 +1874,8 @@
 
   function renderPeople() {
     $('domainHint').textContent = state.domain
-      ? 'Only @' + state.domain + ' accounts can be administrators, QA Facilitators or Event Coordinators. ' +
-        W('admin.googleDoesNotTell')
-      : 'Everyone here signs in with an account on this site. Adding an address that has no account ' +
-        W('admin.createsOneAndSends');
+      ? W('admin.domainHint', { domain: state.domain }) + W('admin.googleDoesNotTell')
+      : W('admin.everyoneSignsIn') + W('admin.createsOneAndSends');
     personList($('adminList'), 'admin', [state.owner].concat(state.admins.filter(function (e) { return e !== state.owner; })));
     personList($('modList'), 'moderator', state.moderators);
     personList($('coordList'), 'coordinator', state.coordinators);
@@ -1898,14 +1911,15 @@
         rm.type = 'button';
         rm.onclick = function () {
           ask({
-            title: 'Remove ' + (role === 'admin' ? 'administrator' : role === 'coordinator' ? 'Event Coordinator' : 'QA Facilitator') + '?',
-            body: email + (role === 'moderator' ? ' will also be removed from every session.'
-              : role === 'coordinator' ? ' will also be removed from every event, and can no longer open a coordinator portal.'
-              : ' will no longer be able to open the Admin page.'),
+            title: W('admin.removePersonTitle', {
+              role: W(role === 'admin' ? 'admin.roleAdministrator' : role === 'coordinator' ? 'admin.roleCoordinator' : 'admin.roleFacilitator')
+            }),
+            body: W(role === 'moderator' ? 'admin.removeFacilitatorBody'
+              : role === 'coordinator' ? 'admin.removeCoordinatorBody' : 'admin.removeAdminBody', { email: email }),
             ok: W('admin.remove'),
             danger: true
           }, function () {
-            call('removePerson', [role, email], function (res) { render(res); toast('Removed ' + email); }, rm);
+            call('removePerson', [role, email], function (res) { render(res); toast(W('admin.removed', { email: email })); }, rm);
           });
         };
         li.appendChild(rm);
@@ -1921,7 +1935,7 @@
       var form = this;
       var input = form.querySelector('input');
       call('addPerson', [form.getAttribute('data-role'), input.value], function (res) {
-        toast('Added ' + input.value.trim().toLowerCase());
+        toast(W('admin.added', { email: input.value.trim().toLowerCase() }));
         input.value = '';
         render(res);
       }, form.querySelector('button'));
@@ -1991,7 +2005,7 @@
     var pct = Math.min(100, state.storage.percent);
     $('ops-storage-bar').style.width = Math.max(2, pct) + '%';
     $('ops-storage-bar').className = pct >= 80 ? 'high' : '';
-    $('ops-storage').textContent = pct + '% of the 500 KB Google allows for settings (sessions, events, people). Ended sessions are archived after 30 days to keep it low.';
+    $('ops-storage').textContent = W('admin.storageUsed', { pct: pct });
   }
 
   $('ops-save').onclick = function () {
@@ -2000,11 +2014,12 @@
       call('saveOpsSettings', [{ retentionMonths: months, weeklyReport: $('ops-weekly').checked }], function (res) { render(res); toast(W('admin.saved')); }, $('ops-save'));
     };
     if (months && months !== state.ops.retentionMonths) {
-      ask({ title: 'Remove old question wording?', body: 'Within the hour, the wording of every question from sessions that ended more than ' + months + ' months ago is removed for good. Topics, counts and answered status stay.', ok: 'Remove old wording', danger: true }, go);
+      ask({ title: W('admin.removeOldQuestionWording'), body: W('admin.retentionBody', { months: months }),
+        ok: W('admin.removeOldWording'), danger: true }, go);
     } else go();
   };
   $('ops-report').onclick = function () {
-    call('sendWeeklyReportNow', [], function () { toast('Sent to ' + state.me); }, this);
+    call('sendWeeklyReportNow', [], function () { toast(W('admin.sentTo', { email: state.me })); }, this);
   };
 
   function renderBranding() {
@@ -2043,8 +2058,8 @@
     $('s-sheet').href = state.sheetUrl;
     var h = state.health || {};
     $('s-grouping').textContent = h.failures
-      ? h.failures + ' failed runs in a row — ' + h.lastError
-      : h.lastOkAt ? 'Working (last ' + fmtDate(h.lastOkAt) + ')' : 'Nothing grouped yet';
+      ? W('admin.groupingFailing', { n: h.failures, why: h.lastError })
+      : h.lastOkAt ? W('admin.groupingWorking', { at: fmtDate(h.lastOkAt) }) : W('admin.nothingGroupedYet');
     renderLoadTest();
   }
 
@@ -2109,11 +2124,10 @@
     var p = currentPrompt();
     state.prompts.forEach(function (x) {
       var o = pick.querySelector('option[value="' + x.task + '"]');
-      if (o) o.textContent = x.label + (x.custom ? ' — edited' : '');
+      if (o) o.textContent = x.custom ? W('admin.promptEdited', { label: x.label }) : x.label;
     });
     if (!promptDirty) $('prompt-text').value = p.text;
-    $('prompt-needs').textContent = 'Must still contain ' + p.needs.join(' and ') +
-      '. Question Desk fills those in before sending.';
+    $('prompt-needs').textContent = W('admin.promptNeeds', { tokens: p.needs.join(W('admin.promptNeedsJoin')) });
     $('prompt-state').textContent = p.custom ? W('admin.editedHere') : W('admin.theBuiltInPrompt');
     $('prompt-guards').textContent = p.guards;
     $('prompt-reset').hidden = !p.custom;
@@ -2134,7 +2148,7 @@
     var p = currentPrompt();
     ask({
       title: W('admin.putTheBuiltIn'),
-      body: 'Your wording for “' + p.label + '” is replaced by the one Question Desk ships with.',
+      body: W('admin.promptResetBody', { label: p.label }),
       ok: W('admin.reset')
     }, function () {
       call('savePrompt', [p.task, ''], function (res) {
@@ -2159,7 +2173,7 @@
       var select = $('gem-think-' + task);
       if (!select.options.length) {
         THINKING.forEach(function (t) {
-          var o = el('option', null, t[1] + (t[0] === state.geminiDefaults.thinking[task] ? ' — recommended' : ''));
+          var o = el('option', null, t[0] === state.geminiDefaults.thinking[task] ? W('admin.thinkingRecommended', { label: t[1] }) : t[1]);
           o.value = t[0];
           select.appendChild(o);
         });
@@ -2183,33 +2197,36 @@
     call('saveGeminiSettings', [geminiInput()], function (res) { gemDirty = false; render(res); toast(W('admin.geminiSettingsSavedUsed')); }, $('gem-save'));
   });
   $('gem-reset').onclick = function () {
-    ask({ title: 'Reset Gemini settings?', body: 'Back to ' + state.geminiDefaults.model + ', the recommended thinking levels, temperature ' + state.geminiDefaults.temperature + ' and ' + state.geminiDefaults.batchSize + ' questions per grouping request.', ok: 'Reset' }, function () {
+    ask({ title: W('admin.resetGeminiSettings'), body: W('admin.geminiResetBody', {
+      model: state.geminiDefaults.model, temperature: state.geminiDefaults.temperature, batchSize: state.geminiDefaults.batchSize
+    }), ok: W('admin.reset') }, function () {
       call('saveGeminiSettings', [{ reset: true }], function (res) { gemDirty = false; render(res); toast(W('admin.geminiSettingsReset')); }, $('gem-reset'));
     });
   };
   $('gem-test').onclick = function () {
     var table = $('gem-results');
     table.hidden = false;
-    table.innerHTML = '<tr><td></td><td>Asking Gemini with these settings…</td></tr>';
+    table.textContent = '';
+    table.appendChild(noteRow(W('admin.askingGemini')));
     call('testGeminiSettings', [geminiInput()], function (res) {
       table.innerHTML = '';
       res.results.forEach(function (r) {
         var tr = el('tr');
         tr.appendChild(el('td', r.ok ? 'ok' : 'bad', r.ok ? '✓' : '✗'));
         var td = el('td');
-        var label = r.task.charAt(0).toUpperCase() + r.task.slice(1) + ' · thinking ' + r.thinking;
+        var label = W('admin.tryTask', { task: r.task.charAt(0).toUpperCase() + r.task.slice(1), thinking: r.thinking });
         td.appendChild(el('strong', null, label));
         td.appendChild(el('div', 'hint', r.ok
-          ? (r.ms / 1000).toFixed(1) + ' seconds' + (r.retried ? ' — this model doesn’t accept that thinking level, so it ran without it' : '')
+          ? W('admin.trySeconds', { seconds: (r.ms / 1000).toFixed(1), retried: r.retried ? W('admin.tryRetried') : '' })
           : r.error));
         tr.appendChild(td);
         table.appendChild(tr);
       });
-      toast('Tried ' + res.model + ' — nothing saved yet');
+      toast(W('admin.triedModel', { model: res.model }));
     }, this, function () { table.hidden = true; });
   };
   $('gem-list').onclick = function () {
-    $('gem-list-note').textContent = ' Loading…';
+    $('gem-list-note').textContent = W('admin.loadingModels');
     call('listGeminiModels', [], function (res) {
       var list = $('gem-models');
       list.innerHTML = '';
@@ -2220,7 +2237,7 @@
         list.appendChild(o);
       });
       $('gem-list-note').textContent = res.ok
-        ? ' ' + res.models.length + ' models — click the Model box to pick one.'
+        ? W('admin.modelsListed', { n: res.models.length })
         : ' ' + res.error;
       if (res.ok) $('gem-model').focus();
     }, this, function () { $('gem-list-note').textContent = ''; });
@@ -2228,8 +2245,12 @@
 
   $('runHealth').onclick = function () {
     var table = $('checks');
-    table.innerHTML = '<tr><td></td><td>Checking…</td></tr>';
-    var failed = function () { table.innerHTML = '<tr><td class="bad">✗</td><td>The health check could not run. Try again.</td></tr>'; };
+    table.textContent = '';
+    table.appendChild(noteRow(W('admin.healthChecking')));
+    var failed = function () {
+      table.textContent = '';
+      table.appendChild(noteRow(W('admin.healthCouldNotRun'), 'bad', '✗'));
+    };
     call('runHealthCheck', [], function (res) {
       table.innerHTML = '';
       res.checks.forEach(function (c) {
@@ -2242,7 +2263,7 @@
         table.appendChild(tr);
       });
       var bad = res.checks.filter(function (c) { return !c.ok; }).length;
-      toast(bad ? bad + ' check(s) need attention' : 'All checks passed', bad > 0);
+      toast(bad ? W('admin.checksNeedAttention', { n: bad }) : W('admin.allChecksPassed'), bad > 0);
     }, this, failed);
   };
 
@@ -2294,11 +2315,11 @@
       rm.onclick = function () {
         ask({
           title: W('admin.removeSummaryRecipient'),
-          body: email + ' will no longer get session summaries.',
+          body: W('admin.removeRecipientBody', { email: email }),
           ok: W('admin.remove'),
           danger: true
         }, function () {
-          saveSummary(extra.filter(function (e) { return e !== email; }), 'Removed ' + email, rm);
+          saveSummary(extra.filter(function (e) { return e !== email; }), W('admin.removed', { email: email }), rm);
         });
       };
       li.appendChild(rm);
