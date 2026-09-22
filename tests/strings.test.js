@@ -14,7 +14,8 @@ const { ROOT, SERVER_FILES } = require('./server-source');
 const read = (f) => fs.readFileSync(path.join(ROOT, f), 'utf8');
 const SOURCE = read('server/strings.js');
 const PAGES = ['Admin.html', 'Coordinator.html', 'Home.html', 'Moderate.html', 'Panel.html', 'Present.html', 'Sheet.html'];
-const FILES = PAGES.concat(['Scripts.html'], SERVER_FILES);
+// Everything that asks for a phrase — not the catalog itself, whose keys are the definitions.
+const FILES = PAGES.concat(['Scripts.html'], SERVER_FILES.filter((f) => f !== 'server/strings.js'));
 const app = createApp().app;
 const TEXT = app.APP_TEXT;
 
@@ -31,7 +32,7 @@ function keysNamed() {
   const named = [];
   FILES.forEach((file) => {
     const text = read(file);
-    text.replace(/data-w(?:-ph|-t)?="([^"]+)"/g, (whole, key) => named.push(key));
+    text.replace(/data-w(?:-ph|-t|-a)?="([^"]+)"/g, (whole, key) => named.push(key));
     text.replace(/\b(?:W|Wn|t_)\(\s*'([^']+)'/g, (whole, key) => named.push(key));
   });
   return named;
@@ -47,7 +48,7 @@ function keysMentioned() {
     read(file).replace(/'([a-z][a-zA-Z0-9]*(?:\.[a-zA-Z0-9]+)+)'/g, (whole, key) => {
       mentioned.push(key, key + '.one', key + '.other');
     });
-    read(file).replace(/data-w(?:-ph|-t)?="([^"]+)"/g, (whole, key) => mentioned.push(key));
+    read(file).replace(/data-w(?:-ph|-t|-a)?="([^"]+)"/g, (whole, key) => mentioned.push(key));
   });
   return mentioned;
 }
@@ -109,7 +110,7 @@ test('the markup keeps the English, so an English page substitutes nothing', () 
         file + ': the markup under ' + key + ' says something the catalog does not');
       return '';
     });
-    [['data-w-ph', 'placeholder'], ['data-w-t', 'title']].forEach((pair) => {
+    [['data-w-ph', 'placeholder'], ['data-w-t', 'title'], ['data-w-a', 'aria-label']].forEach((pair) => {
       const re = new RegExp('<\\w+[^>]*\\s' + pair[0] + '="([^"]+)"[^>]*>', 'g');
       html.replace(re, (whole, key) => {
         const said = new RegExp('\\s' + pair[1] + '="([^"]*)"').exec(whole);
@@ -126,12 +127,18 @@ test('what must stay English is not in the catalog', () => {
     .concat(Object.keys(app.CONFIG.languages).map((c) => app.CONFIG.languages[c].name))
     .concat(app.HEADERS, app.TOPIC_HEADERS)
     .concat(app.SESSION_CSV.map((pair) => pair[0]))
-    .concat(['Questions for the panel', 'Session created', 'Session ended', 'Answer now', 'Schedule (automatic)'])
+    .concat(['Questions for the panel'])
     .concat(['Session not found.', 'This room screen link is out of date. Copy the new one from the Admin page.']);
   keep.forEach((word) => {
     assert.ok(values.indexOf(word) === -1,
-      '"' + word + '" is compared as a value somewhere (a sheet header, a language name, a log entry, ' +
-      'a grouping key); translating it breaks the app, so it must not be a phrase');
+      '"' + word + '" is written into a sheet or compared as a value (a column header, a language ' +
+      'name, a grouping key); translating it breaks the app, so it must not be a phrase');
+  });
+
+  // The activity log is a record and the Admin tab searches what is stored, so an action name is
+  // never a phrase — even where a button on the queue happens to say the same English word.
+  SERVER_FILES.forEach((file) => {
+    assert.doesNotMatch(read(file), /audit_\(\s*(?:t_|W)\(/, file + ' logs a translated action name');
   });
 });
 

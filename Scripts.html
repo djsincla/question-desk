@@ -29,8 +29,8 @@
    * Static markup keeps its English and names its key: <h1 data-w="coord.title">Event
    * logistics</h1>. fillWords() overwrites it only when the page is being read in another
    * language, so the English path substitutes nothing at all. Attributes use data-w-ph
-   * (placeholder) and data-w-t (title). Text built in script has no markup to keep, so it
-   * calls W() or Wn() instead.
+   * (placeholder), data-w-t (title) and data-w-a (aria-label). Text built in script has no
+   * markup to keep, so it calls W() or Wn() instead.
    */
   function W(key, vars) {
     var text = (BOOT.words && BOOT.words[key]) || '';
@@ -53,12 +53,14 @@
   function fillWords() {
     document.documentElement.lang = BOOT.lang || 'en';
     if (!BOOT.lang || BOOT.lang === 'en') return;   // the markup already says it in English
-    var pairs = [['data-w', 'textContent'], ['data-w-ph', 'placeholder'], ['data-w-t', 'title']];
+    var pairs = [['data-w', 'textContent'], ['data-w-ph', 'placeholder'], ['data-w-t', 'title'], ['data-w-a', 'ariaLabel']];
     pairs.forEach(function (pair) {
       var nodes = document.querySelectorAll('[' + pair[0] + ']');
       for (var i = 0; i < nodes.length; i++) {
         var said = W(nodes[i].getAttribute(pair[0]));
-        if (said) nodes[i][pair[1]] = said;
+        if (!said) continue;
+        if ('data-w-a' === pair[0]) nodes[i].setAttribute('aria-label', said);
+        else nodes[i][pair[1]] = said;
       }
     });
   }
