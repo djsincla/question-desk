@@ -609,7 +609,7 @@
       })
       .withFailureHandler(function (err) {
         if (button) button.disabled = false;
-        toast(err && err.message ? err.message : 'Something went wrong.', true);
+        toast(err && err.message ? err.message : W('admin.somethingWentWrong'), true);
         if (onFail) onFail(err);
       });
     runner[fn].apply(runner, args);
@@ -632,7 +632,7 @@
     input.select();
     var done = false;
     try { done = document.execCommand('copy'); } catch (e) {}
-    toast(done ? 'Copied' : 'Selected — press Ctrl/Cmd+C to copy');
+    toast(done ? W('admin.copied') : W('admin.selectedPressCtrlCmd'));
   }
 
   // ------------------------------------------------------------ tabs
@@ -657,7 +657,7 @@
     var select = $('actTarget');
     var current = select.value;
     select.innerHTML = '';
-    var all = el('option', null, 'All sessions and events');
+    var all = el('option', null, W('admin.allSessionsAndEvents'));
     all.value = '';
     select.appendChild(all);
     (state ? state.events : []).forEach(function (ev) {
@@ -676,12 +676,12 @@
 
   function loadActivity() {
     fillActivityTargets();
-    $('actNote').textContent = 'Loading…';
+    $('actNote').textContent = W('admin.loading');
     call('getActivity', [{ query: $('actSearch').value, target: $('actTarget').value, limit: 300 }], function (res) {
       var table = $('actTable');
       table.innerHTML = '';
       var head = el('tr');
-      ['When', 'Who', 'Action', 'Session or event', 'Details'].forEach(function (t) { head.appendChild(el('th', null, t)); });
+      [W('admin.when'), W('admin.who'), W('admin.action'), W('admin.sessionOrEvent'), W('admin.details')].forEach(function (t) { head.appendChild(el('th', null, t)); });
       table.appendChild(head);
       res.entries.forEach(function (e) {
         var tr = el('tr');
@@ -692,7 +692,7 @@
         tr.appendChild(el('td', null, e.details));
         table.appendChild(tr);
       });
-      $('actNote').textContent = !res.entries.length ? 'Nothing matches.'
+      $('actNote').textContent = !res.entries.length ? W('admin.nothingMatches')
         : 'Showing the ' + res.entries.length + ' most recent' + (res.total > res.scanned ? ' of the last ' + res.scanned + ' entries' : '') + '.';
     }, $('actRefresh'), function () { $('actNote').textContent = ''; });
   }
@@ -727,13 +727,13 @@
   if (BOOT.brand.accent) document.documentElement.style.setProperty('--action', BOOT.brand.accent);
 
   function waitLabel(seconds) {
-    if (!seconds) return 'no wait between questions';
+    if (!seconds) return W('admin.noWaitBetweenQuestions');
     var m = Math.floor(seconds / 60), r = seconds % 60;
     return (m ? m + ' min' : '') + (m && r ? ' ' : '') + (r ? r + ' s' : '') + ' between questions';
   }
 
   function statusLabel(s) {
-    return s.status === 'active' ? 'Active' : s.status === 'ended' ? 'Ended' : 'Not active';
+    return s.status === 'active' ? 'Active' : s.status === 'ended' ? 'Ended' : W('admin.notActive');
   }
 
   function eventById(id) {
@@ -755,7 +755,7 @@
   function updateFoldAll() {
     var button = $('foldAll');
     if (!button || !state) return;
-    button.textContent = state.events.every(function (ev) { return collapsed[ev.id]; }) ? 'Expand all events' : 'Collapse all events';
+    button.textContent = state.events.every(function (ev) { return collapsed[ev.id]; }) ? W('admin.expandAllEvents') : W('admin.collapseAllEvents');
   }
 
   function saveCollapsed() {
@@ -766,13 +766,13 @@
     var list = $('sessionList');
     list.innerHTML = '';
     if (!state.sessions.length && !state.events.length) {
-      list.appendChild(el('p', 'empty', 'No events or sessions yet. Create an event for a conference or meeting, then add its sessions.'));
+      list.appendChild(el('p', 'empty', W('admin.noEventsOrSessions')));
       renderArchived(list);
       return;
     }
     var tools = el('div', 'actions');
     tools.classList.add('spread', 'space-below-10');
-    var toolsHint = el('p', 'hint', state.sessions.length > 1 ? 'Drag ⋮⋮ or use ▲ ▼ to change the order of sessions within an event.' : '');
+    var toolsHint = el('p', 'hint', state.sessions.length > 1 ? W('admin.dragOrUseTo') : '');
     toolsHint.classList.add('flush');
     tools.appendChild(toolsHint);
     if (state.events.length) {
@@ -804,8 +804,8 @@
         var block = el('section', 'event loose');
         var head = el('div', 'event-head');
         var title = el('div', 'title');
-        title.appendChild(el('h2', null, 'Not in an event'));
-        title.appendChild(el('div', 'meta', 'Uses the site branding. Edit a session to put it in an event.'));
+        title.appendChild(el('h2', null, W('admin.notInAnEvent')));
+        title.appendChild(el('div', 'meta', W('admin.usesTheSiteBranding')));
         head.appendChild(title);
         block.appendChild(head);
         var box = el('div', 'event-sessions');
@@ -845,13 +845,13 @@
     var up = el('button', null, '▲');
     up.type = 'button';
     up.setAttribute('aria-label', 'Move event ' + ev.name + ' up');
-    up.title = 'Move event up';
+    up.title = W('admin.moveEventUp');
     up.disabled = index === 0;
     up.onclick = function () { moveEvent(ev.id, -1); };
     var down = el('button', null, '▼');
     down.type = 'button';
     down.setAttribute('aria-label', 'Move event ' + ev.name + ' down');
-    down.title = 'Move event down';
+    down.title = W('admin.moveEventDown');
     down.disabled = index === total - 1;
     down.onclick = function () { moveEvent(ev.id, 1); };
     order.appendChild(up);
@@ -860,7 +860,7 @@
     var title = el('div', 'title');
     var name = el('h2', null, ev.name);
     name.classList.add('clickable');
-    name.title = 'Show or hide this event\'s sessions';
+    name.title = W('admin.showOrHideThis');
     name.onclick = function () { fold.click(); };
     title.appendChild(name);
     var meta = el('div', 'meta');
@@ -878,18 +878,18 @@
     }
     if (ev.languages && ev.languages.length) bits.push(languageNames(ev.languages));
     if (b.orgName) bits.push('branded as ' + b.orgName);
-    else if (b.accent || b.welcome || b.footer || ev.hasLogo) bits.push('own branding');
-    else bits.push('site branding');
+    else if (b.accent || b.welcome || b.footer || ev.hasLogo) bits.push(W('admin.ownBranding'));
+    else bits.push(W('admin.siteBranding'));
     meta.appendChild(document.createTextNode(bits.join(' · ')));
     title.appendChild(meta);
     head.appendChild(title);
 
     var acts = el('div', 'actions');
-    var add = el('button', 'primary', 'Add session');
+    var add = el('button', 'primary', W('admin.addSession'));
     add.type = 'button';
     add.onclick = function () { openForm(null, ev.id); };
     acts.appendChild(add);
-    var edit = el('button', null, 'Edit event');
+    var edit = el('button', null, W('admin.editEvent'));
     edit.type = 'button';
     edit.onclick = function () { openEventForm(ev); };
     acts.appendChild(edit);
@@ -899,18 +899,18 @@
     open.forEach(function (x) {
       (x.moderators || []).concat(ev.moderators || []).forEach(function (e) { if (people.indexOf(e) === -1) people.push(e); });
     });
-    var mailFacilitators = el('button', null, 'Email QA Facilitators');
+    var mailFacilitators = el('button', null, W('admin.emailQaFacilitators'));
     mailFacilitators.type = 'button';
     mailFacilitators.disabled = !people.length;
     mailFacilitators.title = people.length
       ? 'Each QA Facilitator gets one email with the queue link for each session they are running: ' + people.join(', ')
-      : 'No QA Facilitators assigned to this event or its sessions';
+      : W('admin.noQaFacilitatorsAssigned');
     mailFacilitators.onclick = function () {
       ask({
-        title: 'Email QA Facilitators their links?',
+        title: W('admin.emailQaFacilitatorsTheir'),
         body: people.length + (people.length === 1 ? ' QA Facilitator gets' : ' QA Facilitators each get') + ' one email with the queue link for each ' +
           'session they are running in ' + ev.name + ' (' + open.length + (open.length === 1 ? ' session' : ' sessions') + ' that haven\'t ended): ' + people.join(', ') + '.',
-        ok: 'Send'
+        ok: W('admin.send')
       }, function () {
         call('emailEventFacilitators', [ev.id], function (res) {
           toast('Sent ' + res.facilitators + (res.facilitators === 1 ? ' email' : ' emails') + ' covering ' + res.sessions + (res.sessions === 1 ? ' session' : ' sessions'));
@@ -919,7 +919,7 @@
     };
     acts.appendChild(mailFacilitators);
     var more = el('details', 'more');
-    var moreLabel = el('summary', null, 'More ▾');
+    var moreLabel = el('summary', null, W('admin.more'));
     moreLabel.setAttribute('aria-label', 'More actions for ' + ev.name);
     more.appendChild(moreLabel);
     var menu = el('div', 'menu');
@@ -930,9 +930,9 @@
       menu.appendChild(b);
       return b;
     };
-    menuItem('Day-of checklist', function () { openChecklist(ev); });
+    menuItem(W('admin.dayOfChecklist'), function () { openChecklist(ev); });
     if ((ev.coordinators || []).length) {
-      var portal = el('a', null, 'Event Coordinator portal');
+      var portal = el('a', null, W('admin.eventCoordinatorPortal'));
       portal.href = state.appUrl + '?view=coordinator&e=' + ev.id;
       portal.target = '_blank';
       portal.rel = 'noopener';
@@ -940,31 +940,31 @@
       portal.onclick = function () { more.open = false; };
       menu.appendChild(portal);
     }
-    var sheet = el('a', null, 'Print QR sheets');
+    var sheet = el('a', null, W('admin.printQrSheets'));
     sheet.href = state.appUrl + '?view=qrsheet&e=' + ev.id;
     sheet.target = '_blank';
     sheet.rel = 'noopener';
-    sheet.title = 'A printable page with the QR code for each shareable-link session';
+    sheet.title = W('admin.aPrintablePageWith');
     menu.appendChild(sheet);
-    menuItem('Email summary for the whole event', function () { openEmail({ id: ev.id, name: ev.name, eventSummary: true, sessions: sessions }, 'eventSummary'); });
-    menuItem('Duplicate event', function (b) {
+    menuItem(W('admin.emailSummaryForThe'), function () { openEmail({ id: ev.id, name: ev.name, eventSummary: true, sessions: sessions }, 'eventSummary'); });
+    menuItem(W('admin.duplicateEvent'), function (b) {
       call('duplicateEvent', [ev.id], function (res) { render(res); toast('Copied ' + ev.name + ' with its ' + sessions.length + (sessions.length === 1 ? ' session' : ' sessions')); });
     });
     menu.appendChild(el('hr'));
-    var del = menuItem('Delete event', function () {}, 'danger');
+    var del = menuItem(W('admin.deleteEvent'), function () {}, 'danger');
     more.appendChild(menu);
     del.onclick = function () {
       more.open = false;
       ask({
-        title: 'Delete this event?',
+        title: W('admin.deleteThisEvent'),
         body: sessions.length
           ? 'Its ' + sessions.length + (sessions.length === 1 ? ' session is' : ' sessions are') + ' kept and move to "Not in an event", with the site branding. Event branding and logo are deleted.'
-          : 'Its branding and logo are deleted.',
-        ok: 'Delete event',
+          : W('admin.itsBrandingAndLogo'),
+        ok: W('admin.deleteEvent'),
         danger: true,
         typeToConfirm: ev.name
       }, function (typed) {
-        call('deleteEvent', [ev.id, typed], function (res) { render(res); toast('Event deleted'); });
+        call('deleteEvent', [ev.id, typed], function (res) { render(res); toast(W('admin.eventDeleted')); });
       });
     };
     acts.appendChild(more);
@@ -976,7 +976,7 @@
     var foldBox = el('div', 'event-fold');
     var inner = el('div', 'event-fold-inner');
     var box = el('div', 'event-sessions');
-    if (!sessions.length) box.appendChild(el('p', 'hint', 'No sessions yet. Use Add session.'));
+    if (!sessions.length) box.appendChild(el('p', 'hint', W('admin.noSessionsYetUse')));
     sessions.forEach(function (s, i) { box.appendChild(sessionCard(s, i, sessions.length)); });
     inner.appendChild(box);
     foldBox.appendChild(inner);
@@ -994,7 +994,7 @@
       var li = el('li');
       var ev = a.eventId ? eventById(a.eventId) : null;
       li.appendChild(el('span', null, (ev ? ev.name + ' — ' : '') + a.name + (a.ended ? ' · ended ' + fmtDate(a.ended) : '')));
-      var restore = el('button', 'quiet', 'Restore');
+      var restore = el('button', 'quiet', W('admin.restore'));
       restore.type = 'button';
       restore.onclick = function () {
         call('restoreSession', [a.id], function (res) { render(res); toast('Restored ' + a.name); }, restore);
@@ -1012,7 +1012,7 @@
     var to = from + delta;
     if (to < 0 || to >= ids.length) return;
     ids.splice(to, 0, ids.splice(from, 1)[0]);
-    call('reorderEvents', [ids], function (res) { render(res); toast('Order saved'); });
+    call('reorderEvents', [ids], function (res) { render(res); toast(W('admin.orderSaved')); });
   }
 
   function sessionCard(s, index, total) {
@@ -1021,7 +1021,7 @@
     card.setAttribute('data-group', s.eventId && eventById(s.eventId) ? s.eventId : '');
     var grip = el('div', 'grip');
     var handle = el('span', 'handle', '⋮⋮');
-    handle.title = 'Drag to reorder';
+    handle.title = W('admin.dragToReorder');
     handle.setAttribute('aria-hidden', 'true');
     // Only the handle starts a drag, so text in link fields stays selectable.
     handle.addEventListener('mousedown', function () { card.draggable = true; });
@@ -1050,10 +1050,10 @@
     var h = el('h3', null, s.name);
     if (s.room) h.appendChild(el('span', 'room', s.room));
     h.appendChild(el('span', 'pill ' + s.status, statusLabel(s)));
-    if (s.loadTest) h.appendChild(el('span', 'pill test', 'Load test'));
+    if (s.loadTest) h.appendChild(el('span', 'pill test', W('admin.loadTest')));
     info.appendChild(h);
     var meta = [
-      s.access === 'link' ? 'Shareable link' : 'In-room QR',
+      s.access === 'link' ? W('admin.shareableLink') : W('admin.inRoomQr'),
       (s.theme === 'light' ? 'Light screen' : s.theme === 'contrast' ? 'High-contrast screen' : 'Dark screen') + (s.roomQuestions ? ' listing questions' : ''),
       s.questionCount + (s.questionCount === 1 ? ' question' : ' questions') +
         (s.prepared && s.prepared.length ? ' (+' + s.prepared.length + ' prepared)' : ''),
@@ -1069,7 +1069,7 @@
     if (s.brand && s.brand.orgName) meta.push('branded for ' + s.brand.orgName);
     if (s.summaryPending && !s.summarySent) meta.push('summary email not sent yet (' + s.summaryPending.error + ') — retrying every 30 minutes, or use Email summary');
     var gp = s.guestPage || {};
-    var gpUses = [gp.room ? 'room screen' : '', gp.slide ? 'slide' : '', gp.panel ? 'panelist view' : ''].filter(Boolean);
+    var gpUses = [gp.room ? W('admin.roomScreen') : '', gp.slide ? 'slide' : '', gp.panel ? W('admin.panelistView') : ''].filter(Boolean);
     if (gpUses.length) meta.push('guest page for ' + gpUses.join(', '));
     if (s.summarySent) meta.push('summary emailed ' + fmtDate(s.summarySent));
     info.appendChild(el('div', 'meta', meta.join(' · ')));
@@ -1084,42 +1084,42 @@
       toggle.onclick = function () {
         call('setSessionActive', [s.id, s.status !== 'active'], function (res) {
           render(res);
-          toast(s.status === 'active' ? 'Session deactivated' : 'Session is live');
+          toast(s.status === 'active' ? W('admin.sessionDeactivated') : W('admin.sessionIsLive'));
         }, toggle);
       };
       acts.appendChild(toggle);
     }
 
-    var linksBtn = el('button', null, openLinks[s.id] ? 'Hide links' : 'Links');
+    var linksBtn = el('button', null, openLinks[s.id] ? W('admin.hideLinks') : W('admin.links'));
     linksBtn.type = 'button';
     linksBtn.onclick = function () { openLinks[s.id] = !openLinks[s.id]; renderSessions(); };
     acts.appendChild(linksBtn);
 
     if (!s.loadTest) {
-      var dup = el('button', 'quiet', 'Duplicate');
+      var dup = el('button', 'quiet', W('admin.duplicate'));
       dup.type = 'button';
-      dup.title = 'A copy with the same settings, facilitators and prepared questions — not active, not scheduled';
+      dup.title = W('admin.aCopyWithThe');
       dup.onclick = function () {
         call('duplicateSession', [s.id], function (res) {
           render(res);
-          toast('Copied — edit the copy to rename or schedule it');
+          toast(W('admin.copiedEditTheCopy'));
         }, dup);
       };
       acts.appendChild(dup);
     }
 
     if (!ended) {
-      var edit = el('button', null, 'Edit');
+      var edit = el('button', null, W('admin.edit'));
       edit.type = 'button';
       edit.onclick = function () { openForm(s); };
       acts.appendChild(edit);
 
-      var mail = el('button', null, 'Email links');
+      var mail = el('button', null, W('admin.emailLinks'));
       mail.type = 'button';
       mail.onclick = function () { openEmail(s, 'links'); };
       acts.appendChild(mail);
 
-      var mailMods = el('button', null, 'Email QA Facilitators');
+      var mailMods = el('button', null, W('admin.emailQaFacilitators'));
       mailMods.type = 'button';
       mailMods.disabled = !s.moderators.length;
       mailMods.title = s.moderators.length ? s.moderators.join(', ') : 'No QA Facilitators assigned';
@@ -1130,34 +1130,34 @@
       };
       acts.appendChild(mailMods);
 
-      var end = el('button', 'danger', 'End session');
+      var end = el('button', 'danger', W('admin.endSession'));
       end.type = 'button';
       end.onclick = function () {
         ask({
-          title: 'End this session?',
+          title: W('admin.endThisSession'),
           body: 'Participants can no longer ask questions, and an ended session cannot be reopened.' +
             (s.emailOnEnd && s.summaryTo.length ? '\n\nThe questions summary will be emailed to ' + s.summaryTo.join(', ') + '.' : ''),
-          ok: 'End session',
+          ok: W('admin.endSession'),
           danger: true,
           typeToConfirm: s.name
         }, function (typed) {
-          end.textContent = 'Ending…';
+          end.textContent = W('admin.ending');
           call('endSession', [s.id, typed], function (res) {
             render(res.state);
             toast('Session ended' + (res.emailed ? ' — summary emailed to ' + res.emailed : '') + (res.note ? '. ' + res.note : ''), !!res.note);
-          }, end, function () { end.textContent = 'End session'; });
+          }, end, function () { end.textContent = W('admin.endSession'); });
         });
       };
       acts.appendChild(end);
     } else {
-      var summary = el('button', 'primary', 'Email summary');
+      var summary = el('button', 'primary', W('admin.emailSummary'));
       summary.type = 'button';
       summary.onclick = function () { openEmail(s, 'summary'); };
       acts.appendChild(summary);
       if (!s.loadTest) {
-        var archive = el('button', null, 'Archive');
+        var archive = el('button', null, W('admin.archive'));
         archive.type = 'button';
-        archive.title = 'Move out of the list; restore any time from Archived sessions';
+        archive.title = W('admin.moveOutOfThe');
         archive.onclick = function () {
           call('archiveSession', [s.id], function (res) { render(res); toast('Archived ' + s.name); }, archive);
         };
@@ -1165,18 +1165,18 @@
       }
     }
     if (s.status !== 'active') {
-      var del = el('button', 'quiet', 'Delete');
+      var del = el('button', 'quiet', W('admin.delete'));
       del.type = 'button';
       del.onclick = function () {
         ask({
-          title: 'Delete this session?',
+          title: W('admin.deleteThisSession'),
           body: 'This permanently deletes the session and all ' + s.questionCount +
             (s.questionCount === 1 ? ' question' : ' questions') + ', topics and votes. It cannot be undone.',
-          ok: 'Delete session',
+          ok: W('admin.deleteSession'),
           danger: true,
           typeToConfirm: s.name
         }, function (typed) {
-          call('deleteSession', [s.id, typed], function (res) { render(res); toast('Session deleted'); }, del);
+          call('deleteSession', [s.id, typed], function (res) { render(res); toast(W('admin.sessionDeleted')); }, del);
         });
       };
       acts.appendChild(del);
@@ -1186,45 +1186,45 @@
 
     if (openLinks[s.id]) {
       var links = el('div', 'links');
-      linkRow(links, 'Room screen', s.links.present);
-      linkRow(links, 'PowerPoint slide', s.links.slide);
+      linkRow(links, W('admin.roomScreen2'), s.links.present);
+      linkRow(links, W('admin.powerpointSlide'), s.links.slide);
       if (!ended) {
-        var regenScreen = el('button', 'quiet', 'Replace room screen link');
+        var regenScreen = el('button', 'quiet', W('admin.replaceRoomScreenLink'));
         regenScreen.type = 'button';
         regenScreen.onclick = function () {
           ask({
-            title: 'Replace the room screen link?',
-            body: 'The current room screen link and PowerPoint slide link stop working, including on screens and slides already showing them. Copy the new links into those places. Participants are not affected.',
-            ok: 'Replace link',
+            title: W('admin.replaceTheRoomScreen'),
+            body: W('admin.theCurrentRoomScreen'),
+            ok: W('admin.replaceLink'),
             danger: true
           }, function () {
-            call('regenerateLink', [s.id, 'screen'], function (res) { render(res); toast('New room screen and slide links created'); }, regenScreen);
+            call('regenerateLink', [s.id, 'screen'], function (res) { render(res); toast(W('admin.newRoomScreenAnd')); }, regenScreen);
           });
         };
         links.appendChild(regenScreen);
       }
-      linkRow(links, 'Panelist view', s.links.panel);
-      linkRow(links, 'QA Facilitator queue', s.links.moderate);
+      linkRow(links, W('admin.panelistView2'), s.links.panel);
+      linkRow(links, W('admin.qaFacilitatorQueue'), s.links.moderate);
       if (s.links.participant) {
-        linkRow(links, 'Participant link', s.links.participant);
+        linkRow(links, W('admin.participantLink'), s.links.participant);
         if (!ended) {
-          var regen = el('button', 'quiet', 'Replace participant link');
+          var regen = el('button', 'quiet', W('admin.replaceParticipantLink'));
           regen.type = 'button';
           regen.onclick = function () {
             ask({
-              title: 'Replace the participant link?',
-              body: 'The old link stops working for anyone who has not joined yet. People already in the session can keep asking.',
-              ok: 'Replace link'
+              title: W('admin.replaceTheParticipantLink'),
+              body: W('admin.theOldLinkStops'),
+              ok: W('admin.replaceLink')
             }, function () {
-              call('regenerateLink', [s.id], function (res) { render(res); toast('New participant link created'); }, regen);
+              call('regenerateLink', [s.id], function (res) { render(res); toast(W('admin.newParticipantLinkCreated')); }, regen);
             });
           };
           links.appendChild(regen);
         }
       } else {
-        links.appendChild(el('div', 'hint', 'In-room sessions have no participant link — people join by scanning the room screen.'));
+        links.appendChild(el('div', 'hint', W('admin.inRoomSessionsHave')));
       }
-      links.appendChild(el('div', 'hint', 'If a link shows Google\'s "Sorry, unable to open the file at this time", the browser is signed into more than one Google account. Open the link in a private browsing window. Use one on the projector computer too.'));
+      links.appendChild(el('div', 'hint', W('admin.ifALinkShows')));
       bodyWrap.appendChild(links);
     }
     return card;
@@ -1239,7 +1239,7 @@
     state.sessions.forEach(function (s) { byId[s.id] = s; });
     state.sessions = ids.map(function (id) { return byId[id]; });
     renderSessions();
-    call('reorderSessions', [ids], function (res) { render(res); toast('Order saved'); });
+    call('reorderSessions', [ids], function (res) { render(res); toast(W('admin.orderSaved')); });
   }
 
   function moveSession(id, delta) {
@@ -1314,11 +1314,11 @@
     input.value = url;
     input.onfocus = function () { input.select(); };
     row.appendChild(input);
-    var copy = el('button', null, 'Copy');
+    var copy = el('button', null, W('admin.copy'));
     copy.type = 'button';
     copy.onclick = function () { copyInput(input); };
     row.appendChild(copy);
-    var open = el('a', null, 'Open');
+    var open = el('a', null, W('admin.open'));
     open.href = url;
     open.target = '_blank';
     open.rel = 'noopener';
@@ -1339,10 +1339,10 @@
   function openForm(s, presetEvent) {
     s = s || {};
     $('eventForm').hidden = true;
-    $('formTitle').textContent = s.id ? 'Edit session' : 'New session';
+    $('formTitle').textContent = s.id ? W('admin.editSession') : W('admin.newSession');
     var select = $('f-event');
     select.innerHTML = '';
-    var none = el('option', null, 'Not in an event');
+    var none = el('option', null, W('admin.notInAnEvent'));
     none.value = '';
     select.appendChild(none);
     state.events.forEach(function (ev) {
@@ -1397,7 +1397,7 @@
     var box = $('f-mods');
     box.innerHTML = '';
     if (!state.moderators.length) {
-      box.appendChild(el('div', 'hint', 'No QA Facilitators yet.'));
+      box.appendChild(el('div', 'hint', W('admin.noQaFacilitatorsYet')));
     }
     state.moderators.forEach(function (email) {
       var label = el('label', 'choice');
@@ -1435,10 +1435,10 @@
     if (src) {
       var img = el('img');
       img.src = src;
-      img.alt = 'Session logo';
+      img.alt = W('admin.sessionLogo');
       box.appendChild(img);
     } else {
-      box.appendChild(el('span', 'hint', 'Uses the organization logo'));
+      box.appendChild(el('span', 'hint', W('admin.usesTheOrganizationLogo')));
     }
     $('f-logo-remove').hidden = !src;
   }
@@ -1460,13 +1460,13 @@
       call('saveLogo', [dataUrl, editingId], function (res) {
         render(res);
         renderSessionLogo(dataUrl);
-        toast('Session logo saved');
+        toast(W('admin.sessionLogoSaved'));
       });
     });
   });
 
   $('f-logo-remove').onclick = function () {
-    call('removeLogo', [editingId], function (res) { render(res); renderSessionLogo(''); toast('Session logo removed'); }, this);
+    call('removeLogo', [editingId], function (res) { render(res); renderSessionLogo(''); toast(W('admin.sessionLogoRemoved')); }, this);
   };
 
   $('newSession').onclick = function () { openForm(null); };
@@ -1479,7 +1479,7 @@
     ev = ev || {};
     var b = ev.brand || {};
     $('sessionForm').hidden = true;
-    $('eventFormTitle').textContent = ev.id ? 'Edit event' : 'New event';
+    $('eventFormTitle').textContent = ev.id ? W('admin.editEvent') : W('admin.newEvent');
     $('ev-id').value = ev.id || '';
     $('ev-name').value = ev.name || '';
     $('ev-org').value = b.orgName || '';
@@ -1494,8 +1494,8 @@
     $('ev-dark').value = b.roomBgDark || state.brand.roomBgDark;
     $('ev-light-on').checked = !!b.roomBgLight;
     $('ev-light').value = b.roomBgLight || state.brand.roomBgLight;
-    peopleBoxes($('ev-mods'), state.moderators, ev.moderators, 'No QA Facilitators yet. Add them on the People tab.');
-    peopleBoxes($('ev-coords'), state.coordinators, ev.coordinators, 'No Event Coordinators yet. Add them on the People tab.');
+    peopleBoxes($('ev-mods'), state.moderators, ev.moderators, W('admin.noQaFacilitatorsYet2'));
+    peopleBoxes($('ev-coords'), state.coordinators, ev.coordinators, W('admin.noEventCoordinatorsYet'));
     var custom = ev.languages && ev.languages.length;
     radio('evLangMode', custom ? 'custom' : 'site');
     $('ev-lang-site').textContent = languageNames(state.siteLanguages);
@@ -1518,10 +1518,10 @@
     if (src) {
       var img = el('img');
       img.src = src;
-      img.alt = 'Event logo';
+      img.alt = W('admin.eventLogo');
       box.appendChild(img);
     } else {
-      box.appendChild(el('span', 'hint', 'Uses the site logo'));
+      box.appendChild(el('span', 'hint', W('admin.usesTheSiteLogo')));
     }
     $('ev-logo-remove').hidden = !src;
   }
@@ -1537,11 +1537,11 @@
     shrinkImage(file, 60000, function (err, dataUrl) {
       picker.value = '';
       if (err) { toast(err, true); return; }
-      call('saveEventLogo', [editingEvent, dataUrl], function (res) { render(res); renderEventLogo(dataUrl); toast('Event logo saved'); });
+      call('saveEventLogo', [editingEvent, dataUrl], function (res) { render(res); renderEventLogo(dataUrl); toast(W('admin.eventLogoSaved')); });
     });
   });
   $('ev-logo-remove').onclick = function () {
-    call('removeEventLogo', [editingEvent], function (res) { render(res); renderEventLogo(''); toast('Event logo removed'); }, this);
+    call('removeEventLogo', [editingEvent], function (res) { render(res); renderEventLogo(''); toast(W('admin.eventLogoRemoved')); }, this);
   };
 
   $('newEvent').onclick = function () { openEventForm(null); };
@@ -1561,7 +1561,7 @@
     $('importForm').hidden = true;
     $('checklistTitle').textContent = 'Day-of checklist — ' + ev.name;
     $('checklistBody').innerHTML = '';
-    $('checklistWhen').textContent = 'Checking…';
+    $('checklistWhen').textContent = W('admin.checking');
     $('checklistPanel').hidden = false;
     call('eventChecklist', [ev.id], drawChecklist, $('checklistRefresh'));
   }
@@ -1588,9 +1588,9 @@
     res.sessions.forEach(function (s) { count(s.checks); });
     $('checklistWhen').textContent = (problems ? problems + (problems === 1 ? ' problem' : ' problems') : 'No problems') +
       (warnings ? ', ' + warnings + ' to look at' : '') + ' · checked ' + fmtDate(res.generated) + '. ✓ ready · ! worth a look · ✗ needs fixing.';
-    body.appendChild(el('h3', null, 'Whole app'));
+    body.appendChild(el('h3', null, W('admin.wholeApp')));
     body.appendChild(checkTable(res.site));
-    if (!res.sessions.length) body.appendChild(el('p', 'hint', 'This event has no sessions yet.'));
+    if (!res.sessions.length) body.appendChild(el('p', 'hint', W('admin.thisEventHasNo')));
     res.sessions.forEach(function (s) {
       var h = el('h3', null, s.name);
       h.appendChild(el('span', 'pill ' + s.status, s.status === 'active' ? 'Active' : s.status === 'ended' ? 'Ended' : 'Not active'));
@@ -1599,11 +1599,11 @@
       body.appendChild(checkTable(s.checks));
       if (s.status !== 'ended') {
         var links = el('div', 'links');
-        linkRow(links, 'Room screen', s.links.present);
-        linkRow(links, 'PowerPoint slide', s.links.slide);
-        linkRow(links, 'Panelist view', s.links.panel);
-        linkRow(links, 'QA Facilitator queue', s.links.moderate);
-        if (s.links.participant) linkRow(links, 'Participant link', s.links.participant);
+        linkRow(links, W('admin.roomScreen2'), s.links.present);
+        linkRow(links, W('admin.powerpointSlide'), s.links.slide);
+        linkRow(links, W('admin.panelistView2'), s.links.panel);
+        linkRow(links, W('admin.qaFacilitatorQueue'), s.links.moderate);
+        if (s.links.participant) linkRow(links, W('admin.participantLink'), s.links.participant);
         body.appendChild(links);
       }
     });
@@ -1632,7 +1632,7 @@
       $('exportPanel').hidden = false;
     }, btn);
   };
-  $('exportCopy').onclick = function () { copyInput($('exportText')); toast('Copied'); };
+  $('exportCopy').onclick = function () { copyInput($('exportText')); toast(W('admin.copied')); };
   $('exportClose').onclick = function () { $('exportPanel').hidden = true; };
 
   var checkedText = null;
@@ -1677,9 +1677,9 @@
     var wrap = el('div', 'import-wrap');
     var table = el('table', 'import-table');
     var head = el('tr');
-    ['Row', 'Event', 'Session', 'Result', 'Notes'].forEach(function (t) { head.appendChild(el('th', null, t)); });
+    [W('admin.row'), W('admin.event'), W('admin.session'), W('admin.result'), W('admin.notes')].forEach(function (t) { head.appendChild(el('th', null, t)); });
     table.appendChild(head);
-    var words = { create: done ? 'Created' : 'Create', update: done ? 'Updated' : 'Update', skip: 'Skip', error: 'Problem' };
+    var words = { create: done ? W('admin.created') : W('admin.create'), update: done ? W('admin.updated') : W('admin.update'), skip: W('admin.skip'), error: W('admin.problem') };
     res.rows.forEach(function (r) {
       var tr = el('tr');
       tr.appendChild(el('td', null, String(r.row)));
@@ -1695,7 +1695,7 @@
 
   $('importCheck').onclick = function () {
     var text = importText();
-    if (!text.trim()) { toast('Choose a CSV file or paste one first.', true); return; }
+    if (!text.trim()) { toast(W('admin.chooseACsvFile'), true); return; }
     call('importSessionsCsv', [text, { duplicates: radio('importDup') }, true], function (res) {
       drawImport(res, false);
       checkedText = text;
@@ -1736,7 +1736,7 @@
     call('saveEvent', [input], function (res) {
       $('eventForm').hidden = true;
       render(res);
-      toast(input.id ? 'Event saved' : 'Event created — add its sessions');
+      toast(input.id ? W('admin.eventSaved') : W('admin.eventCreatedAddIts'));
     }, $('saveEvent'));
   });
   $('cancelSession').onclick = function () { $('sessionForm').hidden = true; };
@@ -1772,7 +1772,7 @@
     call('saveSession', [input], function (res) {
       $('sessionForm').hidden = true;
       render(res);
-      toast(input.id ? 'Session saved' : 'Session created — activate it when you are ready');
+      toast(input.id ? W('admin.sessionSaved') : W('admin.sessionCreatedActivateIt'));
     }, $('saveSession'));
   });
 
@@ -1799,8 +1799,8 @@
     $('e-participant').disabled = !hasLink;
     $('e-participant').checked = hasLink;
     $('e-participant-hint').textContent = hasLink
-      ? 'Anyone with this link can ask a question.'
-      : 'Not available: in-room sessions are joined by scanning the room screen.';
+      ? W('admin.anyoneWithThisLink')
+      : W('admin.notAvailableInRoom');
     $('e-present').checked = !hasLink;
     $('e-moderate').checked = false;
     $('emailModal').hidden = false;
@@ -1846,9 +1846,9 @@
   function renderPeople() {
     $('domainHint').textContent = state.domain
       ? 'Only @' + state.domain + ' accounts can be administrators, QA Facilitators or Event Coordinators. ' +
-        'Google does not tell the app who is signed in from any other domain.'
+        W('admin.googleDoesNotTell')
       : 'Everyone here signs in with an account on this site. Adding an address that has no account ' +
-        'creates one and sends them a set-your-password email.';
+        W('admin.createsOneAndSends');
     personList($('adminList'), 'admin', [state.owner].concat(state.admins.filter(function (e) { return e !== state.owner; })));
     personList($('modList'), 'moderator', state.moderators);
     personList($('coordList'), 'coordinator', state.coordinators);
@@ -1872,15 +1872,15 @@
 
   function personList(ul, role, emails) {
     ul.innerHTML = '';
-    if (!emails.length) ul.appendChild(el('li', 'hint', 'None yet'));
+    if (!emails.length) ul.appendChild(el('li', 'hint', W('admin.noneYet')));
     emails.forEach(function (email) {
       var li = el('li');
       li.appendChild(el('span', null, email));
       var locked = role === 'admin' && (email === state.owner || email === state.me);
       if (locked) {
-        li.appendChild(el('span', 'hint', email === state.owner ? 'Owner' : 'You'));
+        li.appendChild(el('span', 'hint', email === state.owner ? W('admin.owner') : W('admin.you')));
       } else {
-        var rm = el('button', 'quiet', 'Remove');
+        var rm = el('button', 'quiet', W('admin.remove'));
         rm.type = 'button';
         rm.onclick = function () {
           ask({
@@ -1888,7 +1888,7 @@
             body: email + (role === 'moderator' ? ' will also be removed from every session.'
               : role === 'coordinator' ? ' will also be removed from every event, and can no longer open a coordinator portal.'
               : ' will no longer be able to open the Admin page.'),
-            ok: 'Remove',
+            ok: W('admin.remove'),
             danger: true
           }, function () {
             call('removePerson', [role, email], function (res) { render(res); toast('Removed ' + email); }, rm);
@@ -1963,7 +1963,7 @@
 
   $('langForm').addEventListener('submit', function (e) {
     e.preventDefault();
-    call('saveSiteLanguages', [chosenLanguages($('siteLangs'))], function (res) { render(res); toast('Languages saved'); }, $('saveLangs'));
+    call('saveSiteLanguages', [chosenLanguages($('siteLangs'))], function (res) { render(res); toast(W('admin.languagesSaved')); }, $('saveLangs'));
   });
 
   var evLangRadios = document.querySelectorAll('input[name=evLangMode]');
@@ -1983,7 +1983,7 @@
   $('ops-save').onclick = function () {
     var months = Number($('ops-retention').value);
     var go = function () {
-      call('saveOpsSettings', [{ retentionMonths: months, weeklyReport: $('ops-weekly').checked }], function (res) { render(res); toast('Saved'); }, $('ops-save'));
+      call('saveOpsSettings', [{ retentionMonths: months, weeklyReport: $('ops-weekly').checked }], function (res) { render(res); toast(W('admin.saved')); }, $('ops-save'));
     };
     if (months && months !== state.ops.retentionMonths) {
       ask({ title: 'Remove old question wording?', body: 'Within the hour, the wording of every question from sessions that ended more than ' + months + ' months ago is removed for good. Topics, counts and answered status stay.', ok: 'Remove old wording', danger: true }, go);
@@ -2018,10 +2018,10 @@
     if (state.brand.logo) {
       var img = el('img');
       img.src = state.brand.logo;
-      img.alt = 'Current logo';
+      img.alt = W('admin.currentLogo');
       preview.appendChild(img);
     } else {
-      preview.appendChild(el('span', 'hint', 'No logo'));
+      preview.appendChild(el('span', 'hint', W('admin.noLogo')));
     }
     $('removeLogo').hidden = !state.brand.logo;
 
@@ -2047,30 +2047,30 @@
   // The Gemini API key (Health tab). The key itself is never sent back to the page.
   function renderKey() {
     $('gem-key-state').textContent = state.geminiKeySet
-      ? 'A key is saved. Paste a new one to replace it; the key itself is never shown again.'
-      : 'No key yet. Without one, questions still arrive and can be answered — they are simply not grouped or translated.';
+      ? W('admin.aKeyIsSaved')
+      : W('admin.noKeyYetWithout');
     $('gem-key-clear').hidden = !state.geminiKeySet;
   }
 
   $('keyForm').addEventListener('submit', function (e) {
     e.preventDefault();
     var box = $('gem-key');
-    if (!box.value.trim()) { toast('Paste a key first.', true); return; }
+    if (!box.value.trim()) { toast(W('admin.pasteAKeyFirst'), true); return; }
     call('saveGeminiKey', [box.value.trim()], function (res) {
       box.value = '';
       render(res);
-      toast('Gemini key saved');
+      toast(W('admin.geminiKeySaved'));
     }, $('gem-key-save'));
   });
 
   $('gem-key-clear').onclick = function () {
     ask({
-      title: 'Remove the Gemini key?',
-      body: 'Questions will still arrive and can be answered, but nothing will be grouped or translated until a key is added again.',
-      ok: 'Remove',
+      title: W('admin.removeTheGeminiKey'),
+      body: W('admin.questionsWillStillArrive'),
+      ok: W('admin.remove'),
       danger: true
     }, function () {
-      call('saveGeminiKey', [''], function (res) { render(res); toast('Gemini key removed'); }, $('gem-key-clear'));
+      call('saveGeminiKey', [''], function (res) { render(res); toast(W('admin.geminiKeyRemoved')); }, $('gem-key-clear'));
     });
   };
 
@@ -2100,7 +2100,7 @@
     if (!promptDirty) $('prompt-text').value = p.text;
     $('prompt-needs').textContent = 'Must still contain ' + p.needs.join(' and ') +
       '. Question Desk fills those in before sending.';
-    $('prompt-state').textContent = p.custom ? 'Edited here' : 'The built-in prompt';
+    $('prompt-state').textContent = p.custom ? W('admin.editedHere') : W('admin.theBuiltInPrompt');
     $('prompt-guards').textContent = p.guards;
     $('prompt-reset').hidden = !p.custom;
   }
@@ -2112,28 +2112,28 @@
     call('savePrompt', [currentPrompt().task, $('prompt-text').value], function (res) {
       promptDirty = false;
       render(res);
-      toast('Prompt saved — used from the next request');
+      toast(W('admin.promptSavedUsedFrom'));
     }, $('prompt-save'));
   };
 
   $('prompt-reset').onclick = function () {
     var p = currentPrompt();
     ask({
-      title: 'Put the built-in prompt back?',
+      title: W('admin.putTheBuiltIn'),
       body: 'Your wording for “' + p.label + '” is replaced by the one Question Desk ships with.',
-      ok: 'Reset'
+      ok: W('admin.reset')
     }, function () {
       call('savePrompt', [p.task, ''], function (res) {
         promptDirty = false;
         render(res);
-        toast('Built-in prompt restored');
+        toast(W('admin.builtInPromptRestored'));
       }, $('prompt-reset'));
     });
   };
 
   // Gemini settings (Health tab).
   var THINKING = [
-    ['default', 'Model default'], ['minimal', 'Minimal (fastest)'], ['low', 'Low'], ['medium', 'Medium'], ['high', 'High (slowest)']
+    ['default', W('admin.modelDefault')], ['minimal', W('admin.minimalFastest')], ['low', W('admin.low')], ['medium', W('admin.medium')], ['high', W('admin.highSlowest')]
   ];
   var GEM_TASKS = ['grouping', 'merging', 'translating'];
   var gemDirty = false;   // don't overwrite what an admin is editing when the page refreshes
@@ -2166,11 +2166,11 @@
   $('gemForm').addEventListener('change', function () { gemDirty = true; });
   $('gemForm').addEventListener('submit', function (e) {
     e.preventDefault();
-    call('saveGeminiSettings', [geminiInput()], function (res) { gemDirty = false; render(res); toast('Gemini settings saved — used from the next request'); }, $('gem-save'));
+    call('saveGeminiSettings', [geminiInput()], function (res) { gemDirty = false; render(res); toast(W('admin.geminiSettingsSavedUsed')); }, $('gem-save'));
   });
   $('gem-reset').onclick = function () {
     ask({ title: 'Reset Gemini settings?', body: 'Back to ' + state.geminiDefaults.model + ', the recommended thinking levels, temperature ' + state.geminiDefaults.temperature + ' and ' + state.geminiDefaults.batchSize + ' questions per grouping request.', ok: 'Reset' }, function () {
-      call('saveGeminiSettings', [{ reset: true }], function (res) { gemDirty = false; render(res); toast('Gemini settings reset'); }, $('gem-reset'));
+      call('saveGeminiSettings', [{ reset: true }], function (res) { gemDirty = false; render(res); toast(W('admin.geminiSettingsReset')); }, $('gem-reset'));
     });
   };
   $('gem-test').onclick = function () {
@@ -2233,16 +2233,16 @@
   };
 
   $('startLoad').onclick = function () {
-    call('startLoadTest', [], function (res) { render(res); toast('Load test ready — run the command'); }, this);
+    call('startLoadTest', [], function (res) { render(res); toast(W('admin.loadTestReadyRun')); }, this);
   };
   $('stopLoad').onclick = function () {
     var btn = this;
     ask({
-      title: 'Finish the load test?',
-      body: 'The test endpoint is switched off, and its session and every test question are deleted.',
-      ok: 'Finish and delete'
+      title: W('admin.finishTheLoadTest'),
+      body: W('admin.theTestEndpointIs'),
+      ok: W('admin.finishAndDelete')
     }, function () {
-      call('stopLoadTest', [], function (res) { render(res); toast('Load test finished and cleaned up'); }, btn);
+      call('stopLoadTest', [], function (res) { render(res); toast(W('admin.loadTestFinishedAnd')); }, btn);
     });
   };
   $('copyLoad').onclick = function () {
@@ -2253,7 +2253,7 @@
     sel.addRange(range);
     var done = false;
     try { done = document.execCommand('copy'); } catch (e) {}
-    toast(done ? 'Copied' : 'Selected — press Ctrl/Cmd+C to copy');
+    toast(done ? W('admin.copied') : W('admin.selectedPressCtrlCmd'));
   };
 
   // Summary recipients: a list like administrators and QA Facilitators; every change saves.
@@ -2271,17 +2271,17 @@
     var extra = state.summaryDefaults.extra || [];
     $('summaryHint').textContent = "Every session's questions summary goes to these addresses, and only these, when it ends. Anyone can be added, even outside your organization.";
     ul.innerHTML = '';
-    if (!extra.length) ul.appendChild(el('li', 'hint', 'None yet'));
+    if (!extra.length) ul.appendChild(el('li', 'hint', W('admin.noneYet')));
     extra.forEach(function (email) {
       var li = el('li');
       li.appendChild(el('span', null, email));
-      var rm = el('button', 'quiet', 'Remove');
+      var rm = el('button', 'quiet', W('admin.remove'));
       rm.type = 'button';
       rm.onclick = function () {
         ask({
-          title: 'Remove summary recipient?',
+          title: W('admin.removeSummaryRecipient'),
           body: email + ' will no longer get session summaries.',
-          ok: 'Remove',
+          ok: W('admin.remove'),
           danger: true
         }, function () {
           saveSummary(extra.filter(function (e) { return e !== email; }), 'Removed ' + email, rm);
@@ -2317,7 +2317,7 @@
       guestPageUrl: $('b-guest').value
     }], function (res) {
       render(res);
-      toast('Branding saved');
+      toast(W('admin.brandingSaved'));
     }, this.querySelector('button[type=submit]'));
   });
 
@@ -2328,24 +2328,24 @@
     shrinkImage(file, state ? 60000 : 60000, function (err, dataUrl) {
       picker.value = '';
       if (err) { toast(err, true); return; }
-      call('saveLogo', [dataUrl], function (res) { render(res); toast('Logo saved'); });
+      call('saveLogo', [dataUrl], function (res) { render(res); toast(W('admin.logoSaved')); });
     });
   });
 
   $('removeLogo').onclick = function () {
     var btn = this;
-    ask({ title: 'Remove the logo?', body: 'Pages will show your organization name instead.', ok: 'Remove logo', danger: true }, function () {
-      call('removeLogo', [], function (res) { render(res); toast('Logo removed'); }, btn);
+    ask({ title: W('admin.removeTheLogo'), body: W('admin.pagesWillShowYour'), ok: W('admin.removeLogo'), danger: true }, function () {
+      call('removeLogo', [], function (res) { render(res); toast(W('admin.logoRemoved')); }, btn);
     });
   };
 
   /** Downscale in the browser so the stored logo stays small; tries PNG, then WebP, then smaller sizes. */
   function shrinkImage(file, maxChars, done) {
     var reader = new FileReader();
-    reader.onerror = function () { done('Could not read that file.'); };
+    reader.onerror = function () { done(W('admin.couldNotReadThat')); };
     reader.onload = function () {
       var img = new Image();
-      img.onerror = function () { done('That file is not an image this browser can read.'); };
+      img.onerror = function () { done(W('admin.thatFileIsNot')); };
       img.onload = function () {
         var w = img.naturalWidth || 600, h = img.naturalHeight || 200;
         var scale = Math.min(1, 600 / w, 200 / h);
@@ -2360,7 +2360,7 @@
           if (webp.indexOf('data:image/webp') === 0 && webp.length <= maxChars) return done(null, webp);
           scale *= 0.75;
         }
-        done('That image is too detailed to use as a logo. Try a simpler or smaller version.');
+        done(W('admin.thatImageIsToo'));
       };
       img.src = reader.result;
     };
