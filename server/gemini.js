@@ -106,7 +106,7 @@ function testGeminiSettings(input) {
 function listGeminiModels() {
   requireAdmin_();
   const key = props_().getProperty('GEMINI_API_KEY');
-  if (!key) return { ok: false, error: 'No Gemini API key yet: add one above.', models: [] };
+  if (!key) return { ok: false, error: t_('gem.noKeyYet'), models: [] };
   try {
     const res = UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=200', {
       method: 'get', headers: { 'x-goog-api-key': key }, muteHttpExceptions: true
@@ -118,7 +118,7 @@ function listGeminiModels() {
       .filter(function (m) { return validModel_(m.name); });
     return { ok: true, models: models };
   } catch (err) {
-    return { ok: false, error: 'Could not reach Gemini: ' + err, models: [] };
+    return { ok: false, error: t_('gem.unreachable', { why: err }), models: [] };
   }
 }
 
@@ -140,11 +140,20 @@ function listGeminiModels() {
  */
 const PROMPT_TASKS = ['grouping', 'translating', 'merging', 'review'];
 
+// What the activity log records for each prompt. A record, so it stays in one language; the
+// label the Admin page shows is the phrase gem.label.<task>.
 const PROMPT_LABELS = {
   grouping: 'Grouping and translating questions',
   translating: 'Translating a question on its own',
   merging: 'Writing a topic\'s read-out question',
   review: 'Reviewing an event afterwards'
+};
+
+const PROMPT_LABEL_KEYS = {
+  grouping: 'gem.label.grouping',
+  translating: 'gem.label.translating',
+  merging: 'gem.label.merging',
+  review: 'gem.label.review'
 };
 
 const PROMPT_NEEDS = {
@@ -284,7 +293,7 @@ function promptSettings_() {
   return PROMPT_TASKS.map(function (task) {
     return {
       task: task,
-      label: PROMPT_LABELS[task],
+      label: t_(PROMPT_LABEL_KEYS[task]),
       text: promptTemplate_(task),
       defaultText: defaults[task],
       custom: typeof saved[task] === 'string' && !!saved[task].trim() && saved[task] !== defaults[task],
@@ -754,7 +763,7 @@ function mergeTopic(sid, topic) {
       return '- ' + source + (q.lang ? '  [asked in ' + q.lang + ']' : '');
     });
 
-  if (!rows.length) return { ok: false, error: 'This topic has no questions left to merge.' };
+  if (!rows.length) return { ok: false, error: t_('gem.noQuestionsToMerge') };
 
   const codes = translationCodes_(getSession_(sid));
   const names = codes.map(languageName_);
@@ -820,7 +829,7 @@ function eventReview_(eid) {
       }));
     });
   });
-  if (!lines.length) return { ok: false, error: 'This event has no questions to review yet.' };
+  if (!lines.length) return { ok: false, error: t_('gem.noQuestionsToReview') };
 
   const prompt = renderPrompt_('review', { questions: lines.join('\n') });
 
@@ -873,12 +882,12 @@ function eventReview_(eid) {
 
 /** What to tell a facilitator when a merge fails (details go to the execution log). */
 function mergeProblem_(response) {
-  if (/API key/.test(response.error || '')) return 'Gemini isn\'t set up: an administrator needs to add the API key.';
-  if (response.status === 429) return 'Gemini is busy or out of quota. Try again in a minute.';
-  if (response.status === 404) return 'The Gemini model is no longer available. An admin needs to update Question Desk.';
-  if (response.status >= 500 || /Could not reach/.test(response.error || '')) return 'Gemini didn\'t answer. Try again in a moment.';
-  if (response.status) return 'Gemini refused the request (' + response.status + '). An admin can run the health check on the Admin page.';
-  return 'Gemini\'s answer couldn\'t be used. Try again.';
+  if (/API key/.test(response.error || '')) return t_('gem.notSetUp');
+  if (response.status === 429) return t_('gem.busy');
+  if (response.status === 404) return t_('gem.modelGone');
+  if (response.status >= 500 || /Could not reach/.test(response.error || '')) return t_('gem.noAnswer');
+  if (response.status) return t_('gem.refused', { status: response.status });
+  return t_('gem.badAnswer');
 }
 
 /**
@@ -892,7 +901,7 @@ function mergeProblem_(response) {
 function geminiRequest_(prompt, schema, opts) {
   opts = opts || {};
   const key = props_().getProperty('GEMINI_API_KEY');
-  if (!key) return { ok: false, error: 'No Gemini API key: an administrator can add one under Health & testing.' };
+  if (!key) return { ok: false, error: t_('gem.noKey') };
   const settings = opts.settings || geminiSettings_();
   const level = opts.thinking || (opts.task ? settings.thinking[opts.task] : 'default');
   const thinkingLevel = level && level !== 'default' ? level : '';
@@ -929,18 +938,18 @@ function geminiRequest_(prompt, schema, opts) {
       response = send('');
     }
   } catch (err) {
-    return { ok: false, error: 'Could not reach Gemini: ' + err };
+    return { ok: false, error: t_('gem.unreachable', { why: err }) };
   }
 
   const code = response.getResponseCode();
   if (code !== 200) {
     const text = String(response.getContentText() || '');
     console.error('Gemini ' + code + ': ' + text);
-    const hint = code === 404 ? ' — model ' + settings.model + ' not found; it may have been retired. Choose another model under Admin → Health → Gemini.'
-      : code === 429 ? ' — rate limited or out of quota.'
-      : code === 400 || code === 401 || code === 403 ? ' — the API key was rejected or the request is invalid.'
+    const hint = code === 404 ? t_('gem.hintModelGone', { model: settings.model })
+      : code === 429 ? t_('gem.hintRateLimited')
+      : code === 400 || code === 401 || code === 403 ? t_('gem.hintKeyRejected')
       : '';
-    return { ok: false, status: code, error: 'Gemini ' + code + hint + ' ' + text.slice(0, 200) };
+    return { ok: false, status: code, error: t_('gem.httpError', { code: code, hint: hint, body: text.slice(0, 200) }) };
   }
 
   try {
@@ -951,6 +960,6 @@ function geminiRequest_(prompt, schema, opts) {
   } catch (err) {
     console.error('Could not parse Gemini response: ' + err);
     // Gemini answered but the reply was blocked or cut off: the questions themselves may be why.
-    return { ok: false, answered: true, error: 'Could not parse Gemini response: ' + err };
+    return { ok: false, answered: true, error: t_('gem.parseFailed', { why: err }) };
   }
 }

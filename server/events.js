@@ -282,7 +282,7 @@ function emailEventSummary(eid, recipients) {
     review = reviewSection_(eventReview_(eid), brand, siteLanguage_());
   } catch (err) {
     console.error('Event review: ' + err);
-    review = reviewProblem_('The review could not be made: ' + err);
+    review = reviewProblem_(t_('list.reviewFailed', { why: String(err) }));
   }
   let body = '<p style="color:#5c6874;margin:0 0 8px">' + sessions.length + (sessions.length === 1 ? ' session' : ' sessions') + '</p>';
   let header = null;
@@ -387,10 +387,12 @@ function eventChecklist(eid) {
   const health = health_();
   const trigger = ScriptApp.getProjectTriggers().some(function (t) { return t.getHandlerFunction() === 'clusterQuestions'; });
   const site = [
-    { label: 'Question grouping runs every minute', ok: trigger, detail: trigger ? '' : 'Run setUp() in the Apps Script editor.' },
-    { label: 'Gemini is set up', ok: !!props_().getProperty('GEMINI_API_KEY') && !health.failures,
-      detail: !props_().getProperty('GEMINI_API_KEY') ? 'No Gemini API key: add one under Health & testing.' : health.failures ? 'Grouping failed ' + health.failures + ' times in a row: ' + (health.lastError || '') : '' },
-    { label: 'Email quota', ok: MailApp.getRemainingDailyQuota() >= 20, detail: MailApp.getRemainingDailyQuota() + ' emails left today' }
+    { label: t_('list.groupingRuns'), ok: trigger, detail: trigger ? '' : t_('list.runSetUp') },
+    { label: t_('list.geminiSetUp'), ok: !!props_().getProperty('GEMINI_API_KEY') && !health.failures,
+      detail: !props_().getProperty('GEMINI_API_KEY') ? t_('list.geminiNoKey')
+        : health.failures ? t_('list.geminiFailing', { n: health.failures, why: health.lastError || '' }) : '' },
+    { label: t_('list.emailQuota'), ok: MailApp.getRemainingDailyQuota() >= 20,
+      detail: t_('list.emailsLeft', { n: MailApp.getRemainingDailyQuota() }) }
   ];
   const sessions = allSessions_().filter(function (s) { return s.eventId === eid && !s.loadTest; }).map(function (s) {
     const links = sessionLinks_(s);
@@ -398,24 +400,25 @@ function eventChecklist(eid) {
     const recipients = summaryRecipients_(s);
     const checks = [];
     if (s.status === 'ended') {
-      checks.push({ label: 'Ended', ok: true, detail: s.summarySent ? 'Summary emailed ' + fmt(s.summarySent) : (s.summaryPending ? 'Summary not sent yet: ' + s.summaryPending.error : '') });
+      checks.push({ label: t_('list.ended'), ok: true, detail: s.summarySent ? t_('list.summaryEmailed', { at: fmt(s.summarySent) })
+        : (s.summaryPending ? t_('list.summaryNotSent', { why: s.summaryPending.error }) : '') });
     } else {
       checks.push(s.status === 'active'
-        ? { label: 'Active and taking questions', ok: s.open !== false, detail: s.open === false ? 'Questions are paused.' : '' }
+        ? { label: t_('list.activeTaking'), ok: s.open !== false, detail: s.open === false ? t_('list.paused') : '' }
         : s.scheduledStart && !s.scheduleStarted
-          ? { label: 'Starts on its own', ok: s.scheduledStart > now, detail: fmt(s.scheduledStart) }
-          : { label: 'Not active', ok: null, detail: 'Activate it on the Sessions tab when doors open.' });
+          ? { label: t_('list.startsOnItsOwn'), ok: s.scheduledStart > now, detail: fmt(s.scheduledStart) }
+          : { label: t_('list.notActive'), ok: null, detail: t_('list.activateWhenDoorsOpen') });
       checks.push(s.scheduledEnd
-        ? { label: 'Ends on its own', ok: s.scheduledEnd > now, detail: fmt(s.scheduledEnd) }
-        : { label: 'No scheduled end', ok: null, detail: 'End it by hand afterwards.' });
-      checks.push({ label: 'QA Facilitators', ok: facilitators.length > 0, detail: facilitators.join(', ') || 'Nobody can run the queue except administrators.' });
-      checks.push({ label: 'Summary email', ok: !s.emailOnEnd ? null : recipients.length > 0,
-        detail: !s.emailOnEnd ? 'Not emailed when it ends.' : recipients.length ? 'To ' + recipients.join(', ') : 'Turned on, but nobody would get it.' });
+        ? { label: t_('list.endsOnItsOwn'), ok: s.scheduledEnd > now, detail: fmt(s.scheduledEnd) }
+        : { label: t_('list.noScheduledEnd'), ok: null, detail: t_('list.endByHand') });
+      checks.push({ label: t_('list.facilitators'), ok: facilitators.length > 0, detail: facilitators.join(', ') || t_('list.nobodyCanRun') });
+      checks.push({ label: t_('list.summaryEmail'), ok: !s.emailOnEnd ? null : recipients.length > 0,
+        detail: !s.emailOnEnd ? t_('list.notEmailed') : recipients.length ? t_('list.summaryTo', { who: recipients.join(', ') }) : t_('list.nobodyWouldGet') });
       const g = guestChoice_(s.guestPage);
-      const uses = [g.room ? 'room screen' : '', g.slide ? 'PowerPoint slide' : '', g.panel ? 'panelist view' : ''].filter(Boolean);
-      checks.push({ label: 'Guest page', ok: uses.length ? true : null,
-        detail: uses.length ? 'For ' + uses.join(', ') : 'Off: browsers signed into several Google accounts may see "Sorry, unable to open the file".' });
-      checks.push({ label: 'Prepared questions', ok: true, detail: String(sessionRows_(s.id, true).filter(function (q) { return q.status === 'prepared'; }).length) });
+      const uses = [g.room ? t_('list.guestRoom') : '', g.slide ? t_('list.guestSlide') : '', g.panel ? t_('list.guestPanel') : ''].filter(Boolean);
+      checks.push({ label: t_('list.guestPage'), ok: uses.length ? true : null,
+        detail: uses.length ? t_('list.guestFor', { uses: uses.join(', ') }) : t_('list.guestOff') });
+      checks.push({ label: t_('list.prepared'), ok: true, detail: String(sessionRows_(s.id, true).filter(function (q) { return q.status === 'prepared'; }).length) });
     }
     return {
       id: s.id, name: s.name, status: s.status, access: s.access,

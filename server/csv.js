@@ -169,15 +169,15 @@ function importSessionsCsv(text, options, dryRun) {
     result.rows.push(out);
     try {
       if (!out.name) throw new Error(t_('err.noSessionName'));
-      const start = has('scheduledStart') ? csvTime_(get.scheduledStart, 'Scheduled start') : undefined;
-      const end = has('scheduledEnd') ? csvTime_(get.scheduledEnd, 'Scheduled end') : undefined;
+      const start = has('scheduledStart') ? csvTime_(get.scheduledStart, t_('csv.label.scheduledStart')) : undefined;
+      const end = has('scheduledEnd') ? csvTime_(get.scheduledEnd, t_('csv.label.scheduledEnd')) : undefined;
       const key = sessionKey_(out.name, start, end);
       if (seenInFile[key]) throw new Error(t_('err.csvDuplicateRow', { row: seenInFile[key] }));
       seenInFile[key] = rowNumber;
 
       const match = existing[sessionKey_(out.name, start === undefined ? null : start, end === undefined ? null : end)];
-      if (match && onDuplicate === 'skip') { out.action = 'skip'; out.warnings.push('Already exists; skipped.'); result.skipped++; return; }
-      if (match && match.status === 'ended') { out.action = 'skip'; out.warnings.push('Already exists and has ended; ended sessions can\'t be changed.'); result.skipped++; return; }
+      if (match && onDuplicate === 'skip') { out.action = 'skip'; out.warnings.push(t_('csv.alreadyExists')); result.skipped++; return; }
+      if (match && match.status === 'ended') { out.action = 'skip'; out.warnings.push(t_('csv.alreadyEnded')); result.skipped++; return; }
 
       // Start from the existing session's settings, so missing columns change nothing.
       const input = match ? sessionInput_(match) : { name: out.name, emailOnEnd: true };
@@ -196,26 +196,26 @@ function importSessionsCsv(text, options, dryRun) {
       }
       if (has('cooldownSeconds') && get.cooldownSeconds.trim() !== '') input.cooldownSeconds = get.cooldownSeconds.trim();
       if (has('maxLength') && get.maxLength.trim() !== '') input.maxLength = get.maxLength.trim();
-      if (has('emailOnEnd')) input.emailOnEnd = csvYes_(get.emailOnEnd, 'Email summary', input.emailOnEnd);
+      if (has('emailOnEnd')) input.emailOnEnd = csvYes_(get.emailOnEnd, t_('csv.label.emailOnEnd'), input.emailOnEnd);
       if (start !== undefined) input.scheduledStart = start;
       if (end !== undefined) input.scheduledEnd = end;
       if (has('moderators')) {
         const listed = parseEmails_(get.moderators);
         const missing = listed.filter(function (e) { return roster.indexOf(e) === -1; });
-        if (missing.length) out.warnings.push('Not on the QA Facilitator list, so not added: ' + missing.join(', ') + '. Add them on the People tab.');
+        if (missing.length) out.warnings.push(t_('csv.notOnFacilitatorList', { names: missing.join(', ') }));
         input.moderators = listed.filter(function (e) { return roster.indexOf(e) !== -1; });
       }
       if (has('guestRoom') || has('guestSlide') || has('guestPanel') || has('guestUrl')) {
         const g = guestChoice_(input.guestPage);
         input.guestPage = {
-          room: csvYes_(get.guestRoom, 'Guest page for room screen', g.room),
-          slide: csvYes_(get.guestSlide, 'Guest page for slide', g.slide),
-          panel: csvYes_(get.guestPanel, 'Guest page for panelist view', g.panel),
+          room: csvYes_(get.guestRoom, t_('csv.label.guestRoom'), g.room),
+          slide: csvYes_(get.guestSlide, t_('csv.label.guestSlide'), g.slide),
+          panel: csvYes_(get.guestPanel, t_('csv.label.guestPanel'), g.panel),
           url: has('guestUrl') ? get.guestUrl.trim() : g.url
         };
       }
-      if (has('roomQuestions')) input.roomQuestions = csvYes_(get.roomQuestions, 'Room screen lists questions', !!input.roomQuestions);
-      if (has('translatePrepared')) input.translatePrepared = csvYes_(get.translatePrepared, 'Translate prepared questions', input.translatePrepared !== false);
+      if (has('roomQuestions')) input.roomQuestions = csvYes_(get.roomQuestions, t_('csv.label.roomQuestions'), !!input.roomQuestions);
+      if (has('translatePrepared')) input.translatePrepared = csvYes_(get.translatePrepared, t_('csv.label.translatePrepared'), input.translatePrepared !== false);
       if (has('brandOrgName')) input.brandOrgName = get.brandOrgName;
       if (has('brandAccent')) input.brandAccent = get.brandAccent.trim().toLowerCase();
       if (has('prepared')) {
@@ -230,7 +230,7 @@ function importSessionsCsv(text, options, dryRun) {
         else {
           if (!newEvents[evName.toLowerCase()]) { newEvents[evName.toLowerCase()] = evName; result.events.push(evName); }
           input.eventId = '';   // created below, when importing for real
-          out.warnings.push('New event "' + evName + '" will be created.');
+          out.warnings.push(t_('csv.newEvent', { name: evName }));
         }
       }
 

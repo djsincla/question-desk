@@ -317,7 +317,7 @@ function endSession_(sid) {
   try {
     for (let pass = 0; pass < 8 && clusterSession_(sid) > 0; pass++) { /* drain in batches */ }
   } catch (err) {
-    groupingNote = 'Final grouping failed, so some questions may be untranslated.';
+    groupingNote = t_('end.groupingFailed');
     console.error('Final grouping for ' + sid + ': ' + err);
   }
 
@@ -330,7 +330,7 @@ function endSession_(sid) {
       // The session is already ended; keep the summary owed so the schedule retries it.
       noteSummaryFailure_(sid, err);
       groupingNote = (groupingNote ? groupingNote + ' ' : '') +
-        'The summary email could not be sent (' + (err.message || err) + '). It will be retried automatically, or use Email summary.';
+        t_('end.summaryFailed', { why: err.message || err });
     }
   }
   return { emailed: emailed, note: groupingNote };

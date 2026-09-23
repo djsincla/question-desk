@@ -102,7 +102,7 @@ function doGet(e) {
 
   if (view === 'admin') {
     if (!isAdmin_()) return notice_('denied');
-    return page_('Admin.html', 'Question Desk admin', {}, null);
+    return page_('Admin.html', t_('page.admin'), {}, null);
   }
 
   // Printable QR sheets for an event's shareable-link sessions (admins; opened in a new tab to print).
@@ -162,7 +162,7 @@ function doGet(e) {
       if (!ev) return notice_('pickEvent');
       return notice_('denied');
     }
-    return page_('Coordinator.html', ev.name + ' — event logistics', {
+    return page_('Coordinator.html', t_('page.coordinator', { event: ev.name }), {
       eid: ev.id, board: getCoordinatorBoard(ev.id)
     }, { eventId: ev.id });
   }
@@ -179,7 +179,7 @@ function doGet(e) {
   if (view === 'ask' && !p.s) return home_();
 
   const session = getSession_(sid);
-  return page_('Ask.html', 'Ask a question', {
+  return page_('Ask.html', t_('page.ask'), {
     sid: session ? session.id : '',
     credential: String(p.t || p.k || '').slice(0, 64),
     languages: languageList_(session)
