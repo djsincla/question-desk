@@ -2,8 +2,8 @@
 /**
  * Drafts the app's own words in another language, for a person to read before it ships.
  *
- *   GEMINI_API_KEY=… node scripts/translate-strings.js es
- *   (read translations/es.json, fix anything that reads wrong)
+ *   GEMINI_API_KEY=AIza... node scripts/translate-strings.js es
+ *   then read translations/es.json and fix anything that reads wrong
  *   node scripts/translate-strings.js es --apply
  *
  * Run by hand, never by CI and never by the app: the wording is reviewed and committed, so a
@@ -95,8 +95,15 @@ function tokens(text) {
 
 async function draft(code) {
   const language = LANGUAGES[code].name;
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = String(process.env.GEMINI_API_KEY || '').trim();
   if (!apiKey) throw new Error('Set GEMINI_API_KEY to the key from aistudio.google.com.');
+  // A key pasted from a placeholder, or with a stray character in it, otherwise fails deep
+  // inside fetch with a message about byte strings.
+  if (!/^AIza[\w-]{30,}$/.test(apiKey)) {
+    throw new Error('GEMINI_API_KEY does not look like a Gemini key (it should start with AIza).\n' +
+      'Got ' + apiKey.length + ' character(s): ' + JSON.stringify(apiKey.slice(0, 12)) +
+      '\nCopy it from aistudio.google.com.');
+  }
 
   const todo = Object.keys(TEXT).filter(function (k) { return !TEXT[k][code]; })
     .map(function (k) { return { key: k, en: TEXT[k].en }; });
