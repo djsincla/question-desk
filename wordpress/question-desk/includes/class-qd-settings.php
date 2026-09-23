@@ -16,7 +16,7 @@ class QD_Settings {
 		};
 		$favicon = trim( (string) ( $input['faviconUrl'] ?? '' ) );
 		if ( $favicon && ! preg_match( '#^https://[^\s"\'<>]+$#', $favicon ) ) {
-			throw new QD_Error( 'The tab icon must be an https:// link to an image.' );
+			throw new QD_Error( QD_App::t( 'err.theTabIconMustBe' ) );
 		}
 		$guest = array_key_exists( 'guestPageUrl', $input ) ? self::clean_guest_page_url( $input['guestPageUrl'] ) : null;
 		$brand = get_option( 'qd_brand', array() );
@@ -49,7 +49,7 @@ class QD_Settings {
 			return '';
 		}
 		if ( ! preg_match( '#^https://[a-z0-9.-]+(:\d+)?(/[A-Za-z0-9._~%/-]*)?$#i', $url ) || strlen( $url ) > 300 ) {
-			throw new QD_Error( 'The guest page address must be an https:// link to the folder or page with the guest page files, without ? or #.' );
+			throw new QD_Error( QD_App::t( 'err.theGuestPageAddressMust' ) );
 		}
 		if ( ! preg_match( '/\.html?$/i', $url ) && '/' !== substr( $url, -1 ) ) {
 			$url .= '/';
@@ -60,6 +60,15 @@ class QD_Settings {
 	/** The site-wide guest page address, or '' when links go straight to this site. */
 	public static function guest_page_url() {
 		return (string) get_option( 'qd_guest_page', '' );
+	}
+
+	/** The language the app is read in when nobody has chosen one, and in every room. */
+	public static function save_site_language( $code = '' ) {
+		QD_People::require_admin();
+		$clean = QD_App::app_language_code( (string) $code );
+		update_option( 'qd_app_language', $clean );
+		QD_Activity::log( 'App language changed', null, $clean );
+		return QD_Admin::state();
 	}
 
 	public static function save_site_languages( $codes ) {
@@ -172,14 +181,14 @@ class QD_Settings {
 	public static function save_logo( $data_url, $target = '' ) {
 		QD_People::require_admin();
 		if ( ! preg_match( '#^data:image/(png|jpeg|webp);base64,([A-Za-z0-9+/=]+)$#', (string) $data_url, $m ) ) {
-			throw new QD_Error( 'The logo must be a PNG, JPEG or WebP image.' );
+			throw new QD_Error( QD_App::t( 'err.theLogoMustBeA' ) );
 		}
 		if ( strlen( $data_url ) > (int) QD_App::config( 'logoMaxChars' ) ) {
-			throw new QD_Error( 'That logo is too large even after resizing.' );
+			throw new QD_Error( QD_App::t( 'err.thatLogoIsTooLarge' ) );
 		}
 		$bytes = base64_decode( $m[2], true );
 		if ( false === $bytes ) {
-			throw new QD_Error( 'The logo must be a PNG, JPEG or WebP image.' );
+			throw new QD_Error( QD_App::t( 'err.theLogoMustBeA' ) );
 		}
 		$name   = 'question-desk-logo-' . ( $target ? preg_replace( '/[^a-z0-9]+/i', '-', $target ) : 'site' ) . '-' . time() . '.' . ( 'jpeg' === $m[1] ? 'jpg' : $m[1] );
 		$upload = wp_upload_bits( $name, null, $bytes );
@@ -191,7 +200,7 @@ class QD_Settings {
 			$upload['file']
 		);
 		if ( is_wp_error( $id ) || ! $id ) {
-			throw new QD_Error( 'The logo could not be saved.' );
+			throw new QD_Error( QD_App::t( 'wp.err.logoNotSaved' ) );
 		}
 		require_once ABSPATH . 'wp-admin/includes/image.php';
 		wp_update_attachment_metadata( $id, wp_generate_attachment_metadata( $id, $upload['file'] ) );
@@ -242,7 +251,7 @@ class QD_Settings {
 			$eid = substr( $target, 6 );
 			$ev  = QD_Store::get_event( $eid );
 			if ( ! $ev ) {
-				throw new QD_Error( 'Event not found.' );
+				throw new QD_Error( QD_App::t( 'err.eventNotFound' ) );
 			}
 			$ev['logoId']  = $id;
 			$ev['hasLogo'] = (bool) $id;

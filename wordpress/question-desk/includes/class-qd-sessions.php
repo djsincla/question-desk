@@ -22,7 +22,7 @@ class QD_Sessions {
 		$config = QD_App::data()['config'];
 		$name   = QD_Util::clean_text( $input['name'] ?? '', 80 );
 		if ( ! $name ) {
-			throw new QD_Error( 'Give the session a name.' );
+			throw new QD_Error( QD_App::t( 'err.giveTheSessionAName' ) );
 		}
 		$access     = ( ( $input['access'] ?? '' ) === 'link' ) ? 'link' : 'room';
 		$theme      = in_array( $input['theme'] ?? '', array( 'light', 'contrast' ), true ) ? $input['theme'] : 'dark';
@@ -36,14 +36,14 @@ class QD_Sessions {
 		$start = self::optional_time( $input['scheduledStart'] ?? null, 'start' );
 		$end   = self::optional_time( $input['scheduledEnd'] ?? null, 'end' );
 		if ( $start && $end && $end <= $start ) {
-			throw new QD_Error( 'The scheduled end must be after the start.' );
+			throw new QD_Error( QD_App::t( 'err.theScheduledEndMustBe' ) );
 		}
 		$before      = ! empty( $input['id'] ) ? QD_Store::get_session( $input['id'] ) : null;
 		$same_minute = function ( $a, $b ) {
 			return $a && $b && floor( $a / 60000 ) === floor( $b / 60000 );
 		};
 		if ( $end && $end <= QD_Util::now_ms() && ! ( $before && $same_minute( $before['scheduledEnd'] ?? null, $end ) ) ) {
-			throw new QD_Error( 'The scheduled end has already passed. Saving it would end the session for good — check the date and AM/PM.' );
+			throw new QD_Error( QD_App::t( 'err.theScheduledEndHasAlready' ) );
 		}
 
 		$cooldown = ( ! array_key_exists( 'cooldownSeconds', $input ) || '' === $input['cooldownSeconds'] || null === $input['cooldownSeconds'] )
@@ -53,14 +53,14 @@ class QD_Sessions {
 		}
 		$brand_accent = (string) ( $input['brandAccent'] ?? '' );
 		if ( $brand_accent && ! preg_match( QD_Util::HEX_RE, $brand_accent ) ) {
-			throw new QD_Error( 'Session accent color must look like #1b5e5a.' );
+			throw new QD_Error( QD_App::t( 'err.sessionAccentColorMustLook' ) );
 		}
 
 		$prepared_list = null;
 		if ( array_key_exists( 'prepared', $input ) && null !== $input['prepared'] ) {
 			$lines = is_array( $input['prepared'] ) ? $input['prepared'] : preg_split( '/\r?\n/', (string) $input['prepared'] );
 			if ( strlen( implode( '', $lines ) ) > $config['maxPrepared'] * $config['maxLengthCeiling'] ) {
-				throw new QD_Error( 'That list of prepared questions is too long.' );
+				throw new QD_Error( QD_App::t( 'err.thatListOfPreparedQuestions' ) );
 			}
 			$prepared_list = array_values( array_filter( array_map( function ( $line ) {
 				return trim( preg_replace( '/\s+/u', ' ', (string) $line ) );
@@ -97,7 +97,7 @@ class QD_Sessions {
 			'eventId'          => (string) ( $input['eventId'] ?? '' ),
 		);
 		if ( $fields['eventId'] && ! QD_Store::get_event( $fields['eventId'] ) ) {
-			throw new QD_Error( 'That event no longer exists.' );
+			throw new QD_Error( QD_App::t( 'err.thatEventNoLongerExists' ) );
 		}
 		if ( ! array_key_exists( 'guestPage', $input ) ) {
 			unset( $fields['guestPage'] );
@@ -259,7 +259,7 @@ class QD_Sessions {
 	public static function reorder( $ids ) {
 		QD_People::require_admin();
 		if ( ! is_array( $ids ) ) {
-			throw new QD_Error( 'Send the sessions in their new order.' );
+			throw new QD_Error( QD_App::t( 'err.sendTheSessionsInTheir' ) );
 		}
 		self::reorder_ids( $ids );
 		return QD_Admin::state();
@@ -299,7 +299,7 @@ class QD_Sessions {
 		QD_People::require_admin();
 		$session = QD_Store::update_session( $sid, function ( &$s ) use ( $active ) {
 			if ( 'ended' === ( $s['status'] ?? '' ) ) {
-				throw new QD_Error( 'This session has ended and cannot be reopened.' );
+				throw new QD_Error( QD_App::t( 'err.thisSessionHasEndedAnd' ) );
 			}
 			$s['status'] = $active ? 'active' : 'inactive';
 			if ( $active && empty( $s['started'] ) ) {
@@ -350,7 +350,7 @@ class QD_Sessions {
 		}
 		$session = QD_Store::update_session( $sid, function ( &$s ) {
 			if ( 'ended' === ( $s['status'] ?? '' ) ) {
-				throw new QD_Error( 'This session has already ended.' );
+				throw new QD_Error( QD_App::t( 'err.thisSessionHasAlreadyEnded' ) );
 			}
 			$s['status']       = 'ended';
 			$s['open']         = false;
@@ -389,7 +389,7 @@ class QD_Sessions {
 			throw new QD_Error( 'Session not found.' );
 		}
 		if ( 'active' === ( $session['status'] ?? '' ) ) {
-			throw new QD_Error( 'Deactivate or end the session before deleting it.' );
+			throw new QD_Error( QD_App::t( 'err.deactivateOrEndTheSession' ) );
 		}
 		QD_Util::require_typed_name( $session, $typed_name );
 		QD_Settings::clear_logo( $sid );
@@ -465,7 +465,7 @@ class QD_Sessions {
 		QD_People::require_admin();
 		$session = QD_Store::get_session( $sid );
 		if ( ! $session || 'ended' !== ( $session['status'] ?? '' ) ) {
-			throw new QD_Error( 'Only ended sessions can be archived.' );
+			throw new QD_Error( QD_App::t( 'err.onlyEndedSessionsCanBe' ) );
 		}
 		self::archive_now( $sid );
 		return QD_Admin::state();
@@ -498,10 +498,10 @@ class QD_Sessions {
 		global $wpdb;
 		$row = $wpdb->get_row( $wpdb->prepare( 'SELECT session, votes FROM ' . QD_Install::table( 'archive' ) . ' WHERE session_id = %s', $sid ) ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
 		if ( ! $row ) {
-			throw new QD_Error( 'Archived session not found.' );
+			throw new QD_Error( QD_App::t( 'err.archivedSessionNotFound' ) );
 		}
 		if ( QD_Store::get_session( $sid ) ) {
-			throw new QD_Error( 'That session is already restored.' );
+			throw new QD_Error( QD_App::t( 'err.thatSessionIsAlreadyRestored' ) );
 		}
 		$session = QD_Util::json_array( $row->session );
 		if ( ! empty( $session['eventId'] ) && ! QD_Store::get_event( $session['eventId'] ) ) {

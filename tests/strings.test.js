@@ -20,7 +20,11 @@ const shown = (text) => text
 const SOURCE = read('server/strings.js');
 const PAGES = ['Admin.html', 'Coordinator.html', 'Home.html', 'Moderate.html', 'Panel.html', 'Present.html', 'Sheet.html'];
 // Everything that asks for a phrase — not the catalog itself, whose keys are the definitions.
-const FILES = PAGES.concat(['Scripts.html'], SERVER_FILES.filter((f) => f !== 'server/strings.js'));
+// The plugin reads the same catalog (data/app.json), so what it asks for counts as used.
+const PLUGIN = 'wordpress/question-desk/includes';
+const FILES = PAGES
+  .concat(['Scripts.html'], SERVER_FILES.filter((f) => f !== 'server/strings.js'))
+  .concat(fs.readdirSync(path.join(ROOT, PLUGIN)).filter((f) => f.endsWith('.php')).map((f) => PLUGIN + '/' + f));
 const app = createApp().app;
 const TEXT = app.APP_TEXT;
 
@@ -39,6 +43,7 @@ function keysNamed() {
     const text = read(file);
     text.replace(/data-w(?:-ph|-t|-a)?="([^"]+)"/g, (whole, key) => named.push(key));
     text.replace(/\b(?:W|Wn|t_|tn_)\(\s*'([^']+)'/g, (whole, key) => named.push(key));
+    text.replace(/QD_App::tn?\(\s*'([^']+)'/g, (whole, key) => named.push(key));
   });
   return named;
 }

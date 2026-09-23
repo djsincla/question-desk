@@ -37,11 +37,11 @@ class QD_EventTools {
 		QD_People::require_admin();
 		$event = QD_Store::get_event( $eid );
 		if ( ! $event ) {
-			throw new QD_Error( 'Event not found.' );
+			throw new QD_Error( QD_App::t( 'err.eventNotFound' ) );
 		}
 		$sessions = self::event_sessions( $eid, false );
 		if ( ! $sessions ) {
-			throw new QD_Error( 'This event has no sessions that haven\'t ended.' );
+			throw new QD_Error( QD_App::t( 'err.thisEventHasNoSessions' ) );
 		}
 		$by_person = array();
 		foreach ( $sessions as $s ) {
@@ -50,7 +50,7 @@ class QD_EventTools {
 			}
 		}
 		if ( ! $by_person ) {
-			throw new QD_Error( 'No QA Facilitators are assigned to this event or its sessions.' );
+			throw new QD_Error( QD_App::t( 'err.noQaFacilitatorsAreAssigned' ) );
 		}
 		$when = function ( $s ) {
 			if ( empty( $s['scheduledStart'] ) ) {
@@ -76,7 +76,7 @@ class QD_EventTools {
 					. esc_html( $s['name'] ) . '</strong>'
 					. ( ! empty( $s['room'] ) ? ' <span style="color:#5c6874">· ' . esc_html( $s['room'] ) . '</span>' : '' )
 					. ( $when( $s ) ? '<br><span style="color:#5c6874">' . esc_html( $when( $s ) ) . '</span>' : '' )
-					. $line( 'QA Facilitator queue', $links['moderate'] ) . '</p>';
+					. $line( QD_App::t( 'mail.linksQueue' ), $links['moderate'] ) . '</p>';
 			}
 			QD_Summaries::mail( $address, $event['name'] . ' — your Question Desk sessions',
 				QD_Summaries::shell( $event_brand, esc_html( $event['name'] ), $body ), $event_brand );
@@ -93,11 +93,11 @@ class QD_EventTools {
 		QD_People::require_admin();
 		$event = QD_Store::get_event( $eid );
 		if ( ! $event ) {
-			throw new QD_Error( 'Event not found.' );
+			throw new QD_Error( QD_App::t( 'err.eventNotFound' ) );
 		}
 		$sessions = self::event_sessions( $eid );
 		if ( ! $sessions ) {
-			throw new QD_Error( 'This event has no sessions yet.' );
+			throw new QD_Error( QD_App::t( 'err.thisEventHasNoSessions2' ) );
 		}
 		$to = $recipients ? QD_Util::parse_emails( $recipients ) : array();
 		if ( ! $to ) {
@@ -111,7 +111,7 @@ class QD_EventTools {
 			$to = array_slice( $to, 0, (int) QD_App::config( 'maxRecipients' ) );
 		}
 		if ( ! $to ) {
-			throw new QD_Error( 'Add at least one recipient.' );
+			throw new QD_Error( QD_App::t( 'err.addAtLeastOneRecipient' ) );
 		}
 		$brand = QD_Brand::for_session( $sessions[0] );
 		// What the questions say about the event, before the questions themselves.
@@ -171,7 +171,7 @@ class QD_EventTools {
 			. $note( $r['sentiment'] );
 
 		if ( ! empty( $r['themes'] ) ) {
-			$html .= $head( 'Themes worth acting on' ) . '<ol style="margin:0 0 4px;padding-left:20px;color:#3c4854">';
+			$html .= $head( QD_App::t( 'mail.reviewThemes' ) ) . '<ol style="margin:0 0 4px;padding-left:20px;color:#3c4854">';
 			foreach ( $r['themes'] as $theme ) {
 				$html .= '<li style="margin-bottom:10px"><strong>' . esc_html( $theme['title'] ) . '</strong><br>'
 					. esc_html( $theme['what'] ) . '<br><span style="color:#5c6874">Next time: '
@@ -180,7 +180,7 @@ class QD_EventTools {
 			$html .= '</ol>';
 		}
 		if ( ! empty( $r['logistics'] ) ) {
-			$html .= $head( 'Running the event' ) . '<ul style="margin:0 0 4px;padding-left:20px;color:#3c4854">';
+			$html .= $head( QD_App::t( 'mail.reviewLogistics' ) ) . '<ul style="margin:0 0 4px;padding-left:20px;color:#3c4854">';
 			foreach ( $r['logistics'] as $item ) {
 				$html .= '<li style="margin-bottom:8px">' . esc_html( $item['issue'] )
 					. '<br><span style="color:#5c6874">Next time: ' . esc_html( $item['nextTime'] ) . '</span></li>';
@@ -189,13 +189,13 @@ class QD_EventTools {
 		}
 		if ( ! empty( $r['individual']['count'] ) ) {
 			$count = (int) $r['individual']['count'];
-			$html .= $head( 'Questions about one person\'s situation' )
+			$html .= $head( QD_App::t( 'mail.reviewIndividual' ) )
 				. $note( $count . ( 1 === $count ? ' question was' : ' questions were' ) . ' about somebody\'s own circumstances. '
 					. $r['individual']['pattern'] )
 				. $note( 'For everyone in that position: ' . $r['individual']['atScale'] );
 		}
 		if ( ! empty( $r['sessionIdeas'] ) ) {
-			$html .= $head( 'Sessions to consider next time' ) . '<ul style="margin:0;padding-left:20px;color:#3c4854">';
+			$html .= $head( QD_App::t( 'mail.reviewSessionIdeas' ) ) . '<ul style="margin:0;padding-left:20px;color:#3c4854">';
 			foreach ( $r['sessionIdeas'] as $idea ) {
 				$html .= '<li style="margin-bottom:4px">' . esc_html( $idea ) . '</li>';
 			}
@@ -220,26 +220,26 @@ class QD_EventTools {
 		$to      = ! empty( $options['toModerators'] ) ? QD_People::facilitators_for( $session ) : QD_Util::parse_emails( $options['to'] ?? array() );
 		if ( ! $to ) {
 			throw new QD_Error( ! empty( $options['toModerators'] )
-				? 'This session has no QA Facilitators assigned.' : 'Add at least one recipient.' );
+				? QD_App::t( 'err.noFacilitatorsAssigned' ) : QD_App::t( 'err.addAtLeastOneRecipient' ) );
 		}
 		$links = QD_Sessions::links( $session );
 		$items = array();
 		if ( ! empty( $options['participant'] ) ) {
 			if ( ! $links['participant'] ) {
-				throw new QD_Error( 'In-room sessions have no shareable link — people join by scanning the room screen.' );
+				throw new QD_Error( QD_App::t( 'err.inRoomSessionsHaveNo' ) );
 			}
-			$items[] = array( 'Ask a question', $links['participant'], 'Anyone with this link can submit a question anonymously.' );
+			$items[] = array( QD_App::t( 'mail.linkAsk' ), $links['participant'], 'Anyone with this link can submit a question anonymously.' );
 		}
 		if ( ! empty( $options['present'] ) ) {
-			$items[] = array( 'Room screen', $links['present'],
+			$items[] = array( QD_App::t( 'mail.linkPresent' ), $links['present'],
 				'Open on the projector — no sign-in needed. Anyone with this link can see the join code, so share it only with the people running the room.' );
 		}
 		if ( ! empty( $options['moderate'] ) ) {
-			$items[] = array( 'QA Facilitator queue', $links['moderate'],
+			$items[] = array( QD_App::t( 'mail.linksQueue' ), $links['moderate'],
 				'Questions grouped by topic. Requires signing in with an assigned WordPress account.' );
 		}
 		if ( ! $items ) {
-			throw new QD_Error( 'Choose at least one link to send.' );
+			throw new QD_Error( QD_App::t( 'err.chooseAtLeastOneLink' ) );
 		}
 		$brand = QD_Brand::for_session( $session );
 		$inner = '';
@@ -262,7 +262,7 @@ class QD_EventTools {
 		QD_People::require_admin();
 		$event = QD_Store::get_event( $eid );
 		if ( ! $event ) {
-			throw new QD_Error( 'Event not found.' );
+			throw new QD_Error( QD_App::t( 'err.eventNotFound' ) );
 		}
 		$now    = QD_Util::now_ms();
 		$fmt    = function ( $ms ) {
@@ -273,13 +273,13 @@ class QD_EventTools {
 		$key    = QD_Gemini::key();
 		$site   = array(
 			array(
-				'label'  => 'Question grouping runs every minute',
+				'label'  => QD_App::t( 'list.groupingRuns' ),
 				'ok'     => $cron,
 				'detail' => $cron ? ( defined( 'DISABLE_WP_CRON' ) && DISABLE_WP_CRON ? 'WP-Cron is disabled: the host must run wp-cron.php every minute.' : '' )
 					: 'Deactivate and activate Question Desk to schedule it again.',
 			),
 			array(
-				'label'  => 'Gemini is set up',
+				'label'  => QD_App::t( 'list.geminiSetUp' ),
 				'ok'     => (bool) $key && empty( $health['failures'] ),
 				'detail' => ! $key ? 'No Gemini API key: add one under Admin → Health.'
 					: ( ! empty( $health['failures'] ) ? 'Grouping failed ' . $health['failures'] . ' times in a row: ' . ( $health['lastError'] ?? '' ) : '' ),
@@ -299,32 +299,32 @@ class QD_EventTools {
 			$checks       = array();
 			if ( 'ended' === $s['status'] ) {
 				$checks[] = array(
-					'label'  => 'Ended',
+					'label'  => QD_App::t( 'list.ended' ),
 					'ok'     => true,
 					'detail' => ! empty( $s['summarySent'] ) ? 'Summary emailed ' . $fmt( $s['summarySent'] )
 						: ( ! empty( $s['summaryPending'] ) ? 'Summary not sent yet: ' . ( $s['summaryPending']['error'] ?? '' ) : '' ),
 				);
 			} else {
 				if ( 'active' === $s['status'] ) {
-					$checks[] = array( 'label' => 'Active and taking questions', 'ok' => false !== ( $s['open'] ?? true ),
-						'detail' => false === ( $s['open'] ?? true ) ? 'Questions are paused.' : '' );
+					$checks[] = array( 'label' => QD_App::t( 'list.activeTaking' ), 'ok' => false !== ( $s['open'] ?? true ),
+						'detail' => false === ( $s['open'] ?? true ) ? QD_App::t( 'list.paused' ) : '' );
 				} elseif ( ! empty( $s['scheduledStart'] ) && empty( $s['scheduleStarted'] ) ) {
-					$checks[] = array( 'label' => 'Starts on its own', 'ok' => $s['scheduledStart'] > $now, 'detail' => $fmt( $s['scheduledStart'] ) );
+					$checks[] = array( 'label' => QD_App::t( 'list.startsOnItsOwn' ), 'ok' => $s['scheduledStart'] > $now, 'detail' => $fmt( $s['scheduledStart'] ) );
 				} else {
-					$checks[] = array( 'label' => 'Not active', 'ok' => null, 'detail' => 'Activate it on the Sessions tab when doors open.' );
+					$checks[] = array( 'label' => QD_App::t( 'notice.pick.inactive' ), 'ok' => null, 'detail' => QD_App::t( 'list.activateWhenDoorsOpen' ) );
 				}
 				$checks[] = ! empty( $s['scheduledEnd'] )
-					? array( 'label' => 'Ends on its own', 'ok' => $s['scheduledEnd'] > $now, 'detail' => $fmt( $s['scheduledEnd'] ) )
-					: array( 'label' => 'No scheduled end', 'ok' => null, 'detail' => 'End it by hand afterwards.' );
-				$checks[] = array( 'label' => 'QA Facilitators', 'ok' => (bool) $facilitators,
-					'detail' => $facilitators ? implode( ', ', $facilitators ) : 'Nobody can run the queue except administrators.' );
+					? array( 'label' => QD_App::t( 'list.endsOnItsOwn' ), 'ok' => $s['scheduledEnd'] > $now, 'detail' => $fmt( $s['scheduledEnd'] ) )
+					: array( 'label' => QD_App::t( 'list.noScheduledEnd' ), 'ok' => null, 'detail' => QD_App::t( 'list.endByHand' ) );
+				$checks[] = array( 'label' => QD_App::t( 'list.facilitators' ), 'ok' => (bool) $facilitators,
+					'detail' => $facilitators ? implode( ', ', $facilitators ) : QD_App::t( 'list.nobodyCanRun' ) );
 				$checks[] = array(
-					'label'  => 'Summary email',
+					'label'  => QD_App::t( 'list.summaryEmail' ),
 					'ok'     => empty( $s['emailOnEnd'] ) ? null : (bool) $recipients,
-					'detail' => empty( $s['emailOnEnd'] ) ? 'Not emailed when it ends.'
-						: ( $recipients ? 'To ' . implode( ', ', $recipients ) : 'Turned on, but nobody would get it.' ),
+					'detail' => empty( $s['emailOnEnd'] ) ? QD_App::t( 'list.notEmailed' )
+						: ( $recipients ? 'To ' . implode( ', ', $recipients ) : QD_App::t( 'list.nobodyWouldGet' ) ),
 				);
-				$checks[] = array( 'label' => 'Prepared questions', 'ok' => true,
+				$checks[] = array( 'label' => QD_App::t( 'list.prepared' ), 'ok' => true,
 					'detail' => (string) count( QD_Questions::prepared_for( $s['id'] ) ) );
 			}
 			$languages  = array_map( array( 'QD_Settings', 'language_name' ), QD_Settings::languages_for( $s ) );

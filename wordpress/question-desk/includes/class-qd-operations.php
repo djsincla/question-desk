@@ -31,7 +31,7 @@ class QD_Operations {
 		$input  = (array) $input;
 		$months = (int) round( (float) ( $input['retentionMonths'] ?? 0 ) );
 		if ( $months < 0 || $months > 120 ) {
-			throw new QD_Error( 'Keep question wording for between 0 and 120 months.' );
+			throw new QD_Error( QD_App::t( 'wp.err.retentionRange' ) );
 		}
 		$saved = array( 'retentionMonths' => $months, 'weeklyReport' => ! empty( $input['weeklyReport'] ) );
 		update_option( 'qd_ops', $saved, false );
@@ -153,17 +153,17 @@ class QD_Operations {
 		$ops    = self::ops();
 		$checks = array(
 			array(
-				'name'   => 'Question grouping',
+				'name'   => QD_App::t( 'ops.check.grouping' ),
 				'ok'     => empty( $health['failures'] ) && $cron,
 				'detail' => ! $cron ? 'The every-minute run is not scheduled — deactivate and activate the plugin.'
-					: ( ! empty( $health['failures'] ) ? $health['failures'] . ' failed runs in a row: ' . ( $health['lastError'] ?? '' ) : 'Working' ),
+					: ( ! empty( $health['failures'] ) ? $health['failures'] . ' failed runs in a row: ' . ( $health['lastError'] ?? '' ) : QD_App::t( 'ops.check.working' ) ),
 			),
-			array( 'name' => 'Gemini API key', 'ok' => (bool) QD_Gemini::key(), 'detail' => QD_Gemini::key() ? 'Set' : 'Missing' ),
+			array( 'name' => QD_App::t( 'ops.check.key' ), 'ok' => (bool) QD_Gemini::key(), 'detail' => QD_Gemini::key() ? 'Set' : QD_App::t( 'ops.check.keyMissing' ) ),
 			array( 'name' => 'Questions stored', 'ok' => true,
 				'detail' => (int) $wpdb->get_var( 'SELECT COUNT(*) FROM ' . QD_Install::table( 'questions' ) ) . ' in the database' ), // phpcs:ignore WordPress.DB.PreparedSQL
 		);
 		if ( $owed ) {
-			$checks[] = array( 'name' => 'Summaries not sent', 'ok' => false, 'detail' => implode( ', ', $owed ) );
+			$checks[] = array( 'name' => QD_App::t( 'ops.check.summariesOwed' ), 'ok' => false, 'detail' => implode( ', ', $owed ) );
 		}
 		$when = array();
 		foreach ( $upcoming as $s ) {
@@ -177,7 +177,7 @@ class QD_Operations {
 			'asked'     => $asked,
 			'retention' => $ops['retentionMonths']
 				? 'Question wording is removed ' . $ops['retentionMonths'] . ' months after a session ends.'
-				: 'Question wording is kept.',
+				: QD_App::t( 'ops.retentionOff' ),
 		);
 	}
 
@@ -212,10 +212,10 @@ class QD_Operations {
 		$table .= '</table>';
 		$html   = '<p style="margin:0 0 12px">' . ( $problems
 			? '<strong>' . $problems . ' thing' . ( 1 === $problems ? '' : 's' ) . ' need attention.</strong>'
-			: 'Everything looks healthy.' ) . '</p>' . $table
-			. $list( 'Coming up in the next 7 days', $report['upcoming'], 'Nothing scheduled.' )
-			. $list( 'Active now', $report['active'], 'No sessions are active.' )
-			. $list( 'Ended in the last 7 days', $report['ended'], 'None.' )
+			: QD_App::t( 'mail.weeklyHealthy' ) ) . '</p>' . $table
+			. $list( QD_App::t( 'mail.weeklyUpcoming' ), $report['upcoming'], QD_App::t( 'mail.weeklyNothingScheduled' ) )
+			. $list( QD_App::t( 'mail.weeklyActive' ), $report['active'], QD_App::t( 'mail.weeklyNoneActive' ) )
+			. $list( QD_App::t( 'mail.weeklyEnded' ), $report['ended'], QD_App::t( 'mail.weeklyNone' ) )
 			. '<p style="margin:20px 0 0;color:#5c6874">' . $report['asked'] . ' questions asked in the last 7 days. '
 			. esc_html( $report['retention'] ) . '</p>'
 			. '<p style="margin:8px 0 0;color:#5c6874;font-size:13px">Turn this report off on the Admin page → Health &amp; testing.</p>';
@@ -223,7 +223,7 @@ class QD_Operations {
 		$brand = QD_Brand::site();
 		$sent  = 0;
 		foreach ( $to as $address ) {
-			if ( QD_Summaries::mail( $address, 'Question Desk — weekly report', QD_Summaries::shell( $brand, 'Weekly report', $html ), $brand ) ) {
+			if ( QD_Summaries::mail( $address, 'Question Desk — weekly report', QD_Summaries::shell( $brand, QD_App::t( 'mail.weeklyTitle' ), $html ), $brand ) ) {
 				$sent++;
 			}
 		}
@@ -260,7 +260,7 @@ class QD_Operations {
 			$checks[] = array( 'name' => $name, 'ok' => (bool) $ok, 'detail' => $detail );
 		};
 		$key = QD_Gemini::key();
-		$add( 'Gemini API key', $key, $key ? ( defined( 'QD_GEMINI_API_KEY' ) ? 'Set in wp-config.php' : 'Set' )
+		$add( QD_App::t( 'ops.check.key' ), $key, $key ? ( defined( 'QD_GEMINI_API_KEY' ) ? 'Set in wp-config.php' : 'Set' )
 			: 'Missing — add it under Admin → Health, or as QD_GEMINI_API_KEY in wp-config.php.' );
 		if ( $key ) {
 			$started = QD_Util::now_ms();
@@ -321,7 +321,7 @@ class QD_Operations {
 	private static function clean_gemini( array $input ) {
 		$model = (string) ( $input['model'] ?? '' );
 		if ( ! preg_match( '/^gemini-[a-z0-9][a-z0-9.-]{0,60}$/', $model ) ) {
-			throw new QD_Error( 'That model name does not look like a Gemini model.' );
+			throw new QD_Error( QD_App::t( 'wp.err.modelName' ) );
 		}
 		$thinking = array();
 		foreach ( QD_Gemini::TASKS as $task ) {
@@ -333,11 +333,11 @@ class QD_Operations {
 		}
 		$temperature = (float) ( $input['temperature'] ?? -1 );
 		if ( ! ( $temperature >= 0 && $temperature <= 1 ) ) {
-			throw new QD_Error( 'Temperature must be between 0 and 1.' );
+			throw new QD_Error( QD_App::t( 'err.temperatureMustBeBetween0' ) );
 		}
 		$batch = (float) ( $input['batchSize'] ?? 0 );
 		if ( $batch < 5 || $batch > 100 || floor( $batch ) !== $batch ) {
-			throw new QD_Error( 'Questions per grouping request must be a whole number from 5 to 100.' );
+			throw new QD_Error( QD_App::t( 'err.questionsPerGroupingRequestMust' ) );
 		}
 		return array( 'model' => $model, 'thinking' => $thinking,
 			'temperature' => round( $temperature * 100 ) / 100, 'batchSize' => (int) $batch );
@@ -432,7 +432,7 @@ class QD_Operations {
 			$session = array(
 				'id'        => QD_Util::new_id( 8 ),
 				'name'      => 'Load test ' . wp_date( 'M j g:i a' ),
-				'heading'   => 'Load test',
+				'heading'   => QD_App::t( 'admin.health.loadTest' ),
 				'access'    => 'link',
 				'theme'     => 'dark',
 				'maxLength' => QD_App::config( 'defaultMaxLength' ),

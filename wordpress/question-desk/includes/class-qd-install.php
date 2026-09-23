@@ -137,7 +137,7 @@ class QD_Install {
 		if ( ! get_role( 'qd_admin' ) ) {
 			add_role( 'qd_admin', 'Question Desk Admin', array( 'read' => true, 'qd_manage' => true, 'qd_facilitate' => true, 'qd_coordinate' => true, 'upload_files' => true ) );
 		}
-		$admin = get_role( 'administrator' );
+		$admin = get_role( QD_App::t( 'admin.roleAdministrator' ) );
 		if ( $admin ) {
 			$admin->add_cap( 'qd_manage' );
 			$admin->add_cap( 'qd_facilitate' );

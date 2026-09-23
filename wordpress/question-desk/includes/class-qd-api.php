@@ -61,7 +61,7 @@ class QD_Api {
 		}
 		list( $callback, $access ) = self::$functions[ $name ];
 		if ( 'manage' === $access && ! current_user_can( 'qd_manage' ) ) {
-			return array( 'ok' => false, 'error' => 'Only administrators can do that.' );
+			return array( 'ok' => false, 'error' => QD_App::t( 'err.onlyAdministratorsCanDoThat' ) );
 		}
 		if ( 'facilitate' === $access && ! current_user_can( 'qd_facilitate' ) ) {
 			return array( 'ok' => false, 'error' => 'Sign in as a QA Facilitator or administrator to do that.' );

@@ -49,7 +49,7 @@ class QD_Moderation {
 	public static function require_open_session( $sid ) {
 		$session = QD_People::require_session( $sid );
 		if ( 'ended' === $session['status'] ) {
-			throw new QD_Error( 'This session has ended.' );
+			throw new QD_Error( QD_App::t( 'err.thisSessionHasEnded' ) );
 		}
 		return $session;
 	}
@@ -97,7 +97,7 @@ class QD_Moderation {
 			'adminUrl'             => admin_url( 'admin.php?page=' . QD_Admin::MENU_SLUG ),
 			'topics'               => $data['topics'],
 			'unsorted'             => $loose,
-			'groupingDown'         => $failures >= 2 ? ( (string) ( $health['lastError'] ?? 'Grouping is failing' ) ) : '',
+			'groupingDown'         => $failures >= 2 ? ( (string) ( $health['lastError'] ?? QD_App::t( 'queue.groupingFailing' ) ) ) : '',
 			// Only while automatic grouping is on and actually failing: with it off, or merely
 			// slow, the queue says nothing about grouping.
 			'looseGroups'          => ( count( $loose ) >= 2 && false !== ( $session['autoGroup'] ?? true ) && $failures >= 2 )
@@ -241,7 +241,7 @@ class QD_Moderation {
 	public static function set_status( $sid = '', $ids = array(), $status = '' ) {
 		$session = self::require_open_session( $sid );
 		if ( ! in_array( $status, array( 'new', 'answered', 'dismissed' ), true ) ) {
-			throw new QD_Error( 'Unknown status.' );
+			throw new QD_Error( QD_App::t( 'err.unknownStatus' ) );
 		}
 		$changed = self::change_questions( $sid, $ids, "status <> 'prepared'", array( 'status' => $status ) );
 
@@ -266,7 +266,7 @@ class QD_Moderation {
 			}
 		}
 		if ( $changed ) {
-			$verb = 'answered' === $status ? 'Marked answered' : ( 'dismissed' === $status ? 'Dismissed' : 'Reopened' );
+			$verb = 'answered' === $status ? 'Marked answered' : ( 'dismissed' === $status ? QD_App::t( 'mod.dismissedBox' ) : 'Reopened' );
 			QD_Activity::log( $verb, $session, 1 === count( $changed )
 				? '"' . mb_substr( $changed[0]['text'], 0, 120 ) . '"'
 				: count( $changed ) . ' questions' );
@@ -299,7 +299,7 @@ class QD_Moderation {
 			}
 		}
 		if ( ! $exists ) {
-			throw new QD_Error( 'That topic has no questions.' );
+			throw new QD_Error( QD_App::t( 'err.thatTopicHasNoQuestions' ) );
 		}
 		QD_Topics::save( $sid, $topic, array( 'shown' => $shown ? 1 : 0 ) );
 		QD_Activity::log( $shown ? 'Topic shown on phones' : 'Topic hidden from phones', $session, $topic );
@@ -313,11 +313,11 @@ class QD_Moderation {
 	public static function use_prepared( $sid = '', $ids = array() ) {
 		$session = self::require_open_session( $sid );
 		if ( ! is_array( $ids ) || ! $ids ) {
-			throw new QD_Error( 'Choose a prepared question to add.' );
+			throw new QD_Error( QD_App::t( 'err.chooseAPreparedQuestionTo' ) );
 		}
 		$added = self::change_questions( $sid, $ids, "status = 'prepared'", array( 'status' => 'new', 'submitted' => QD_Util::now_ms() ) );
 		if ( ! $added ) {
-			throw new QD_Error( 'Those prepared questions were already added or removed.' );
+			throw new QD_Error( QD_App::t( 'err.thosePreparedQuestionsWereAlready' ) );
 		}
 		QD_Activity::log( 'Prepared question added', $session, count( $added ) . ( 1 === count( $added ) ? ' question' : ' questions' ) );
 		return self::get_board( $sid );
@@ -338,10 +338,10 @@ class QD_Moderation {
 			}
 		}
 		if ( ! $question || 'dismissed' === $question['status'] ) {
-			throw new QD_Error( 'That question is no longer in the queue.' );
+			throw new QD_Error( QD_App::t( 'err.thatQuestionIsNoLonger2' ) );
 		}
 		if ( $question['topic'] && $shown ) {
-			throw new QD_Error( 'That question is in a topic now: show the topic on phones instead.' );
+			throw new QD_Error( QD_App::t( 'err.thatQuestionIsInA' ) );
 		}
 		self::show_single( $session, $question, (bool) $shown );
 		QD_Activity::log( $shown ? 'Question shown on phones' : 'Question hidden from phones', $session,
@@ -387,7 +387,7 @@ class QD_Moderation {
 				}
 			}
 			if ( ! $question ) {
-				throw new QD_Error( 'That question is no longer in the queue.' );
+				throw new QD_Error( QD_App::t( 'err.thatQuestionIsNoLonger2' ) );
 			}
 		}
 		QD_Store::update_session( $sid, function ( &$s ) use ( $question, $topic ) {
@@ -456,15 +456,15 @@ class QD_Moderation {
 		$session = self::require_open_session( $sid );
 		$topic   = QD_Util::clean_text( $topic, 80 );
 		if ( ! $topic ) {
-			throw new QD_Error( 'Give the group a topic name.' );
+			throw new QD_Error( QD_App::t( 'err.giveTheGroupATopic' ) );
 		}
 		if ( ! is_array( $ids ) || ! $ids ) {
-			throw new QD_Error( 'Choose the questions to group.' );
+			throw new QD_Error( QD_App::t( 'err.chooseTheQuestionsToGroup' ) );
 		}
 		// Clearing Grouping lets the every-minute run translate them again (it keeps the topic).
 		$moved = self::change_questions( $sid, $ids, "status <> 'prepared'", array( 'topic' => $topic, 'grouping' => '' ) );
 		if ( ! $moved ) {
-			throw new QD_Error( 'Those questions are no longer in the queue.' );
+			throw new QD_Error( QD_App::t( 'err.thoseQuestionsAreNoLonger' ) );
 		}
 		// Single questions that were on phones: their topic goes on phones, with their Me toos.
 		$wanted  = array_map( 'strval', (array) $ids );
@@ -492,7 +492,7 @@ class QD_Moderation {
 	public static function ungroup_questions( $sid = '', $ids = array() ) {
 		$session = self::require_open_session( $sid );
 		if ( ! is_array( $ids ) || ! $ids ) {
-			throw new QD_Error( 'Choose the questions to ungroup.' );
+			throw new QD_Error( QD_App::t( 'err.chooseTheQuestionsToUngroup' ) );
 		}
 		// Marked, so the every-minute grouping doesn't put them straight back.
 		$moved = self::change_questions( $sid, $ids, "topic <> ''", array( 'topic' => '', 'grouping' => 'ungrouped' ) );

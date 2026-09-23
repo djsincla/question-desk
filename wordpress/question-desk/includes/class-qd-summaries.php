@@ -65,7 +65,7 @@ class QD_Summaries {
 				continue;
 			}
 			$kept[]                                  = $q;
-			$groups[ $q['topic'] ? $q['topic'] : 'Not grouped' ][] = $q;
+			$groups[ $q['topic'] ? $q['topic'] : QD_App::t( 'mail.summaryNotGrouped' ) ][] = $q;
 		}
 		$order = array_keys( $groups );
 		usort( $order, function ( $a, $b ) use ( $groups, $votes ) {
@@ -82,7 +82,7 @@ class QD_Summaries {
 			$body .= '<h2 style="font-size:16px;margin:24px 0 8px;border-left:4px solid ' . $brand['accent'] . ';padding-left:8px">'
 				. esc_html( $topic ) . ' <span style="color:#5c6874;font-weight:400">(' . count( $groups[ $topic ] )
 				. ( ! empty( $votes[ $topic ] ) ? ' · ' . $votes[ $topic ] . ' me too' : '' ) . ')'
-				. ( ! empty( $records[ $topic ]['shown'] ) ? ' · shown on phones' : '' ) . '</span></h2>';
+				. ( ! empty( $records[ $topic ]['shown'] ) ? QD_App::t( 'mail.summaryShown' ) : '' ) . '</span></h2>';
 			if ( $merged( $topic ) ) {
 				$body .= '<p style="background:#fffdf5;border-left:3px solid #d9c27a;padding:8px 12px;margin:0 0 8px">'
 					. esc_html( $merged( $topic ) ) . '</p>';
@@ -94,12 +94,12 @@ class QD_Summaries {
 				$small = '<br><span style="color:#5c6874;font-size:13px">';
 				$tick  = 'answered' === $q['status'] ? '<span style="color:' . $brand['accent'] . '">✓ </span>' : '';
 				if ( ! $q['translation'] ) {
-					$item = esc_html( $q['text'] ) . $small . 'Original wording — not translated'
+					$item = esc_html( $q['text'] ) . $small . QD_App::t( 'mail.summaryUntranslated' )
 						. ( $q['lang'] ? ' (' . esc_html( $q['lang'] ) . ')' : '' ) . '</span>';
 				} elseif ( self::same_language( $q ) ) {
 					$item = esc_html( $q['text'] );
 				} else {
-					$item = esc_html( $q['translation'] ) . $small . 'Original (' . esc_html( $q['lang'] ? $q['lang'] : 'unknown language' )
+					$item = esc_html( $q['translation'] ) . $small . 'Original (' . esc_html( $q['lang'] ? $q['lang'] : QD_App::t( 'mail.summaryUnknownLanguage' ) )
 						. '): ' . esc_html( $q['text'] ) . '</span>';
 				}
 				$single = ( ! $q['topic'] && ! empty( $votes[ QD_Topics::single_key( $q['id'] ) ] ) )
@@ -142,7 +142,7 @@ class QD_Summaries {
 		$session = QD_People::require_session( $sid );
 		$to      = $recipients ? $recipients : QD_Settings::summary_recipients( $session );
 		if ( ! $to ) {
-			throw new QD_Error( 'Add Session Summary Email Recipients on the People tab first.' );
+			throw new QD_Error( QD_App::t( 'wp.err.noRecipientsYet' ) );
 		}
 		$sent = self::send( $session, $to );
 		QD_Activity::log( 'Summary emailed', $session, $sent . ( 1 === $sent ? ' recipient' : ' recipients' ) );

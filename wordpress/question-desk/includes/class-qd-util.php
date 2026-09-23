@@ -67,7 +67,7 @@ class QD_Util {
 		$lock = 'qd_' . substr( md5( $wpdb->prefix . $name ), 0, 32 );
 		$got  = (int) $wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK(%s, 10)', $lock ) );
 		if ( 1 !== $got ) {
-			throw new QD_Error( 'Question Desk is busy. Try again in a moment.' );
+			throw new QD_Error( QD_App::t( 'wp.err.busy' ) );
 		}
 		try {
 			return $fn();

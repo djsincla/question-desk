@@ -65,6 +65,15 @@ class QD_App {
 		return $text;
 	}
 
+	/** The languages the app itself can be read in, for the Admin page's pickers. */
+	public static function app_languages() {
+		$out = array();
+		foreach ( self::data()['config']['appLanguages'] as $code => $names ) {
+			$out[] = array( 'code' => $code, 'name' => $names['name'], 'native' => $names['native'] );
+		}
+		return $out;
+	}
+
 	/** An app language code we actually have, or English. */
 	public static function app_language_code( $code ) {
 		return $code && isset( self::data()['config']['appLanguages'][ $code ] ) ? $code : 'en';
@@ -100,7 +109,7 @@ class QD_App {
 	/** Contents of a page file (Ask.html, Styles.html…). */
 	public static function page_file( $file ) {
 		if ( ! preg_match( '/^[A-Za-z]+\.html$/', $file ) ) {
-			throw new QD_Error( 'Unknown page.' );
+			throw new QD_Error( QD_App::t( 'wp.err.unknownPage' ) );
 		}
 		return file_get_contents( QD_DIR . 'pages/' . $file ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
 	}

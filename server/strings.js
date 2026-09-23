@@ -294,6 +294,17 @@ const APP_TEXT = {
   'err.notAnAppLanguage': { en: 'Not an app language: {code}' },
   'err.tooManyPersonLanguages': { en: 'Too many people have a language of their own to store. Remove someone first.' },
 
+  'wp.err.unknownPage': { en: 'Unknown page.' },
+  'wp.err.needsOriginalQuestion': { en: 'The file needs an "Original question" column. Use the CSV from a Question Desk summary email.' },
+  'wp.err.noQuestion': { en: 'No question.' },
+  'wp.err.keyInConfig': { en: 'The key is set in wp-config.php (QD_GEMINI_API_KEY). Change it there.' },
+  'wp.err.retentionRange': { en: 'Keep question wording for between 0 and 120 months.' },
+  'wp.err.modelName': { en: 'That model name does not look like a Gemini model.' },
+  'wp.err.wordpressAdmins': { en: 'WordPress administrators always manage Question Desk. Change their role in Users.' },
+  'wp.err.logoNotSaved': { en: 'The logo could not be saved.' },
+  'wp.err.noRecipientsYet': { en: 'Add Session Summary Email Recipients on the People tab first.' },
+  'wp.err.busy': { en: 'Question Desk is busy. Try again in a moment.' },
+
   'shared.dialog.ok': { en: 'OK' },
   'shared.dialog.typePrompt': { en: 'To confirm, type ' },
   'shared.failed': { en: 'Something went wrong.' },
