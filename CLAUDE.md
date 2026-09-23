@@ -12,7 +12,8 @@ Workspace account. See SETUP.md for install and deployment.
   (asking, Me too), `moderation` (room screen data, queue), `gemini` (settings, grouping,
   translating, merging, keyword backup), `events`, `admin`, `people`, `summaries`,
   `operations` (retention, archive, health, load test, schedule), `csv`, `activity`,
-  `text` (`UI_TEXT`: every participant-facing phrase in every language), `plumbing`. Apps
+  `text` (`UI_TEXT`: every participant-facing phrase in every language), `strings`
+  (`APP_TEXT`: every word staff and the stage read), `plumbing`. Apps
   Script runs all files as one program: top-level code must not depend on another file's
   constants at load time. The folder keeps names distinct from pages (Apps Script needs
   unique file names across .gs and .html). `tests/server-source.js` lists the files for the
@@ -310,6 +311,55 @@ instruction in any prompt edits.
   deployments that detected URL may not be the live one; set it if links misbehave.
 - Adding an OAuth scope (as `script.send_mail` was) requires running `setUp()` in the
   editor before the new version serves traffic, or every request fails authorization.
+
+## Words
+
+Two catalogs, split by who is reading, because they ship differently.
+
+- **`UI_TEXT`** (`server/text.js`) is what the **audience** reads: the phone page, the landing
+  page, and the large text on the room screen. Every language goes to the page as `BOOT.text`
+  and the page picks, because a phone has no reader to ask. `CONFIG.languages`, seven of them.
+- **`APP_TEXT`** (`server/strings.js`) is what **staff and the stage** read: Admin, the queue,
+  the coordinator portal, the room screen's operator footer, the panelist view, every email and
+  every thrown message. `CONFIG.appLanguages` — deliberately not `CONFIG.languages`, whose
+  `.name` values are compared as values in `participants.js` and `summaries.js`. The **server**
+  resolves the reader's language and sends only that one, as `BOOT.words`.
+
+Language comes from the People tab per person (`PEOPLE_LANG`), falling back to the site's
+`APP_LANGUAGE` on Branding. A room has nobody signed in, so `roomLanguage_()` reads the
+session, then its event, then the site. `page_()` resolves both and is the only place that does.
+
+Pages keep their English in the markup and name their key — `<h1 data-w="coord.title">Event
+logistics</h1>` — and `fillWords()` overwrites it only when the page is read in another
+language, so the English path substitutes nothing. `tests/strings.test.js` checks that the
+markup and the catalog agree, which is what keeps the visual baselines honest. Text built in
+script has no markup to keep, so it calls `W()` / `Wn()` (or `t_()` / `tn_()` on the server).
+Keys are named after the place, never deduped by the English: "Group" the verb and "Group" the
+noun must not share one Spanish word.
+
+`wordpress/build.js` ships the catalog to the plugin in `data/app.json`; `QD_App::t()` and
+`QD_App::tn()` read it, and `QD_Pages::render()` resolves the reader exactly as `page_()` does.
+**The plugin has no gettext and should not grow one**: `.po` files would fork the wording from
+the Apps Script side, which is the thing this replaced.
+
+What stays in one language, on purpose:
+
+- Anything written once and read back: activity-log action names and change labels (the Activity
+  tab searches what is **stored**), the sheet and CSV headers, `SESSION_CSV` (re-parsed on
+  import), archive and asset headers, and the `[wording removed]` retention marker.
+- `'Session not found.'` and `'This room screen link is out of date…'` in `moderation.js` and
+  `class-qd-screen.php`: `Present.html` matches those two by wording to tell a dead link from a
+  dropped connection. Translate them only when that becomes a reason code.
+- `'Questions for the panel'` — the default *value* of an admin-editable field, not a label.
+- Gemini prompts, guards and `{{placeholders}}`: they address a model, not a person.
+- **Topic labels.** They are the Questions↔Topics join key and the reason a Korean and a Spanish
+  question land in the same group. A facilitator reading the queue in Spanish therefore sees
+  Spanish chrome around English topic labels. That looks like a bug and is not: "fixing" it
+  splits every language into parallel topics that never meet.
+
+`scripts/translate-strings.js` drafts a language with Gemini into `translations/<code>.json` for
+a person to read, then `--apply` puts it in the catalog. Run by hand, never by CI and never by
+the app.
 
 ## Conventions
 
