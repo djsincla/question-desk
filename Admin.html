@@ -92,6 +92,10 @@
       <div id="ev-coords"></div>
       <div class="hint" data-w="admin.sessions.theyGetThisEvent">They get this event's own portal: every question the audience asks about running it — rooms, timing, access, food — from all its sessions. Add people to the role on the People tab first.</div>
     </div>
+    <label class="field"><span data-w="admin.roomLanguageLabel">Room language</span>
+      <select id="ev-room-lang"></select>
+      <div class="hint" data-w="admin.roomLanguageHint">The room screen, slide and panelist view read their status lines in this. Blank uses the site's.</div>
+    </label>
     <fieldset>
       <legend data-w="admin.sessions.languages">Languages</legend>
       <label class="choice"><input type="radio" name="evLangMode" value="site" checked><span>The site's languages<small id="ev-lang-site"></small></span></label>
@@ -180,6 +184,10 @@
         <label class="choice"><input type="radio" name="theme" value="contrast"><span>High contrast<small>Black, white and yellow, for low vision and washed-out projectors.</small></span></label>
         <label class="choice space-above-8"><input type="checkbox" id="f-room-questions"><span>List questions on the room screen<small>What participants' phones show — topics and questions a QA Facilitator put on phones — most Me too first. Nothing unreviewed. QA Facilitators can also switch it on and off from the queue.</small></span></label>
       </div>
+      <label class="field space-above-8"><span data-w="admin.roomLanguageLabel">Room language</span>
+        <select id="f-room-lang"></select>
+        <div class="hint" data-w="admin.roomLanguageHint">The room screen, slide and panelist view read their status lines in this. Blank uses the site's.</div>
+      </label>
     </div>
 
     <div class="row">
@@ -321,6 +329,10 @@
   <div class="row">
     <form class="panel" id="brandForm">
       <h2 data-w="admin.branding.branding">Branding</h2>
+      <label class="field"><span data-w="admin.appLanguageLabel">App language</span>
+        <select id="b-lang"></select>
+        <div class="hint" data-w="admin.appLanguageHint">What staff read when they have not chosen for themselves, and what every room screen reads.</div>
+      </label>
       <label class="field"><span>Organization name</span>
         <input type="text" id="b-org" maxlength="80">
         <div class="hint" data-w="admin.branding.shownBesideTheLogo">Shown beside the logo and as the sender name on emails.</div>
@@ -1390,6 +1402,7 @@
     $('f-prepared').value = (s.prepared || []).join('\n');
     loadedPrepared = $('f-prepared').value;
     $('f-translate-prepared').checked = s.id ? s.translatePrepared !== false : true;
+    languagePicker($('f-room-lang'), s.roomLanguage, true);
     $('f-room-questions').checked = !!s.roomQuestions;
     var guest = s.guestPage || {};
     $('f-guest-room').checked = !!guest.room;
@@ -1518,6 +1531,7 @@
     $('ev-light').value = b.roomBgLight || state.brand.roomBgLight;
     peopleBoxes($('ev-mods'), state.moderators, ev.moderators, W('admin.noQaFacilitatorsYet2'));
     peopleBoxes($('ev-coords'), state.coordinators, ev.coordinators, W('admin.noEventCoordinatorsYet'));
+    languagePicker($('ev-room-lang'), ev.roomLanguage, true);
     var custom = ev.languages && ev.languages.length;
     radio('evLangMode', custom ? 'custom' : 'site');
     $('ev-lang-site').textContent = languageNames(state.siteLanguages);
@@ -1760,7 +1774,8 @@
       roomBgLight: $('ev-light-on').checked ? $('ev-light').value : '',
       languages: radio('evLangMode') === 'custom' ? chosenLanguages($('ev-langs')) : null,
       moderators: ticked($('ev-mods')),
-      coordinators: ticked($('ev-coords'))
+      coordinators: ticked($('ev-coords')),
+      roomLanguage: $('ev-room-lang').value
     };
     call('saveEvent', [input], function (res) {
       $('eventForm').hidden = true;
@@ -1790,6 +1805,7 @@
       prepared: $('f-prepared').value !== loadedPrepared ? $('f-prepared').value : undefined,
       translatePrepared: $('f-translate-prepared').checked,
       roomQuestions: $('f-room-questions').checked,
+      roomLanguage: $('f-room-lang').value,
       guestPage: { room: $('f-guest-room').checked, slide: $('f-guest-slide').checked, panel: $('f-guest-panel').checked, url: $('f-guest-url').value },
       emailOnEnd: $('f-email').checked,
       moderators: mods,
@@ -1897,12 +1913,49 @@
     });
   }
 
+  /** Fills a language picker. `blank` offers "use the site's" for a session or an event. */
+  function languagePicker(select, chosen, blank) {
+    select.textContent = '';
+    if (blank) {
+      var none = el('option', null, W('admin.useSiteLanguage'));
+      none.value = '';
+      select.appendChild(none);
+    }
+    state.appLanguages.forEach(function (l) {
+      var o = el('option', null, l.native);
+      o.value = l.code;
+      if ((chosen || '') === l.code) o.selected = true;
+      select.appendChild(o);
+    });
+    if (blank && !chosen) select.value = '';
+  }
+
   function personList(ul, role, emails) {
     ul.innerHTML = '';
     if (!emails.length) ul.appendChild(el('li', 'hint', W('admin.noneYet')));
     emails.forEach(function (email) {
       var li = el('li');
       li.appendChild(el('span', null, email));
+      // What this person reads the app in. English is the default, so it stores nothing.
+      if (state.appLanguages.length > 1) {
+        var pick = el('select', 'person-lang');
+        pick.setAttribute('aria-label', W('admin.personLanguage', { email: email }));
+        state.appLanguages.forEach(function (l) {
+          var o = el('option', null, l.native);
+          o.value = l.code;
+          if ((state.personLanguages[email] || 'en') === l.code) o.selected = true;
+          pick.appendChild(o);
+        });
+        pick.onchange = function () {
+          var chosen = this.value;
+          var name = state.appLanguages.filter(function (l) { return l.code === chosen; })[0];
+          call('setPersonLanguage', [email, chosen], function (res) {
+            render(res);
+            toast(W('admin.languageSet', { email: email, language: name ? name.native : chosen }));
+          }, pick);
+        };
+        li.appendChild(pick);
+      }
       var locked = role === 'admin' && (email === state.owner || email === state.me);
       if (locked) {
         li.appendChild(el('span', 'hint', email === state.owner ? W('admin.owner') : W('admin.you')));
@@ -2029,6 +2082,7 @@
     renderPrompts();
     $('langMax').textContent = String(state.maxLanguages - 1);
     languageBoxes($('siteLangs'), state.siteLanguages, 'siteLang');
+    languagePicker($('b-lang'), state.siteLanguage, false);
     $('b-org').value = state.brand.orgName;
     $('b-accent').value = state.brand.accent;
     $('b-accent-pick').value = state.brand.accent;
@@ -2342,6 +2396,11 @@
   $('b-accent').addEventListener('input', function () {
     if (/^#[0-9a-f]{6}$/i.test(this.value)) $('b-accent-pick').value = this.value;
   });
+
+  // The app's own language saves on its own, so branding keeps one round trip.
+  $('b-lang').onchange = function () {
+    call('saveSiteLanguage', [this.value], function (res) { render(res); toast(W('admin.appLanguageSaved')); }, $('b-lang'));
+  };
 
   $('brandForm').addEventListener('submit', function (e) {
     e.preventDefault();

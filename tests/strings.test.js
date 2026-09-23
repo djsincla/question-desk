@@ -194,3 +194,53 @@ test('a person reads the app in their own language, and falls back to English un
   assert.equal(h.app.roomLanguage_(h.app.getSession_(s.id)), 'es', 'the site\'s own language');
   assert.equal(h.app.appLanguage_('nobody@example.org'), 'es', 'and anyone with no choice of their own');
 });
+
+test('an administrator sets who reads the app in which language', () => {
+  const h = createApp().install();
+  h.app.addPerson('moderator', 'luis@example.org');
+  assert.deepEqual(h.app.adminState().personLanguages, {});
+  assert.deepEqual(h.app.adminState().appLanguages.map((l) => l.code), ['en', 'es']);
+
+  h.app.setPersonLanguage('luis@example.org', 'es');
+  assert.deepEqual(h.app.adminState().personLanguages, { 'luis@example.org': 'es' });
+  assert.equal(h.app.appLanguage_('luis@example.org'), 'es');
+  assert.equal(h.app.appLanguage_('nobody@example.org'), 'en', 'everyone else is unchanged');
+  assert.ok(h.app.getActivity().entries.some((e) => e.action === 'Person language set'));
+
+  // English is the default, so choosing it stores nothing at all.
+  h.app.setPersonLanguage('luis@example.org', 'en');
+  assert.deepEqual(h.app.adminState().personLanguages, {});
+  assert.throws(() => h.app.setPersonLanguage('luis@example.org', 'fr'), /Not an app language: fr/);
+
+  h.app.setPersonLanguage('luis@example.org', 'es');
+  h.app.removePerson('moderator', 'luis@example.org');
+  assert.deepEqual(h.app.adminState().personLanguages, {}, 'and it goes when they do');
+
+  h.as('luis@example.org');
+  assert.throws(() => h.app.setPersonLanguage('luis@example.org', 'es'), /Only administrators/);
+});
+
+test('a room reads the language its session, its event or the site chose', () => {
+  const h = createApp().install();
+  const eid = h.app.saveEvent({ name: 'Fall Conference', roomLanguage: 'es' }).savedEventId;
+  const inEvent = h.session({ name: 'Keynote', access: 'link', active: true, eventId: eid });
+  const own = h.session({ name: 'Workshop', access: 'link', active: true, eventId: eid, roomLanguage: 'en' });
+  const plain = h.session({ name: 'Alone', access: 'link', active: true });
+
+  assert.equal(h.app.roomLanguage_(h.app.getSession_(inEvent.id)), 'es', 'from its event');
+  assert.equal(h.app.roomLanguage_(h.app.getSession_(own.id)), 'en', 'its own wins');
+  assert.equal(h.app.roomLanguage_(h.app.getSession_(plain.id)), 'en');
+
+  h.app.saveSiteLanguage('es');
+  assert.equal(h.app.adminState().siteLanguage, 'es');
+  assert.equal(h.app.roomLanguage_(h.app.getSession_(plain.id)), 'es');
+
+  assert.throws(() => h.app.saveSiteLanguage('fr'), /Not an app language: fr/);
+
+  // The room screen is handed that language, with nobody signed in at the venue laptop.
+  const key = h.screenKey(plain);
+  h.anonymous();
+  const boot = h.app.doGet({ parameter: { view: 'present', s: plain.id, r: key } }).data;
+  assert.equal(boot.lang, 'es');
+  assert.ok(boot.words['present.paused'], 'and the footer it reads');
+});

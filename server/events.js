@@ -77,13 +77,15 @@ function saveEvent(input) {
       if (input.languages !== undefined) ev.languages = languages;   // null: use the site's
       if (moderators !== undefined) ev.moderators = moderators;
       if (coordinators !== undefined) ev.coordinators = coordinators;
+      if (input.roomLanguage !== undefined) ev.roomLanguage = cleanAppLanguage_(input.roomLanguage);
       saveEvent_(ev);
       audit_('Event edited', { id: ev.id, eventName: name }, '');
     } else {
       const orders = allEvents_().map(function (e) { return typeof e.order === 'number' ? e.order : 0; });
       id = newId_(8);
       saveEvent_({ id: id, name: name, brand: brand, languages: languages, moderators: moderators || [],
-                   coordinators: coordinators || [], hasLogo: false, created: Date.now(), createdBy: me,
+                   coordinators: coordinators || [], roomLanguage: cleanAppLanguage_(input.roomLanguage),
+                   hasLogo: false, created: Date.now(), createdBy: me,
                    order: orders.length ? Math.min.apply(null, orders) - 1 : 0 });
       audit_('Event created', { id: id, eventName: name }, '');
     }

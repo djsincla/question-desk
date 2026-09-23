@@ -291,6 +291,9 @@ const APP_TEXT = {
   'gem.httpError': { en: 'Gemini {code}{hint} {body}' },
   'gem.parseFailed': { en: 'Could not parse Gemini response: {why}' },
 
+  'err.notAnAppLanguage': { en: 'Not an app language: {code}' },
+  'err.tooManyPersonLanguages': { en: 'Too many people have a language of their own to store. Remove someone first.' },
+
   'shared.dialog.ok': { en: 'OK' },
   'shared.dialog.typePrompt': { en: 'To confirm, type ' },
   'shared.failed': { en: 'Something went wrong.' },
@@ -877,6 +880,15 @@ const APP_TEXT = {
   'admin.healthChecking': { en: 'Checking…' },
   'admin.healthCouldNotRun': { en: 'The health check could not run. Try again.' },
 
+  'admin.personLanguage': { en: 'Language {email} reads the app in' },
+  'admin.languageSet': { en: '{email} now reads the app in {language}' },
+  'admin.roomLanguageLabel': { en: 'Room language' },
+  'admin.roomLanguageHint': { en: 'The room screen, slide and panelist view read their status lines in this. Blank uses the site\'s.' },
+  'admin.useSiteLanguage': { en: 'Use the site\'s' },
+  'admin.appLanguageLabel': { en: 'App language' },
+  'admin.appLanguageHint': { en: 'What staff read when they have not chosen for themselves, and what every room screen reads.' },
+  'admin.appLanguageSaved': { en: 'App language saved' },
+
   'mod.eventTeam': { en: 'Event team' },
   'mod.eventTeamDone': { en: 'Event team ✓' },
   'mod.alsoShownAnswerNow': { en: 'With Answer now, phones and the room screen show' },
@@ -982,6 +994,13 @@ function t_(key, vars, lang) {
   const entry = APP_TEXT[key];
   if (!entry) throw new Error('Unknown phrase ' + key + '.');
   return format_(entry[appLanguageCode_(lang)] || entry.en, vars);
+}
+
+/** An app language a form offered, or '' for "use the default". */
+function cleanAppLanguage_(code) {
+  const clean = String(code || '');
+  if (clean && !CONFIG.appLanguages[clean]) throw new Error(t_('err.notAnAppLanguage', { code: clean }));
+  return clean;
 }
 
 /** t_() for a count: the catalog holds key.one and key.other, as Wn() reads them on a page. */

@@ -274,6 +274,7 @@ function sessionInput_(s) {
     id: s.id, name: s.name, room: s.room || '', heading: s.heading, access: s.access, theme: s.theme, maxLength: s.maxLength,
     cooldownSeconds: cooldownFor_(s), moderators: (s.moderators || []).slice(), emailOnEnd: !!s.emailOnEnd,
     translatePrepared: s.translatePrepared !== false, roomQuestions: !!s.roomQuestions,
+    roomLanguage: s.roomLanguage || '',
     scheduledStart: s.scheduledStart || null, scheduledEnd: s.scheduledEnd || null,
     brandOrgName: own.orgName || '', brandAccent: own.accent || '', guestPage: s.guestPage, eventId: s.eventId || ''
   };

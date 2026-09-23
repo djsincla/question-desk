@@ -27,6 +27,11 @@ function adminState() {
     admins: roster_('ADMINS'),
     moderators: roster_('MODERATORS'),
     coordinators: roster_('COORDINATORS'),
+    personLanguages: personLanguages_(),
+    appLanguages: Object.keys(CONFIG.appLanguages).map(function (code) {
+      return { code: code, name: CONFIG.appLanguages[code].name, native: CONFIG.appLanguages[code].native };
+    }),
+    siteLanguage: siteLanguage_(),
     sessions: allSessions_().map(function (s) {
       const out = JSON.parse(JSON.stringify(s));
       out.links = sessionLinks_(s);
@@ -141,6 +146,7 @@ function saveSessionAs_(input, me, dryRun) {
     brand: { orgName: cleanText_(input.brandOrgName, 80), accent: brandAccent.toLowerCase() },
     translatePrepared: input.translatePrepared !== false,
     roomQuestions: !!input.roomQuestions,
+    roomLanguage: cleanAppLanguage_(input.roomLanguage),
     guestPage: cleanGuestPageChoice_(input.guestPage),
     eventId: String(input.eventId || '')
   };
@@ -468,6 +474,27 @@ function addPerson(role, email) {
   return adminState();
 }
 
+/**
+ * The language one person reads the app in: the queue, Admin, the coordinator portal and the
+ * emails they are sent. Kept in its own property, so the rosters stay plain address lists.
+ */
+function setPersonLanguage(email, code) {
+  requireAdmin_();
+  const address = String(email || '').toLowerCase();
+  const lang = String(code || '');
+  if (lang && !CONFIG.appLanguages[lang]) throw new Error(t_('err.notAnAppLanguage', { code: lang }));
+  withLock_(function () {
+    const all = personLanguages_();
+    if (lang && lang !== 'en') all[address] = lang;
+    else delete all[address];   // English is the default, so it needs no row
+    const json = JSON.stringify(all);
+    if (json.length > 9000) throw new Error(t_('err.tooManyPersonLanguages'));
+    props_().setProperty('PEOPLE_LANG', json);
+  });
+  audit_('Person language set', null, address + ': ' + (lang || 'en'));
+  return adminState();
+}
+
 function removePerson(role, email) {
   const me = requireAdmin_();
   const address = String(email || '').toLowerCase();
@@ -495,6 +522,13 @@ function removePerson(role, email) {
       });
     }
   });
+  if (!onRoster_('ADMINS', address) && !onRoster_('MODERATORS', address) && !onRoster_('COORDINATORS', address)) {
+    withLock_(function () {
+      const all = personLanguages_();
+      delete all[address];
+      props_().setProperty('PEOPLE_LANG', JSON.stringify(all));
+    });
+  }
   audit_((ROLE_NAMES[role] || ROLE_NAMES.moderator) + ' removed', null, address);
   return adminState();
 }
@@ -530,6 +564,15 @@ function summaryRecipients_(session) {
   const list = [];
   summaryDefaults_().extra.forEach(function (e) { e = String(e).toLowerCase(); if (list.indexOf(e) === -1) list.push(e); });
   return list.slice(0, CONFIG.maxRecipients);
+}
+
+/** The language the app itself is read in when nobody has chosen one: staff, and every room. */
+function saveSiteLanguage(code) {
+  requireAdmin_();
+  const clean = cleanAppLanguage_(code);
+  props_().setProperty('APP_LANGUAGE', clean || 'en');
+  audit_('App language changed', null, CONFIG.appLanguages[clean || 'en'].name);
+  return adminState();
 }
 
 /** The languages sessions outside an event use (and any event that doesn't choose). */
