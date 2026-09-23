@@ -128,7 +128,8 @@ class QD_Sessions {
 			} );
 			$changed = $was ? QD_Activity::session_changes( $was, $now ) : '';
 			if ( $changed || null !== $prepared_list ) {
-				$details = array_filter( array( $changed, null !== $prepared_list ? 'prepared questions (' . count( $prepared_list ) . ')' : '' ) );
+				$details = array_filter( array( $changed, null !== $prepared_list
+					? QD_App::t( 'admin.preparedChanged', array( 'n' => count( $prepared_list ) ) ) : '' ) );
 				QD_Activity::log( 'Session edited', $now, implode( ', ', $details ) );
 			}
 		} else {

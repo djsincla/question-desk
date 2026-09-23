@@ -234,11 +234,11 @@ class QD_EventTools {
 		}
 		if ( ! empty( $options['present'] ) ) {
 			$items[] = array( QD_App::t( 'mail.linkPresent' ), $links['present'],
-				'Open on the projector — no sign-in needed. Anyone with this link can see the join code, so share it only with the people running the room.' );
+				QD_App::t( 'wp.mail.linkPresentNote' ) );
 		}
 		if ( ! empty( $options['moderate'] ) ) {
 			$items[] = array( QD_App::t( 'mail.linksQueue' ), $links['moderate'],
-				'Questions grouped by topic. Requires signing in with an assigned WordPress account.' );
+				QD_App::t( 'wp.mail.linkModerateNote' ) );
 		}
 		if ( ! $items ) {
 			throw new QD_Error( QD_App::t( 'err.chooseAtLeastOneLink' ) );
@@ -253,7 +253,7 @@ class QD_EventTools {
 		$html = QD_Summaries::shell( $brand, esc_html( $session['name'] ), $inner );
 		foreach ( $to as $address ) {
 			// One message each, so addresses are never exposed to one another.
-			QD_Summaries::mail( $address, $session['name'] . ' — Question Desk links', $html, $brand );
+			QD_Summaries::mail( $address, QD_App::t( 'mail.linksSessionSubject', array( 'name' => $session['name'] ) ), $html, $brand );
 		}
 		QD_Activity::log( 'Links emailed', $session, 'to ' . implode( ', ', $to ) );
 		return count( $to );
@@ -277,19 +277,21 @@ class QD_EventTools {
 			array(
 				'label'  => QD_App::t( 'list.groupingRuns' ),
 				'ok'     => $cron,
-				'detail' => $cron ? ( defined( 'DISABLE_WP_CRON' ) && DISABLE_WP_CRON ? 'WP-Cron is disabled: the host must run wp-cron.php every minute.' : '' )
-					: 'Deactivate and activate Question Desk to schedule it again.',
+				'detail' => $cron
+					? ( defined( 'DISABLE_WP_CRON' ) && DISABLE_WP_CRON ? QD_App::t( 'wp.list.cronDisabled' ) : '' )
+					: QD_App::t( 'wp.list.cronMissing' ),
 			),
 			array(
 				'label'  => QD_App::t( 'list.geminiSetUp' ),
 				'ok'     => (bool) $key && empty( $health['failures'] ),
-				'detail' => ! $key ? 'No Gemini API key: add one under Admin → Health.'
-					: ( ! empty( $health['failures'] ) ? 'Grouping failed ' . $health['failures'] . ' times in a row: ' . ( $health['lastError'] ?? '' ) : '' ),
+				'detail' => ! $key ? QD_App::t( 'wp.list.geminiNoKey' )
+					: ( ! empty( $health['failures'] )
+						? QD_App::t( 'list.geminiFailing', array( 'n' => $health['failures'], 'why' => $health['lastError'] ?? '' ) ) : '' ),
 			),
 			array(
-				'label'  => 'Email',
+				'label'  => QD_App::t( 'wp.list.email' ),
 				'ok'     => null,
-				'detail' => 'WordPress sends with ' . ( self::smtp_in_use() ? 'an SMTP plugin' : 'PHP mail(), which many hosts drop — an SMTP plugin is safer' ) . '.',
+				'detail' => QD_App::t( self::smtp_in_use() ? 'wp.list.mailSmtp' : 'wp.list.mailPhp' ),
 			),
 		);
 
@@ -303,8 +305,10 @@ class QD_EventTools {
 				$checks[] = array(
 					'label'  => QD_App::t( 'list.ended' ),
 					'ok'     => true,
-					'detail' => ! empty( $s['summarySent'] ) ? 'Summary emailed ' . $fmt( $s['summarySent'] )
-						: ( ! empty( $s['summaryPending'] ) ? 'Summary not sent yet: ' . ( $s['summaryPending']['error'] ?? '' ) : '' ),
+					'detail' => ! empty( $s['summarySent'] )
+						? QD_App::t( 'list.summaryEmailed', array( 'at' => $fmt( $s['summarySent'] ) ) )
+						: ( ! empty( $s['summaryPending'] )
+							? QD_App::t( 'list.summaryNotSent', array( 'why' => $s['summaryPending']['error'] ?? '' ) ) : '' ),
 				);
 			} else {
 				if ( 'active' === $s['status'] ) {

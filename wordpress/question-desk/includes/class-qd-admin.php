@@ -65,7 +65,7 @@ class QD_Admin {
 			'guestPageUrl'     => QD_Settings::guest_page_url(),
 			// No shared default: a guest page for a WordPress site must name that site itself
 			// (data-site in the copy the organization hosts), so there is nothing to fall back to.
-			'guestPageDefault' => 'your own copy of the guest page',
+			'guestPageDefault' => QD_App::t( 'wp.admin.guestPageDefault' ),
 			'detectedUrl'      => QD_Router::base_url(),
 			'appUrl'           => QD_Router::base_url(),
 			'ops'              => self::ops(),

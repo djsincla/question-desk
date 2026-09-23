@@ -15,7 +15,7 @@ class QD_Events {
 		$color = function ( $value, $label ) {
 			$v = trim( (string) $value );
 			if ( '' !== $v && ! preg_match( QD_Util::HEX_RE, $v ) ) {
-				throw new QD_Error( $label . ' must be a color like #1b5e5a.' );
+				throw new QD_Error( QD_App::t( 'err.colorFormat', array( 'label' => $label ) ) );
 			}
 			return strtolower( $v );
 		};

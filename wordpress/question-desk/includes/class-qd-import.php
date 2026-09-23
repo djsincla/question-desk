@@ -36,8 +36,8 @@ class QD_Import {
 			try {
 				$result = QD_Csv::import_questions( $sid, $csv, ! $importing );
 				$notice = $importing
-					? sprintf( '%d questions added, %d already here, %d with problems.', $result['added'], $result['skipped'], $result['failed'] )
-					: sprintf( 'Checked only: %d would be added, %d are already here, %d have problems.', $result['added'], $result['skipped'], $result['failed'] );
+					? QD_App::t( 'wp.import.added', array( 'added' => $result['added'], 'here' => $result['skipped'], 'problems' => $result['failed'] ) )
+					: QD_App::t( 'wp.import.checked', array( 'added' => $result['added'], 'here' => $result['skipped'], 'problems' => $result['failed'] ) );
 				if ( $importing ) {
 					$csv = '';
 				}

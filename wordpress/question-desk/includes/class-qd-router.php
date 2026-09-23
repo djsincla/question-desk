@@ -78,7 +78,7 @@ class QD_Router {
 			if ( ! QD_People::can_coordinate( $event, $email ) ) {
 				self::notice( 'denied', $view );
 			}
-			QD_Pages::send( 'Coordinator.html', $event['name'] . ' — event logistics', array(
+			QD_Pages::send( 'Coordinator.html', QD_App::t( 'page.coordinator', array( 'event' => $event['name'] ) ), array(
 				'eid'   => $event['id'],
 				'board' => QD_Coordinator::board( $event['id'] ),
 			), array( 'eventId' => $event['id'] ) );
