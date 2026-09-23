@@ -33,8 +33,8 @@ class QD_Events {
 			'accent'      => $color( $input['accent'] ?? '', 'The accent' ),
 			'welcome'     => QD_Util::clean_text( $input['welcome'] ?? '', 200 ),
 			'footer'      => QD_Util::clean_text( $input['footer'] ?? '', 160 ),
-			'roomBgDark'  => $color( $input['roomBgDark'] ?? '', 'The dark background' ),
-			'roomBgLight' => $color( $input['roomBgLight'] ?? '', 'The light background' ),
+			'roomBgDark'  => $color( $input['roomBgDark'] ?? '', QD_App::t( 'err.label.darkBackground' ) ),
+			'roomBgLight' => $color( $input['roomBgLight'] ?? '', QD_App::t( 'err.label.lightBackground' ) ),
 		);
 
 		$id = (string) ( $input['id'] ?? '' );

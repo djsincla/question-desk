@@ -119,7 +119,7 @@ class QD_EventTools {
 			$review = self::review_section( QD_Gemini::event_review( $eid ), $brand );
 		} catch ( Throwable $e ) {
 			error_log( 'Question Desk event review: ' . $e->getMessage() ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-			$review = self::review_problem( 'The review could not be made: ' . $e->getMessage() );
+			$review = self::review_problem( QD_App::t( 'list.reviewFailed', array( 'why' => $e->getMessage() ) ) );
 		}
 		$body      = '<p style="color:#5c6874;margin:0 0 8px">' . count( $sessions ) . ( 1 === count( $sessions ) ? ' session' : ' sessions' );
 		$header    = null;
@@ -142,8 +142,9 @@ class QD_EventTools {
 		$path     = trailingslashit( get_temp_dir() ) . ( $name ? $name : 'event' ) . '-questions.csv';
 		file_put_contents( $path, "\xEF\xBB\xBF" . QD_Csv::lines( array_merge( array( $header ), $csv_rows ) ) ); // phpcs:ignore WordPress.WP.AlternativeFunctions
 		foreach ( $to as $address ) {
-			QD_Summaries::mail( $address, $event['name'] . ' — questions summary for the whole event',
-				QD_Summaries::shell( $brand, esc_html( $event['name'] ) . ' — questions', $body ), $brand, array( $path ) );
+			QD_Summaries::mail( $address, QD_App::t( 'mail.eventSummarySubject', array( 'event' => $event['name'] ) ),
+				QD_Summaries::shell( $brand, esc_html( QD_App::t( 'mail.eventSummaryTitle', array( 'event' => $event['name'] ) ) ), $body ),
+				$brand, array( $path ) );
 		}
 		wp_delete_file( $path );
 		QD_Activity::log( 'Event summary emailed', array( 'id' => $eid, 'eventName' => $event['name'] ), 'to ' . implode( ', ', $to ) );
@@ -163,19 +164,20 @@ class QD_EventTools {
 			return '<p style="margin:0 0 10px;color:#3c4854">' . esc_html( $text ) . '</p>';
 		};
 		$html = '<div style="background:#f5f7f9;border-left:4px solid ' . $brand['accent'] . ';padding:14px 18px;margin:0 0 26px">'
-			. '<h1 style="font-size:17px;margin:0 0 4px">What the questions say</h1>'
-			. '<p style="margin:0 0 12px;color:#5c6874;font-size:13px">Written by Gemini from ' . (int) $result['reviewed']
-			. ' of the ' . (int) $result['questions'] . ( 1 === (int) $result['questions'] ? ' question' : ' questions' )
-			. ' asked across ' . (int) $result['sessions'] . ( 1 === (int) $result['sessions'] ? ' session' : ' sessions' )
-			. '. Read it as a starting point, not a verdict.</p>'
+			. '<h1 style="font-size:17px;margin:0 0 4px">' . esc_html( QD_App::t( 'mail.reviewTitle' ) ) . '</h1>'
+			. '<p style="margin:0 0 12px;color:#5c6874;font-size:13px">' . esc_html( QD_App::t( 'mail.reviewSource', array(
+				'reviewed'  => (int) $result['reviewed'],
+				'questions' => QD_App::tn( 'mail.reviewQuestions', (int) $result['questions'] ),
+				'sessions'  => QD_App::tn( 'mail.reviewSessions', (int) $result['sessions'] ),
+			) ) ) . '</p>'
 			. $note( $r['sentiment'] );
 
 		if ( ! empty( $r['themes'] ) ) {
 			$html .= $head( QD_App::t( 'mail.reviewThemes' ) ) . '<ol style="margin:0 0 4px;padding-left:20px;color:#3c4854">';
 			foreach ( $r['themes'] as $theme ) {
 				$html .= '<li style="margin-bottom:10px"><strong>' . esc_html( $theme['title'] ) . '</strong><br>'
-					. esc_html( $theme['what'] ) . '<br><span style="color:#5c6874">Next time: '
-					. esc_html( $theme['nextTime'] ) . '</span></li>';
+					. esc_html( $theme['what'] ) . '<br><span style="color:#5c6874">'
+					. esc_html( QD_App::t( 'mail.reviewNextTime', array( 'what' => $theme['nextTime'] ) ) ) . '</span></li>';
 			}
 			$html .= '</ol>';
 		}
@@ -183,16 +185,16 @@ class QD_EventTools {
 			$html .= $head( QD_App::t( 'mail.reviewLogistics' ) ) . '<ul style="margin:0 0 4px;padding-left:20px;color:#3c4854">';
 			foreach ( $r['logistics'] as $item ) {
 				$html .= '<li style="margin-bottom:8px">' . esc_html( $item['issue'] )
-					. '<br><span style="color:#5c6874">Next time: ' . esc_html( $item['nextTime'] ) . '</span></li>';
+					. '<br><span style="color:#5c6874">'
+					. esc_html( QD_App::t( 'mail.reviewNextTime', array( 'what' => $item['nextTime'] ) ) ) . '</span></li>';
 			}
 			$html .= '</ul>';
 		}
 		if ( ! empty( $r['individual']['count'] ) ) {
 			$count = (int) $r['individual']['count'];
 			$html .= $head( QD_App::t( 'mail.reviewIndividual' ) )
-				. $note( $count . ( 1 === $count ? ' question was' : ' questions were' ) . ' about somebody\'s own circumstances. '
-					. $r['individual']['pattern'] )
-				. $note( 'For everyone in that position: ' . $r['individual']['atScale'] );
+				. $note( QD_App::tn( 'mail.reviewIndividualCount', $count, array( 'pattern' => $r['individual']['pattern'] ) ) )
+				. $note( QD_App::t( 'mail.reviewAtScale', array( 'what' => $r['individual']['atScale'] ) ) );
 		}
 		if ( ! empty( $r['sessionIdeas'] ) ) {
 			$html .= $head( QD_App::t( 'mail.reviewSessionIdeas' ) ) . '<ul style="margin:0;padding-left:20px;color:#3c4854">';
@@ -206,7 +208,7 @@ class QD_EventTools {
 
 	private static function review_problem( $why ) {
 		return '<p style="background:#f5f7f9;padding:12px 16px;margin:0 0 26px;color:#5c6874">'
-			. 'The questions are below, but no review was written this time. ' . esc_html( $why ) . '</p>';
+			. esc_html( QD_App::t( 'mail.reviewMissing', array( 'why' => $why ) ) ) . '</p>';
 	}
 
 	/** One session's links by email, to its QA Facilitators or to addresses given. */

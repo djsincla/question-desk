@@ -155,12 +155,14 @@ class QD_Operations {
 			array(
 				'name'   => QD_App::t( 'ops.check.grouping' ),
 				'ok'     => empty( $health['failures'] ) && $cron,
-				'detail' => ! $cron ? 'The every-minute run is not scheduled — deactivate and activate the plugin.'
-					: ( ! empty( $health['failures'] ) ? $health['failures'] . ' failed runs in a row: ' . ( $health['lastError'] ?? '' ) : QD_App::t( 'ops.check.working' ) ),
+				'detail' => ! $cron ? QD_App::t( 'wp.ops.cronMissing' )
+					: ( ! empty( $health['failures'] )
+						? QD_App::t( 'ops.check.groupingFailures', array( 'n' => $health['failures'], 'why' => $health['lastError'] ?? '' ) )
+						: QD_App::t( 'ops.check.working' ) ),
 			),
-			array( 'name' => QD_App::t( 'ops.check.key' ), 'ok' => (bool) QD_Gemini::key(), 'detail' => QD_Gemini::key() ? 'Set' : QD_App::t( 'ops.check.keyMissing' ) ),
-			array( 'name' => 'Questions stored', 'ok' => true,
-				'detail' => (int) $wpdb->get_var( 'SELECT COUNT(*) FROM ' . QD_Install::table( 'questions' ) ) . ' in the database' ), // phpcs:ignore WordPress.DB.PreparedSQL
+			array( 'name' => QD_App::t( 'ops.check.key' ), 'ok' => (bool) QD_Gemini::key(), 'detail' => QD_Gemini::key() ? QD_App::t( 'ops.check.keySet' ) : QD_App::t( 'ops.check.keyMissing' ) ),
+			array( 'name' => QD_App::t( 'wp.ops.questionsStored' ), 'ok' => true,
+				'detail' => QD_App::t( 'wp.ops.inDatabase', array( 'n' => (int) $wpdb->get_var( 'SELECT COUNT(*) FROM ' . QD_Install::table( 'questions' ) ) ) ) ), // phpcs:ignore WordPress.DB.PreparedSQL
 		);
 		if ( $owed ) {
 			$checks[] = array( 'name' => QD_App::t( 'ops.check.summariesOwed' ), 'ok' => false, 'detail' => implode( ', ', $owed ) );
@@ -176,7 +178,7 @@ class QD_Operations {
 			'ended'     => $ended,
 			'asked'     => $asked,
 			'retention' => $ops['retentionMonths']
-				? 'Question wording is removed ' . $ops['retentionMonths'] . ' months after a session ends.'
+				? QD_App::t( 'ops.retentionOn', array( 'months' => $ops['retentionMonths'] ) )
 				: QD_App::t( 'ops.retentionOff' ),
 		);
 	}
@@ -211,14 +213,14 @@ class QD_Operations {
 		}
 		$table .= '</table>';
 		$html   = '<p style="margin:0 0 12px">' . ( $problems
-			? '<strong>' . $problems . ' thing' . ( 1 === $problems ? '' : 's' ) . ' need attention.</strong>'
+			? '<strong>' . esc_html( QD_App::tn( 'mail.weeklyProblems', $problems ) ) . '</strong>'
 			: QD_App::t( 'mail.weeklyHealthy' ) ) . '</p>' . $table
 			. $list( QD_App::t( 'mail.weeklyUpcoming' ), $report['upcoming'], QD_App::t( 'mail.weeklyNothingScheduled' ) )
 			. $list( QD_App::t( 'mail.weeklyActive' ), $report['active'], QD_App::t( 'mail.weeklyNoneActive' ) )
 			. $list( QD_App::t( 'mail.weeklyEnded' ), $report['ended'], QD_App::t( 'mail.weeklyNone' ) )
-			. '<p style="margin:20px 0 0;color:#5c6874">' . $report['asked'] . ' questions asked in the last 7 days. '
-			. esc_html( $report['retention'] ) . '</p>'
-			. '<p style="margin:8px 0 0;color:#5c6874;font-size:13px">Turn this report off on the Admin page → Health &amp; testing.</p>';
+			. '<p style="margin:20px 0 0;color:#5c6874">'
+			. esc_html( QD_App::t( 'mail.weeklyAsked', array( 'n' => $report['asked'], 'retention' => $report['retention'] ) ) ) . '</p>'
+			. '<p style="margin:8px 0 0;color:#5c6874;font-size:13px">' . QD_App::t( 'mail.weeklyOff' ) . '</p>';
 
 		$brand = QD_Brand::site();
 		$sent  = 0;
@@ -260,22 +262,21 @@ class QD_Operations {
 			$checks[] = array( 'name' => $name, 'ok' => (bool) $ok, 'detail' => $detail );
 		};
 		$key = QD_Gemini::key();
-		$add( QD_App::t( 'ops.check.key' ), $key, $key ? ( defined( 'QD_GEMINI_API_KEY' ) ? 'Set in wp-config.php' : 'Set' )
-			: 'Missing — add it under Admin → Health, or as QD_GEMINI_API_KEY in wp-config.php.' );
+		$add( QD_App::t( 'ops.check.key' ), $key, $key
+			? QD_App::t( defined( 'QD_GEMINI_API_KEY' ) ? 'wp.ops.keyInConfig' : 'ops.check.keySet' )
+			: QD_App::t( 'wp.ops.keyMissingHow' ) );
 		if ( $key ) {
 			$started = QD_Util::now_ms();
 			$r       = QD_Gemini::request( 'Health check. Set ok to true.',
 				array( 'type' => 'OBJECT', 'properties' => array( 'ok' => array( 'type' => 'BOOLEAN' ) ), 'required' => array( 'ok' ) ),
 				array( 'task' => 'grouping' ) );
-			$add( 'Gemini model ' . QD_Admin::gemini_settings()['model'], ! empty( $r['ok'] ),
-				! empty( $r['ok'] ) ? 'Responded in ' . ( QD_Util::now_ms() - $started ) . ' ms' : ( $r['error'] ?? '' ) );
+			$add( QD_App::t( 'ops.check.model', array( 'model' => QD_Admin::gemini_settings()['model'] ) ), ! empty( $r['ok'] ),
+				! empty( $r['ok'] ) ? QD_App::t( 'ops.check.modelOk', array( 'ms' => QD_Util::now_ms() - $started ) ) : ( $r['error'] ?? '' ) );
 		}
 		$next = wp_next_scheduled( QD_Schedule::MINUTE_HOOK );
-		$add( 'Grouping and schedule run', (bool) $next, $next
-			? ( defined( 'DISABLE_WP_CRON' ) && DISABLE_WP_CRON
-				? 'Scheduled, but WP-Cron is disabled: the host must call wp-cron.php every minute.'
-				: 'Scheduled; WordPress runs it when the site gets traffic. A real cron on the host is steadier.' )
-			: 'Not scheduled — deactivate and activate Question Desk.' );
+		$add( QD_App::t( 'wp.ops.scheduleRun' ), (bool) $next, $next
+			? QD_App::t( defined( 'DISABLE_WP_CRON' ) && DISABLE_WP_CRON ? 'wp.ops.cronDisabled' : 'wp.ops.cronTraffic' )
+			: QD_App::t( 'wp.ops.cronNotScheduled' ) );
 
 		global $wpdb;
 		$tables = array( 'sessions', 'questions', 'topics', 'votes', 'activity', 'archive', 'events' );
@@ -286,13 +287,14 @@ class QD_Operations {
 				$found++;
 			}
 		}
-		$add( 'Database tables', $found === count( $tables ), $found . ' of ' . count( $tables ) . ' present' );
-		$add( 'Email', true, 'WordPress sends with ' . ( has_action( 'phpmailer_init' ) ? 'a mail plugin' : 'PHP mail(), which many hosts drop — an SMTP plugin is safer' ) );
+		$add( QD_App::t( 'wp.ops.tables' ), $found === count( $tables ),
+			QD_App::t( 'wp.ops.tablesFound', array( 'found' => $found, 'total' => count( $tables ) ) ) );
+		$add( QD_App::t( 'wp.ops.email' ), true, QD_App::t( has_action( 'phpmailer_init' ) ? 'wp.ops.mailPlugin' : 'wp.ops.mailPhp' ) );
 
 		$url      = QD_Router::base_url();
 		$response = wp_remote_get( $url, array( 'timeout' => 15 ) );
 		$code     = is_wp_error( $response ) ? 0 : (int) wp_remote_retrieve_response_code( $response );
-		$add( 'Public pages', 200 === $code, 200 === $code ? $url
+		$add( QD_App::t( 'wp.ops.publicPages' ), 200 === $code, 200 === $code ? $url
 			: ( is_wp_error( $response ) ? $response->get_error_message() : 'Answered ' . $code . ' at ' . $url ) );
 		QD_Activity::log( 'Health check run', null, '' );
 		return array( 'checks' => $checks, 'at' => QD_Util::now_ms() );

@@ -336,7 +336,7 @@ class Test_QD_Reports extends WP_UnitTestCase {
 		QD_Operations::save_ops( array( 'retentionMonths' => 0, 'weeklyReport' => true ) );
 		$this->assertSame( 1, QD_Operations::send_weekly_report( 'owner@example.org' ) );
 		$this->assertStringContainsString( 'Question Desk — weekly report', $this->mail[0]['subject'] );
-		$this->assertStringContainsString( 'need attention', $this->mail[0]['message'] );
+		$this->assertStringContainsString( '1 thing needs attention', $this->mail[0]['message'] );
 	}
 
 	public function test_the_health_check_reports_on_what_an_administrator_can_fix() {

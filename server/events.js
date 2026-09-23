@@ -61,11 +61,11 @@ function saveEvent(input) {
   const coordinators = onList('COORDINATORS', input.coordinators);
   const brand = {
     orgName: cleanText_(input.orgName, 80),
-    accent: color(input.accent, 'The accent'),
+    accent: color(input.accent, t_('err.label.accent')),
     welcome: cleanText_(input.welcome, 200),
     footer: cleanText_(input.footer, 160),
-    roomBgDark: color(input.roomBgDark, 'The dark background'),
-    roomBgLight: color(input.roomBgLight, 'The light background')
+    roomBgDark: color(input.roomBgDark, t_('err.label.darkBackground')),
+    roomBgLight: color(input.roomBgLight, t_('err.label.lightBackground'))
   };
   let id = input.id;
   withLock_(function () {
