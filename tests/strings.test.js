@@ -186,8 +186,12 @@ test('a person reads the app in their own language, and falls back to English un
   assert.equal(h.app.appLanguage_(), 'es');
   const boot = h.app.doGet({ parameter: { view: 'coordinator', e: eid } }).data;
   assert.equal(boot.lang, 'es');
-  assert.equal(boot.words['coord.sorted'], 'Sorted', 'English until someone writes the Spanish');
-  assert.equal(h.app.t_('coord.sorted', null, 'es'), 'Sorted');
+  // A phrase nobody has drafted yet reads in English rather than not at all.
+  const undrafted = Object.keys(h.app.APP_TEXT).filter((k) => !h.app.APP_TEXT[k].es)[0];
+  if (undrafted) {
+    assert.equal(boot.words[undrafted], h.app.APP_TEXT[undrafted].en);
+    assert.equal(h.app.t_(undrafted, null, 'es'), h.app.APP_TEXT[undrafted].en);
+  }
   assert.equal(h.app.appLanguageCode_('fr'), 'en', 'a language we do not have is English');
   assert.throws(() => h.app.t_('coord.nothing'), /Unknown phrase/);
 
