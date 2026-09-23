@@ -28,7 +28,7 @@ class QD_Sessions {
 		$theme      = in_array( $input['theme'] ?? '', array( 'light', 'contrast' ), true ) ? $input['theme'] : 'dark';
 		$max_length = (int) round( (float) ( $input['maxLength'] ?? 0 ) ?: $config['defaultMaxLength'] );
 		if ( $max_length < 50 || $max_length > $config['maxLengthCeiling'] ) {
-			throw new QD_Error( 'Question length must be between 50 and ' . $config['maxLengthCeiling'] . ' characters.' );
+			throw new QD_Error( QD_App::t( 'err.maxLengthRange', array( 'max' => $config['maxLengthCeiling'] ) ) );
 		}
 		$roster     = QD_People::moderators();
 		$moderators = array_values( array_intersect( array_map( 'strtolower', (array) ( $input['moderators'] ?? array() ) ), $roster ) );
@@ -49,7 +49,7 @@ class QD_Sessions {
 		$cooldown = ( ! array_key_exists( 'cooldownSeconds', $input ) || '' === $input['cooldownSeconds'] || null === $input['cooldownSeconds'] )
 			? $config['cooldownSeconds'] : (int) round( (float) $input['cooldownSeconds'] );
 		if ( $cooldown < 0 || $cooldown > $config['cooldownCeiling'] ) {
-			throw new QD_Error( 'Time between questions must be between 0 and ' . $config['cooldownCeiling'] . ' seconds.' );
+			throw new QD_Error( QD_App::t( 'err.cooldownRange', array( 'max' => $config['cooldownCeiling'] ) ) );
 		}
 		$brand_accent = (string) ( $input['brandAccent'] ?? '' );
 		if ( $brand_accent && ! preg_match( QD_Util::HEX_RE, $brand_accent ) ) {
@@ -66,14 +66,14 @@ class QD_Sessions {
 				return trim( preg_replace( '/\s+/u', ' ', (string) $line ) );
 			}, $lines ) ) );
 			if ( count( $prepared_list ) > $config['maxPrepared'] ) {
-				throw new QD_Error( 'Load at most ' . $config['maxPrepared'] . ' prepared questions per session.' );
+				throw new QD_Error( QD_App::t( 'err.preparedTooMany', array( 'max' => $config['maxPrepared'] ) ) );
 			}
 			foreach ( $prepared_list as $q ) {
 				if ( mb_strlen( $q ) < 5 ) {
-					throw new QD_Error( 'Prepared question is too short: ' . $q );
+					throw new QD_Error( QD_App::t( 'err.preparedTooShort', array( 'text' => $q ) ) );
 				}
 				if ( mb_strlen( $q ) > $max_length ) {
-					throw new QD_Error( 'A prepared question is longer than ' . $max_length . ' characters: ' . mb_substr( $q, 0, 60 ) . '…' );
+					throw new QD_Error( QD_App::t( 'err.preparedTooLong', array( 'max' => $max_length, 'text' => mb_substr( $q, 0, 60 ) ) ) );
 				}
 			}
 		}
@@ -165,7 +165,7 @@ class QD_Sessions {
 		}
 		$ms = (float) $value;
 		if ( ! is_finite( $ms ) || $ms <= 0 ) {
-			throw new QD_Error( 'The scheduled ' . $label . ' is not a valid date and time.' );
+			throw new QD_Error( QD_App::t( 'err.scheduleNotADate', array( 'which' => $label ) ) );
 		}
 		return (int) round( $ms );
 	}
@@ -366,13 +366,13 @@ class QD_Sessions {
 		if ( ! empty( $session['emailOnEnd'] ) ) {
 			$to = QD_Settings::summary_recipients( $session );
 			if ( ! $to ) {
-				$note = 'Nobody is listed as a Session Summary Email Recipient, so no summary was sent.';
+				$note = QD_App::t( 'wp.end.noRecipients' );
 			} else {
 				try {
 					$emailed = QD_Summaries::send( $session, $to );
 					QD_Activity::log( 'Summary emailed', $session, $emailed . ( 1 === $emailed ? ' recipient' : ' recipients' ) );
 				} catch ( Throwable $e ) {
-					$note = 'The summary could not be sent: ' . $e->getMessage() . ' It will be tried again.';
+					$note = QD_App::t( 'wp.end.summaryFailed', array( 'why' => $e->getMessage() ) );
 					QD_Store::update_session( $sid, function ( &$s ) use ( $e ) {
 						$s['summaryPending'] = array( 'error' => $e->getMessage(), 'at' => QD_Util::now_ms() );
 					} );

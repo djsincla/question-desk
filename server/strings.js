@@ -305,6 +305,17 @@ const APP_TEXT = {
   'wp.err.noRecipientsYet': { en: 'Add Session Summary Email Recipients on the People tab first.' },
   'wp.err.busy': { en: 'Question Desk is busy. Try again in a moment.' },
 
+  'wp.err.logoNotSavedWhy': { en: 'The logo could not be saved: {why}' },
+  'wp.end.noRecipients': { en: 'Nobody is listed as a Session Summary Email Recipient, so no summary was sent.' },
+  'wp.end.summaryFailed': { en: 'The summary could not be sent: {why} It will be tried again.' },
+
+  'wp.mail.linksLead.one': { en: 'The session you are running in {event}. Each link opens that session\'s question queue, and needs your WordPress account.' },
+  'wp.mail.linksLead.other': { en: 'The {n} sessions you are running in {event}. Each link opens that session\'s question queue, and needs your WordPress account.' },
+  'wp.err.signInFacilitator': { en: 'Sign in as a QA Facilitator or administrator to do that.' },
+  'wp.err.signInCoordinator': { en: 'Sign in as an Event Coordinator or administrator to do that.' },
+  'wp.err.unknownFunction': { en: 'Unknown function {name}.' },
+  'wp.err.wentWrong': { en: 'Something went wrong. Try again.' },
+
   'shared.dialog.ok': { en: 'OK' },
   'shared.dialog.typePrompt': { en: 'To confirm, type ' },
   'shared.failed': { en: 'Something went wrong.' },

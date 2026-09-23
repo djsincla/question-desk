@@ -62,9 +62,9 @@ class QD_EventTools {
 		$event_brand = QD_Brand::for_session( $sessions[0] );
 
 		foreach ( $by_person as $address => $list ) {
-			$body = '<p style="margin:0 0 18px">The ' . ( 1 === count( $list ) ? 'session' : count( $list ) . ' sessions' )
-				. ' you are running in ' . esc_html( $event['name'] )
-				. '. Each link opens that session\'s question queue, and needs your WordPress account.</p>';
+			$lang = QD_App::app_language( $address );
+			$body = '<p style="margin:0 0 18px">' . esc_html( QD_App::tn( 'wp.mail.linksLead', count( $list ),
+				array( 'event' => $event['name'] ), $lang ) ) . '</p>';
 			foreach ( $list as $s ) {
 				$links  = QD_Sessions::links( $s );
 				$accent = QD_Brand::for_session( $s )['accent'];
@@ -78,7 +78,7 @@ class QD_EventTools {
 					. ( $when( $s ) ? '<br><span style="color:#5c6874">' . esc_html( $when( $s ) ) . '</span>' : '' )
 					. $line( QD_App::t( 'mail.linksQueue' ), $links['moderate'] ) . '</p>';
 			}
-			QD_Summaries::mail( $address, $event['name'] . ' — your Question Desk sessions',
+			QD_Summaries::mail( $address, QD_App::t( 'mail.linksSubject', array( 'event' => $event['name'] ), $lang ),
 				QD_Summaries::shell( $event_brand, esc_html( $event['name'] ), $body ), $event_brand );
 		}
 		$people = count( $by_person );

@@ -74,6 +74,15 @@ class QD_App {
 		return $out;
 	}
 
+	/** t() for a count: the catalog holds key.one and key.other. */
+	public static function tn( $key, $n, $vars = null, $lang = 'en' ) {
+		$all = is_array( $vars ) ? $vars : array();
+		if ( ! isset( $all['n'] ) ) {
+			$all['n'] = $n;
+		}
+		return self::t( $key . '.' . ( 1 === (int) $n ? 'one' : 'other' ), $all, $lang );
+	}
+
 	/** An app language code we actually have, or English. */
 	public static function app_language_code( $code ) {
 		return $code && isset( self::data()['config']['appLanguages'][ $code ] ) ? $code : 'en';

@@ -90,7 +90,7 @@ class QD_Settings {
 				continue;
 			}
 			if ( ! isset( $languages[ $code ] ) ) {
-				throw new QD_Error( 'Unknown language: ' . $code . '. Choose from ' . implode( ', ', array_keys( $languages ) ) . '.' );
+				throw new QD_Error( QD_App::t( 'err.unknownLanguage', array( 'code' => $code, 'codes' => implode( ', ', array_keys( $languages ) ) ) ) );
 			}
 			if ( ! in_array( $code, $out, true ) ) {
 				$out[] = $code;
@@ -98,7 +98,7 @@ class QD_Settings {
 		}
 		$max = (int) QD_App::config( 'maxLanguages' );
 		if ( count( $out ) > $max ) {
-			throw new QD_Error( 'Choose at most ' . $max . ' languages, including English, so the room screen stays readable.' );
+			throw new QD_Error( QD_App::t( 'err.tooManyLanguages', array( 'max' => $max ) ) );
 		}
 		return $out;
 	}
@@ -193,7 +193,7 @@ class QD_Settings {
 		$name   = 'question-desk-logo-' . ( $target ? preg_replace( '/[^a-z0-9]+/i', '-', $target ) : 'site' ) . '-' . time() . '.' . ( 'jpeg' === $m[1] ? 'jpg' : $m[1] );
 		$upload = wp_upload_bits( $name, null, $bytes );
 		if ( ! empty( $upload['error'] ) ) {
-			throw new QD_Error( 'The logo could not be saved: ' . $upload['error'] );
+			throw new QD_Error( QD_App::t( 'wp.err.logoNotSavedWhy', array( 'why' => $upload['error'] ) ) );
 		}
 		$id = wp_insert_attachment(
 			array( 'post_mime_type' => 'image/' . $m[1], 'post_title' => 'Question Desk logo', 'post_status' => 'inherit' ),

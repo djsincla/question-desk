@@ -21,20 +21,29 @@ class QD_Summaries {
 			return 0;
 		}
 		$brand    = QD_Brand::for_session( $session );
-		$content  = self::content( $session, $brand );
-		$csv      = QD_Csv::lines( array_merge( array( $content['header'] ), $content['rows'] ) );
 		$name     = trim( preg_replace( '/\s+/', '-', preg_replace( '/[^\w -]+/u', '', $session['name'] ) ) );
 		$filename = ( $name ? $name : 'session' ) . '-questions.csv';
 		$path     = trailingslashit( get_temp_dir() ) . $filename;
-		file_put_contents( $path, "\xEF\xBB\xBF" . $csv );   // phpcs:ignore WordPress.WP.AlternativeFunctions -- an attachment for wp_mail
+		$sent     = 0;
 
-		$subject = ( ! empty( $brand['eventName'] ) ? $brand['eventName'] . ': ' : '' ) . $session['name'] . ' — questions summary';
-		$body    = self::shell( $brand, esc_html( $session['name'] ) . ' — questions', $content['body'] );
-		$sent    = 0;
+		// Everyone gets their own language, and their own message, so people outside the
+		// organization don't see the other addresses. Read once per language, not per person.
+		$by_language = array();
 		foreach ( $to as $address ) {
-			// One message each, so people outside the organization don't see the other addresses.
-			if ( self::mail( $address, $subject, $body, $brand, array( $path ) ) ) {
-				$sent++;
+			$by_language[ QD_App::app_language( $address ) ][] = $address;
+		}
+		foreach ( $by_language as $lang => $addresses ) {
+			$content = self::content( $session, $brand, $lang );
+			$csv     = QD_Csv::lines( array_merge( array( $content['header'] ), $content['rows'] ) );
+			file_put_contents( $path, "\xEF\xBB\xBF" . $csv );   // phpcs:ignore WordPress.WP.AlternativeFunctions -- an attachment for wp_mail
+			$subject = ! empty( $brand['eventName'] )
+				? QD_App::t( 'mail.summarySubjectEvent', array( 'event' => $brand['eventName'], 'name' => $session['name'] ), $lang )
+				: QD_App::t( 'mail.summarySubject', array( 'name' => $session['name'] ), $lang );
+			$body = self::shell( $brand, esc_html( QD_App::t( 'mail.summaryTitle', array( 'name' => $session['name'] ), $lang ) ), $content['body'] );
+			foreach ( $addresses as $address ) {
+				if ( self::mail( $address, $subject, $body, $brand, array( $path ) ) ) {
+					$sent++;
+				}
 			}
 		}
 		wp_delete_file( $path );
@@ -46,7 +55,7 @@ class QD_Summaries {
 	}
 
 	/** One session's summary: the email body (topics and every question) and the CSV rows. */
-	public static function content( array $session, array $brand ) {
+	public static function content( array $session, array $brand, $lang = 'en' ) {
 		$sid     = $session['id'];
 		$rows    = QD_Questions::rows( $sid );
 		$records = QD_Topics::records( $sid );
@@ -75,13 +84,16 @@ class QD_Summaries {
 		$dismissed = count( $rows ) - count( $kept );
 		$body      = '<p style="color:#5c6874;margin:0 0 20px">'
 			. esc_html( $fmt( $session['started'] ?? null ) ) . ' – ' . esc_html( $fmt( $session['ended'] ?? null ) ) . '<br>'
-			. count( $kept ) . ' questions in ' . count( $order ) . ' topics'
-			. ( $dismissed ? ' · ' . $dismissed . ' dismissed' : '' ) . '</p>';
+			. esc_html( QD_App::t( 'mail.summaryCounts', array(
+				'questions' => count( $kept ),
+				'topics'    => count( $order ),
+				'dismissed' => $dismissed ? QD_App::t( 'mail.summaryDismissed', array( 'n' => $dismissed ), $lang ) : '',
+			), $lang ) ) . '</p>';
 
 		foreach ( $order as $topic ) {
 			$body .= '<h2 style="font-size:16px;margin:24px 0 8px;border-left:4px solid ' . $brand['accent'] . ';padding-left:8px">'
 				. esc_html( $topic ) . ' <span style="color:#5c6874;font-weight:400">(' . count( $groups[ $topic ] )
-				. ( ! empty( $votes[ $topic ] ) ? ' · ' . $votes[ $topic ] . ' me too' : '' ) . ')'
+				. ( ! empty( $votes[ $topic ] ) ? esc_html( QD_App::t( 'mail.summaryMeToo', array( 'n' => $votes[ $topic ] ), $lang ) ) : '' ) . ')'
 				. ( ! empty( $records[ $topic ]['shown'] ) ? QD_App::t( 'mail.summaryShown' ) : '' ) . '</span></h2>';
 			if ( $merged( $topic ) ) {
 				$body .= '<p style="background:#fffdf5;border-left:3px solid #d9c27a;padding:8px 12px;margin:0 0 8px">'
@@ -103,7 +115,7 @@ class QD_Summaries {
 						. '): ' . esc_html( $q['text'] ) . '</span>';
 				}
 				$single = ( ! $q['topic'] && ! empty( $votes[ QD_Topics::single_key( $q['id'] ) ] ) )
-					? $small . $votes[ QD_Topics::single_key( $q['id'] ) ] . ' me too · shown on phones</span>' : '';
+					? $small . esc_html( QD_App::t( 'mail.summarySingleMeToo', array( 'n' => $votes[ QD_Topics::single_key( $q['id'] ) ] ), $lang ) ) . '</span>' : '';
 				$body  .= '<li style="margin-bottom:8px">' . $tick . $item . $single . '</li>';
 			}
 			$body .= '</ul>';

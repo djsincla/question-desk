@@ -173,15 +173,15 @@ class QD_Csv {
 			$mi = (int) $m[5];
 			if ( ! empty( $m[6] ) ) {
 				if ( $h < 1 || $h > 12 ) {
-					throw new QD_Error( $label . ' "' . $v . '" has an hour that doesn\'t fit AM/PM.' );
+					throw new QD_Error( QD_App::t( 'err.csvBadHour', array( 'label' => $label, 'value' => $v ) ) );
 				}
 				$h = ( $h % 12 ) + ( preg_match( '/p/i', $m[6] ) ? 12 : 0 );
 			}
 		} else {
-			throw new QD_Error( $label . ' "' . $v . '" is not a date and time like 2026-10-03 18:30.' );
+			throw new QD_Error( QD_App::t( 'err.csvNotADateTime', array( 'label' => $label, 'value' => $v ) ) );
 		}
 		if ( $mo < 1 || $mo > 12 || $d < 1 || $d > 31 || $h > 23 || $mi > 59 ) {
-			throw new QD_Error( $label . ' "' . $v . '" is not a real date and time.' );
+			throw new QD_Error( QD_App::t( 'err.csvNotRealDate', array( 'label' => $label, 'value' => $v ) ) );
 		}
 		$when = new DateTimeImmutable( sprintf( '%04d-%02d-%02d %02d:%02d', $y, $mo, $d, $h, $mi ), wp_timezone() );
 		return $when->getTimestamp() * 1000;
@@ -198,7 +198,7 @@ class QD_Csv {
 		if ( preg_match( '/^(no|n|false|0)$/', $v ) ) {
 			return false;
 		}
-		throw new QD_Error( $label . ' should be yes or no, not "' . $value . '".' );
+		throw new QD_Error( QD_App::t( 'err.csvYesNo', array( 'label' => $label, 'value' => $value ) ) );
 	}
 
 	/** The duplicate key: name, plus start and end when either is set (sessionKey_). */
@@ -228,7 +228,7 @@ class QD_Csv {
 		}
 		$max = (int) QD_App::config( 'maxImportRows' );
 		if ( count( $table ) - 1 > $max ) {
-			throw new QD_Error( 'Import at most ' . $max . ' sessions at a time.' );
+			throw new QD_Error( QD_App::t( 'err.csvTooManyRows', array( 'max' => $max ) ) );
 		}
 
 		// Columns by header name, forgiving case, spacing and the time zone suffix.
@@ -294,7 +294,7 @@ class QD_Csv {
 				$end   = $has( 'scheduledEnd' ) ? self::read_time( $get['scheduledEnd'], QD_App::t( 'csv.label.scheduledEnd' ) ) : false;
 				$key   = self::session_key( $out['name'], false === $start ? null : $start, false === $end ? null : $end );
 				if ( isset( $seen[ $key ] ) ) {
-					throw new QD_Error( 'The same session is already on row ' . $seen[ $key ] . '.' );
+					throw new QD_Error( QD_App::t( 'err.csvDuplicateRow', array( 'row' => $seen[ $key ] ) ) );
 				}
 				$seen[ $key ] = $row_number;
 				$match        = $existing[ $key ] ?? null;
@@ -326,7 +326,7 @@ class QD_Csv {
 				if ( $has( 'access' ) ) {
 					$a = strtolower( trim( $get['access'] ) );
 					if ( $a && 'room' !== $a && 'link' !== $a ) {
-						throw new QD_Error( 'How people join should be room or link, not "' . $get['access'] . '".' );
+						throw new QD_Error( QD_App::t( 'err.csvAccess', array( 'value' => $get['access'] ) ) );
 					}
 					if ( $a ) {
 						$input['access'] = $a;
@@ -335,7 +335,7 @@ class QD_Csv {
 				if ( $has( 'theme' ) ) {
 					$t = strtolower( trim( $get['theme'] ) );
 					if ( $t && ! in_array( $t, array( 'dark', 'light', 'contrast' ), true ) ) {
-						throw new QD_Error( 'Theme should be dark, light or contrast, not "' . $get['theme'] . '".' );
+						throw new QD_Error( QD_App::t( 'err.csvTheme', array( 'value' => $get['theme'] ) ) );
 					}
 					if ( $t ) {
 						$input['theme'] = $t;
@@ -360,7 +360,7 @@ class QD_Csv {
 					$listed  = QD_Util::parse_emails( $get['moderators'] );
 					$missing = array_values( array_diff( $listed, $roster ) );
 					if ( $missing ) {
-						$out['warnings'][] = 'Not on the QA Facilitator list, so not added: ' . implode( ', ', $missing ) . '. Add them on the People tab.';
+						$out['warnings'][] = QD_App::t( 'csv.notOnFacilitatorList', array( 'names' => implode( ', ', $missing ) ) );
 					}
 					$input['moderators'] = array_values( array_intersect( $listed, $roster ) );
 				}
@@ -404,7 +404,7 @@ class QD_Csv {
 							$result['events'][]                      = $event_name;
 						}
 						$input['eventId']  = '';   // made below, when importing for real
-						$out['warnings'][] = 'New event "' . $event_name . '" will be created.';
+						$out['warnings'][] = QD_App::t( 'csv.newEvent', array( 'name' => $event_name ) );
 					}
 				}
 
