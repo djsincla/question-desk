@@ -210,7 +210,7 @@ test('an administrator sets who reads the app in which language', () => {
   const h = createApp().install();
   h.app.addPerson('moderator', 'luis@example.org');
   assert.deepEqual(h.app.adminState().personLanguages, {});
-  assert.deepEqual(h.app.adminState().appLanguages.map((l) => l.code), ['en', 'es']);
+  assert.deepEqual(h.app.adminState().appLanguages.map((l) => l.code), ['en', 'es', 'ko']);
 
   h.app.setPersonLanguage('luis@example.org', 'es');
   assert.deepEqual(h.app.adminState().personLanguages, { 'luis@example.org': 'es' });

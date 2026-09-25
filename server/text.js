@@ -328,6 +328,7 @@ const UI_TEXT = {
       openSoon: 'Questions open soon',
       loading: 'Loading…',
       qrLabel: 'QR code to ask a question',
+      nowAnswering: 'Now answering',
       person: '1 person',
       people: '{n} people'
     },
@@ -341,6 +342,7 @@ const UI_TEXT = {
       openSoon: '곧 질문을 받습니다',
       loading: '불러오는 중…',
       qrLabel: '질문하기 위한 QR 코드',
+      nowAnswering: '지금 답변 중',
       person: '1명',
       people: '{n}명'
     },
@@ -354,6 +356,7 @@ const UI_TEXT = {
       openSoon: 'Las preguntas se abrirán pronto',
       loading: 'Cargando…',
       qrLabel: 'Código QR para hacer una pregunta',
+      nowAnswering: 'Respondiendo ahora',
       person: '1 persona',
       people: '{n} personas'
     },
@@ -367,6 +370,7 @@ const UI_TEXT = {
       openSoon: '即将开放提问',
       loading: '加载中…',
       qrLabel: '用于提问的二维码',
+      nowAnswering: '正在回答',
       person: '1 人',
       people: '{n} 人'
     },
@@ -380,6 +384,7 @@ const UI_TEXT = {
       openSoon: 'Sắp mở phần đặt câu hỏi',
       loading: 'Đang tải…',
       qrLabel: 'Mã QR để đặt câu hỏi',
+      nowAnswering: 'Đang trả lời',
       person: '1 người',
       people: '{n} người'
     },
@@ -393,6 +398,7 @@ const UI_TEXT = {
       openSoon: 'Malapit nang buksan ang mga tanong',
       loading: 'Naglo-load…',
       qrLabel: 'QR code para magtanong',
+      nowAnswering: 'Kasalukuyang sinasagot',
       person: '1 katao',
       people: '{n} katao'
     },
@@ -406,6 +412,7 @@ const UI_TEXT = {
       openSoon: 'Հարցերը շուտով կբացվեն',
       loading: 'Բեռնվում է…',
       qrLabel: 'QR կոդ՝ հարց տալու համար',
+      nowAnswering: 'Այժմ պատասխանվում է',
       person: '1 մարդ',
       people: '{n} մարդ'
     }

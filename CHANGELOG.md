@@ -7,16 +7,19 @@ which reads the notes for that version from this file.
 ## [2.29.0] - 2026-09-24
 
 ### Added
-- **The app reads in Spanish.** Every word staff and the stage see — the queue, the Admin page,
-  the Event Coordinator portal, the panelist view, the room screen's status lines, every email
-  and every message — now comes from one catalog rather than being written into the code, and
-  972 of its 980 phrases are written in Spanish as well as English. Each person picks their own
+- **The app reads in Spanish and Korean.** Every word staff and the stage see — the queue, the
+  Admin page, the Event Coordinator portal, the panelist view, the room screen's status lines,
+  every email and every message — now comes from one catalog rather than being written into the
+  code, and 972 of its 980 phrases are written in Spanish and Korean as well as English. Each
+  person picks their own
   language next to their address on **People**; **Branding → App language** covers everyone else,
   and a session or event can set a **Room language** for the screen at the front, since nobody is
   signed in at a venue laptop. Anything not yet written in someone's language falls back to
   English, so a half-finished translation never shows a blank screen.
 - `scripts/translate-strings.js` drafts a new language for a person to read before it ships,
-  refusing any phrase that came back with a placeholder added, dropped or renamed.
+  refusing any phrase that came back with a placeholder added, dropped or renamed. Adding another
+  language is one line in `CONFIG.appLanguages` and a drafting pass — the settings, the pickers
+  and the tests pick it up from there.
 
 ### Changed
 - A page is now sent only the phrases it uses, not the whole catalog: the Admin page's boot data
