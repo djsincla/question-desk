@@ -4,6 +4,35 @@ All notable changes to Question Desk. Versions follow [Semantic Versioning](http
 Each release is tagged `vX.Y.Z` and published as a GitHub release by `scripts/ship.sh`,
 which reads the notes for that version from this file.
 
+## [2.29.0] - 2026-09-24
+
+### Added
+- **The app reads in Spanish.** Every word staff and the stage see — the queue, the Admin page,
+  the Event Coordinator portal, the panelist view, the room screen's status lines, every email
+  and every message — now comes from one catalog rather than being written into the code, and
+  972 of its 980 phrases are written in Spanish as well as English. Each person picks their own
+  language next to their address on **People**; **Branding → App language** covers everyone else,
+  and a session or event can set a **Room language** for the screen at the front, since nobody is
+  signed in at a venue laptop. Anything not yet written in someone's language falls back to
+  English, so a half-finished translation never shows a blank screen.
+- `scripts/translate-strings.js` drafts a new language for a person to read before it ships,
+  refusing any phrase that came back with a placeholder added, dropped or renamed.
+
+### Changed
+- A page is now sent only the phrases it uses, not the whole catalog: the Admin page's boot data
+  is about half what it would otherwise be, and the room screen's is a fraction of it.
+- Two singular sentences that read wrong because they were glued together from pieces now read
+  properly: "Its 1 session is kept and **moves** to…" and "(1 session that **hasn't** ended)".
+  A third, "1 thing **needs** attention", is fixed in the weekly report.
+- The keyboard shortcuts in the queue find their buttons by name rather than by reading the
+  English off them, so J, N and P keep working in a queue that is not in English.
+
+### Note
+- Topic labels stay in the facilitator's language whatever the app is read in. That is what lets
+  a Korean and a Spanish question about the same thing land in the same group, so a Spanish queue
+  shows Spanish around English labels on purpose. The CSV column names stay English too: they
+  name a column in the file being imported.
+
 ## [2.28.0] - 2026-09-16
 
 ### Added
@@ -859,6 +888,7 @@ Fixes from a full code review.
 - "Merge into one question" for reading a topic aloud.
 - Participant page in English, Korean and Spanish.
 
+[2.29.0]: https://github.com/djsincla/question-desk/releases/tag/v2.29.0
 [2.28.0]: https://github.com/djsincla/question-desk/releases/tag/v2.28.0
 [2.27.0]: https://github.com/djsincla/question-desk/releases/tag/v2.27.0
 [2.26.0]: https://github.com/djsincla/question-desk/releases/tag/v2.26.0

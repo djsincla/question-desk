@@ -245,6 +245,18 @@ it's one of them, with a switcher at the top. The Chinese, Vietnamese, Tagalog a
 page text was written for this project: have a native speaker look it over before relying
 on it at an event.
 
+The app itself — the queue, the Admin page, the coordinator portal, the emails and the room
+screen's status lines — reads English or Spanish. Each person picks theirs next to their address
+on **People**; **Branding → App language** sets what everyone else reads, and what a room screen
+reads, since nobody is signed in at a venue laptop. A session or event can override that on
+**Room language**. Anything not yet written in someone's language falls back to English, so a
+half-finished translation never shows a blank screen. `scripts/translate-strings.js` drafts a new
+language for review; see the Words section of CLAUDE.md.
+
+A facilitator reading the queue in Spanish still sees English topic labels. That is deliberate —
+the label is what makes a Korean and a Spanish question about the same thing land in the same
+group — and it is explained below.
+
 For the facilitator, translation happens inside the clustering call — one Gemini
 request per batch handles language detection, translation and topic assignment
 together, so it costs you nothing extra over clustering alone. The queue shows the

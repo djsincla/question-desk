@@ -328,6 +328,15 @@ Two catalogs, split by who is reading, because they ship differently.
 Language comes from the People tab per person (`PEOPLE_LANG`), falling back to the site's
 `APP_LANGUAGE` on Branding. A room has nobody signed in, so `roomLanguage_()` reads the
 session, then its event, then the site. `page_()` resolves both and is the only place that does.
+`APP_TEXT_FOR` also says which phrases each page is sent, by the first part of the key: the queue
+has no use for the Admin page's five hundred, and every phrase travels with every page load.
+
+**Spanish conventions**, set with the organization and to be kept by any language added next:
+roles are translated — *Facilitador/a de preguntas*, *Coordinador/a del evento*, plural
+*Facilitadores de preguntas* — and the register is informal *tú*, matching the Spanish the
+participant page already used. Product names stay: Question Desk, Gemini, WordPress, PowerPoint.
+The eight `csv.label.*` phrases stay English on purpose: they name a column in the file a person
+is importing, so a translated name would point them at a column that is not there.
 
 Pages keep their English in the markup and name their key — `<h1 data-w="coord.title">Event
 logistics</h1>` — and `fillWords()` overwrites it only when the page is read in another
