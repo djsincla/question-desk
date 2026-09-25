@@ -32,10 +32,97 @@ class QD_App {
 		return $part ? $data['uiText'][ $part ] : null;
 	}
 
+	/** Which phrases this page reads, by the first part of the key, or null if it reads none. */
+	public static function words_parts( $file ) {
+		$parts = self::data()['appTextFor'][ $file ] ?? null;
+		return $parts ? $parts : null;
+	}
+
+	/**
+	 * The phrases one page reads, in one language, English wherever that language has no wording
+	 * yet (wordsFor_ in server/strings.js). Without $parts it is the whole catalog.
+	 */
+	public static function words_for( $lang, $parts = null ) {
+		$data = self::data();
+		$code = isset( $data['config']['appLanguages'][ $lang ] ) ? $lang : 'en';
+		$out  = array();
+		foreach ( $data['appText'] as $key => $languages ) {
+			if ( $parts && ! in_array( explode( '.', $key )[0], $parts, true ) ) {
+				continue;
+			}
+			$out[ $key ] = $languages[ $code ] ?? $languages['en'];
+		}
+		return $out;
+	}
+
+	/** One phrase, for the server's own use. */
+	public static function t( $key, $vars = null, $lang = 'en' ) {
+		$data = self::data();
+		if ( ! isset( $data['appText'][ $key ] ) ) {
+			throw new QD_Error( 'Unknown phrase ' . $key . '.' );
+		}
+		$code = isset( $data['config']['appLanguages'][ $lang ] ) ? $lang : 'en';
+		$text = $data['appText'][ $key ][ $code ] ?? $data['appText'][ $key ]['en'];
+		foreach ( (array) $vars as $name => $value ) {
+			$text = str_replace( '{' . $name . '}', (string) $value, $text );
+		}
+		return $text;
+	}
+
+	/** The languages the app itself can be read in, for the Admin page's pickers. */
+	public static function app_languages() {
+		$out = array();
+		foreach ( self::data()['config']['appLanguages'] as $code => $names ) {
+			$out[] = array( 'code' => $code, 'name' => $names['name'], 'native' => $names['native'] );
+		}
+		return $out;
+	}
+
+	/** t() for a count: the catalog holds key.one and key.other. */
+	public static function tn( $key, $n, $vars = null, $lang = 'en' ) {
+		$all = is_array( $vars ) ? $vars : array();
+		if ( ! isset( $all['n'] ) ) {
+			$all['n'] = $n;
+		}
+		return self::t( $key . '.' . ( 1 === (int) $n ? 'one' : 'other' ), $all, $lang );
+	}
+
+	/** An app language code we actually have, or English. */
+	public static function app_language_code( $code ) {
+		return $code && isset( self::data()['config']['appLanguages'][ $code ] ) ? $code : 'en';
+	}
+
+	/** The site's own language: what a room screen and anyone with no choice of their own reads. */
+	public static function site_language() {
+		return self::app_language_code( get_option( 'qd_app_language', '' ) );
+	}
+
+	/** The language one person reads the app in. Set per person on the People tab. */
+	public static function app_language( $email = null ) {
+		$user = null === $email ? wp_get_current_user() : get_user_by( 'email', $email );
+		$own  = $user && $user->ID ? get_user_meta( $user->ID, 'qd_lang', true ) : '';
+		return self::app_language_code( $own ?: self::site_language() );
+	}
+
+	/**
+	 * The language a room screen, slide and panelist view speak. Nobody is signed in at a venue
+	 * laptop, so it follows the session, then its event, then the site.
+	 */
+	public static function room_language( $session ) {
+		if ( ! empty( $session['roomLanguage'] ) ) {
+			return self::app_language_code( $session['roomLanguage'] );
+		}
+		$event = ! empty( $session['eventId'] ) ? QD_Store::get_event( $session['eventId'] ) : null;
+		if ( ! empty( $event['roomLanguage'] ) ) {
+			return self::app_language_code( $event['roomLanguage'] );
+		}
+		return self::site_language();
+	}
+
 	/** Contents of a page file (Ask.html, Styles.html…). */
 	public static function page_file( $file ) {
 		if ( ! preg_match( '/^[A-Za-z]+\.html$/', $file ) ) {
-			throw new QD_Error( 'Unknown page.' );
+			throw new QD_Error( QD_App::t( 'wp.err.unknownPage' ) );
 		}
 		return file_get_contents( QD_DIR . 'pages/' . $file ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
 	}

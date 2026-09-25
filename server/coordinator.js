@@ -67,7 +67,7 @@ function setLogisticsSorted(eid, questionId, sorted) {
     }
     return '';
   });
-  if (!changed) throw new Error('That question is no longer in this event.');
+  if (!changed) throw new Error(t_('err.thatQuestionIsNoLonger'));
   audit_(sorted ? 'Logistics question sorted' : 'Logistics question reopened',
     { id: ev.id, eventName: ev.name }, '"' + changed.slice(0, 120) + '"');
   return getCoordinatorBoard(eid);

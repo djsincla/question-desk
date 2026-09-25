@@ -27,6 +27,11 @@ function adminState() {
     admins: roster_('ADMINS'),
     moderators: roster_('MODERATORS'),
     coordinators: roster_('COORDINATORS'),
+    personLanguages: personLanguages_(),
+    appLanguages: Object.keys(CONFIG.appLanguages).map(function (code) {
+      return { code: code, name: CONFIG.appLanguages[code].name, native: CONFIG.appLanguages[code].native };
+    }),
+    siteLanguage: siteLanguage_(),
     sessions: allSessions_().map(function (s) {
       const out = JSON.parse(JSON.stringify(s));
       out.links = sessionLinks_(s);
@@ -80,12 +85,12 @@ function saveSessionAs_(input, me, dryRun) {
   input = input || {};
 
   const name = cleanText_(input.name, 80);
-  if (!name) throw new Error('Give the session a name.');
+  if (!name) throw new Error(t_('err.giveTheSessionAName'));
   const access = input.access === 'link' ? 'link' : 'room';
   const theme = input.theme === 'light' || input.theme === 'contrast' ? input.theme : 'dark';
   const maxLength = Math.round(Number(input.maxLength) || CONFIG.defaultMaxLength);
   if (maxLength < 50 || maxLength > CONFIG.maxLengthCeiling) {
-    throw new Error('Question length must be between 50 and ' + CONFIG.maxLengthCeiling + ' characters.');
+    throw new Error(t_('err.maxLengthRange', { max: CONFIG.maxLengthCeiling }));
   }
   const roster = roster_('MODERATORS');
   const moderators = (input.moderators || [])
@@ -94,35 +99,35 @@ function saveSessionAs_(input, me, dryRun) {
 
   const start = optionalTime_(input.scheduledStart, 'start');
   const end = optionalTime_(input.scheduledEnd, 'end');
-  if (start && end && end <= start) throw new Error('The scheduled end must be after the start.');
+  if (start && end && end <= start) throw new Error(t_('err.theScheduledEndMustBe'));
   const before = input.id ? getSession_(input.id) : null;
   const sameMinute = function (a, b) { return !!a && !!b && Math.floor(a / 60000) === Math.floor(b / 60000); };
   if (end && end <= Date.now() && !(before && sameMinute(before.scheduledEnd, end))) {
-    throw new Error('The scheduled end has already passed. Saving it would end the session for good — check the date and AM/PM.');
+    throw new Error(t_('err.theScheduledEndHasAlready'));
   }
 
   const cooldown = input.cooldownSeconds === undefined || input.cooldownSeconds === ''
     ? CONFIG.cooldownSeconds : Math.round(Number(input.cooldownSeconds));
   if (!isFinite(cooldown) || cooldown < 0 || cooldown > CONFIG.cooldownCeiling) {
-    throw new Error('Time between questions must be between 0 and ' + CONFIG.cooldownCeiling + ' seconds.');
+    throw new Error(t_('err.cooldownRange', { max: CONFIG.cooldownCeiling }));
   }
 
   const brandAccent = String(input.brandAccent || '');
-  if (brandAccent && !HEX_RE.test(brandAccent)) throw new Error('Session accent color must look like #1b5e5a.');
+  if (brandAccent && !HEX_RE.test(brandAccent)) throw new Error(t_('err.sessionAccentColorMustLook'));
 
   let preparedList = null;
   if (input.prepared !== undefined) {
     const lines = Array.isArray(input.prepared) ? input.prepared : String(input.prepared || '').split(/\r?\n/);
-    if (lines.join('').length > CONFIG.maxPrepared * CONFIG.maxLengthCeiling) throw new Error('That list of prepared questions is too long.');
+    if (lines.join('').length > CONFIG.maxPrepared * CONFIG.maxLengthCeiling) throw new Error(t_('err.thatListOfPreparedQuestions'));
     preparedList = lines
       .map(function (line) { return String(line || '').replace(/\s+/g, ' ').trim(); })
       .filter(Boolean);
     if (preparedList.length > CONFIG.maxPrepared) {
-      throw new Error('Load at most ' + CONFIG.maxPrepared + ' prepared questions per session.');
+      throw new Error(t_('err.preparedTooMany', { max: CONFIG.maxPrepared }));
     }
     preparedList.forEach(function (q) {
-      if (q.length < 5) throw new Error('Prepared question is too short: ' + q);
-      if (q.length > maxLength) throw new Error('A prepared question is longer than ' + maxLength + ' characters: ' + q.slice(0, 60) + '…');
+      if (q.length < 5) throw new Error(t_('err.preparedTooShort', { text: q }));
+      if (q.length > maxLength) throw new Error(t_('err.preparedTooLong', { max: maxLength, text: q.slice(0, 60) }));
     });
   }
 
@@ -141,10 +146,11 @@ function saveSessionAs_(input, me, dryRun) {
     brand: { orgName: cleanText_(input.brandOrgName, 80), accent: brandAccent.toLowerCase() },
     translatePrepared: input.translatePrepared !== false,
     roomQuestions: !!input.roomQuestions,
+    roomLanguage: cleanAppLanguage_(input.roomLanguage),
     guestPage: cleanGuestPageChoice_(input.guestPage),
     eventId: String(input.eventId || '')
   };
-  if (fields.eventId && !getEvent_(fields.eventId)) throw new Error('That event no longer exists.');
+  if (fields.eventId && !getEvent_(fields.eventId)) throw new Error(t_('err.thatEventNoLongerExists'));
 
   let savedId = input.id;
   if (input.guestPage === undefined) delete fields.guestPage;
@@ -215,7 +221,7 @@ function cleanGuestPageChoice_(input) {
 function optionalTime_(value, label) {
   if (value === null || value === undefined || value === '') return null;
   const ms = Number(value);
-  if (!isFinite(ms) || ms <= 0) throw new Error('The scheduled ' + label + ' is not a valid date and time.');
+  if (!isFinite(ms) || ms <= 0) throw new Error(t_('err.scheduleNotADate', { which: label }));
   return Math.round(ms);
 }
 
@@ -226,7 +232,7 @@ function optionalTime_(value, label) {
  */
 function reorderSessions(ids) {
   requireAdmin_();
-  if (!Array.isArray(ids)) throw new Error('Send the sessions in their new order.');
+  if (!Array.isArray(ids)) throw new Error(t_('err.sendTheSessionsInTheir'));
   reorderSessions_(ids);
   return adminState();
 }
@@ -253,7 +259,7 @@ function reorderSessions_(ids) {
 function setSessionActive(sid, active) {
   requireAdmin_();
   updateSession_(sid, function (s) {
-    if (s.status === 'ended') throw new Error('This session has ended and cannot be reopened.');
+    if (s.status === 'ended') throw new Error(t_('err.thisSessionHasEndedAnd'));
     s.status = active ? 'active' : 'inactive';
     if (active && !s.started) s.started = Date.now();
   });
@@ -280,7 +286,7 @@ function regenerateLink(sid, which) {
 function requireTypedName_(item, typed, what) {
   const norm = function (v) { return String(v || '').replace(/\s+/g, ' ').trim().toLowerCase(); };
   if (!norm(typed) || norm(typed) !== norm(item.name)) {
-    throw new Error('Type the ' + (what || 'session') + ' name exactly to confirm: ' + item.name);
+    throw new Error(t_('err.typeTheNameToConfirm', { what: what || 'session', name: item.name }));
   }
 }
 
@@ -301,7 +307,7 @@ function endSession(sid, typedName) {
  */
 function endSession_(sid) {
   const session = updateSession_(sid, function (s) {
-    if (s.status === 'ended') throw new Error('This session has already ended.');
+    if (s.status === 'ended') throw new Error(t_('err.thisSessionHasAlreadyEnded'));
     s.status = 'ended';
     s.open = false;
     s.ended = Date.now();
@@ -317,7 +323,7 @@ function endSession_(sid) {
   try {
     for (let pass = 0; pass < 8 && clusterSession_(sid) > 0; pass++) { /* drain in batches */ }
   } catch (err) {
-    groupingNote = 'Final grouping failed, so some questions may be untranslated.';
+    groupingNote = t_('end.groupingFailed');
     console.error('Final grouping for ' + sid + ': ' + err);
   }
 
@@ -330,7 +336,7 @@ function endSession_(sid) {
       // The session is already ended; keep the summary owed so the schedule retries it.
       noteSummaryFailure_(sid, err);
       groupingNote = (groupingNote ? groupingNote + ' ' : '') +
-        'The summary email could not be sent (' + (err.message || err) + '). It will be retried automatically, or use Email summary.';
+        t_('end.summaryFailed', { why: err.message || err });
     }
   }
   return { emailed: emailed, note: groupingNote };
@@ -363,7 +369,7 @@ function deleteSession(sid, typedName) {
   requireAdmin_();
   const session = getSession_(sid);
   if (!session) throw new Error('Session not found.');
-  if (session.status === 'active') throw new Error('Deactivate or end the session before deleting it.');
+  if (session.status === 'active') throw new Error(t_('err.deactivateOrEndTheSession'));
   requireTypedName_(session, typedName);
   deleteSession_(sid);
   audit_('Session deleted', session, 'with its questions, topics and votes');
@@ -395,7 +401,7 @@ function emailSummary(sid, recipients) {
   const session = getSession_(sid);
   if (!session) throw new Error('Session not found.');
   const to = parseEmails_(recipients && recipients.length ? recipients : summaryRecipients_(session));
-  if (!to.length) throw new Error('Add at least one recipient.');
+  if (!to.length) throw new Error(t_('err.addAtLeastOneRecipient'));
   const sent = sendSummary_(session, to);
   audit_('Summary emailed', session, 'to ' + to.join(', '));
   return sent;
@@ -410,26 +416,24 @@ function emailLinks(sid, options) {
 
   const to = options.toModerators ? facilitatorsFor_(session) : parseEmails_(options.to);
   if (!to.length) {
-    throw new Error(options.toModerators ? 'This session has no QA Facilitators assigned.' : 'Add at least one recipient.');
+    throw new Error(t_(options.toModerators ? 'err.noFacilitatorsAssigned' : 'err.addAtLeastOneRecipient'));
   }
   checkQuota_(to.length);
 
   const links = sessionLinks_(session);
   const items = [];
   if (options.participant) {
-    if (!links.participant) throw new Error('In-room sessions have no shareable link — people join by scanning the room screen.');
-    items.push(['Ask a question', links.participant,
-      'Anyone with this link can submit a question anonymously. If it says "Sorry, unable to open the file", open it in a private browsing window.']);
+    if (!links.participant) throw new Error(t_('err.inRoomSessionsHaveNo'));
+    items.push([t_('mail.linkAsk'), links.participant, t_('mail.linkAskNote')]);
   }
   if (options.present) {
-    items.push(['Room screen', links.present,
-      'Open on the projector — no sign-in needed. Anyone with this link can see the join code, so share it only with the people running the room. Use a private browsing window on the projector computer, so no Google sign-in gets in the way.']);
+    items.push([t_('mail.linkPresent'), links.present, t_('mail.linkPresentNote')]);
   }
   if (options.moderate) {
-    items.push(['QA Facilitator queue', links.moderate,
-      'Questions grouped by topic. Requires signing in with an assigned ' + domainOf_(ownerEmail_()) + ' account.']);
+    items.push([t_('mail.linkModerate'), links.moderate,
+      t_('mail.linkModerateNote', { domain: domainOf_(ownerEmail_()) })]);
   }
-  if (!items.length) throw new Error('Choose at least one link to send.');
+  if (!items.length) throw new Error(t_('err.chooseAtLeastOneLink'));
 
   const brand = brand_(session);
   const html = emailShell_(brand, esc_(session.name),
@@ -441,7 +445,8 @@ function emailLinks(sid, options) {
 
   // One message per recipient so addresses are never exposed to each other.
   to.forEach(function (address) {
-    MailApp.sendEmail({ to: address, subject: session.name + ' — Question Desk links', htmlBody: html, name: brand.orgName || 'Question Desk' });
+    MailApp.sendEmail({ to: address, subject: t_('mail.linksSessionSubject', { name: session.name }),
+      htmlBody: html, name: brand.orgName || 'Question Desk' });
   });
   audit_('Links emailed', session, 'to ' + to.join(', '));
   return to.length;
@@ -454,11 +459,10 @@ function addPerson(role, email) {
   const me = requireAdmin_();
   const key = ROLE_KEYS[role] || 'MODERATORS';
   const address = parseEmails_([email])[0];
-  if (!address) throw new Error('Enter an email address.');
+  if (!address) throw new Error(t_('err.enterAnEmailAddress'));
   const domain = domainOf_(ownerEmail_());
   if (domainOf_(address) !== domain) {
-    throw new Error('Only @' + domain + ' accounts can sign in to this app. ' +
-      'Google does not tell the app who is signed in from any other domain.');
+    throw new Error(t_('err.outsideDomain', { domain: domain }));
   }
   withLock_(function () {
     const list = roster_(key);
@@ -470,12 +474,33 @@ function addPerson(role, email) {
   return adminState();
 }
 
+/**
+ * The language one person reads the app in: the queue, Admin, the coordinator portal and the
+ * emails they are sent. Kept in its own property, so the rosters stay plain address lists.
+ */
+function setPersonLanguage(email, code) {
+  requireAdmin_();
+  const address = String(email || '').toLowerCase();
+  const lang = String(code || '');
+  if (lang && !CONFIG.appLanguages[lang]) throw new Error(t_('err.notAnAppLanguage', { code: lang }));
+  withLock_(function () {
+    const all = personLanguages_();
+    if (lang && lang !== 'en') all[address] = lang;
+    else delete all[address];   // English is the default, so it needs no row
+    const json = JSON.stringify(all);
+    if (json.length > 9000) throw new Error(t_('err.tooManyPersonLanguages'));
+    props_().setProperty('PEOPLE_LANG', json);
+  });
+  audit_('Person language set', null, address + ': ' + (lang || 'en'));
+  return adminState();
+}
+
 function removePerson(role, email) {
   const me = requireAdmin_();
   const address = String(email || '').toLowerCase();
   if (role === 'admin') {
-    if (address === ownerEmail_()) throw new Error('The script owner is always an administrator.');
-    if (address === me) throw new Error('You cannot remove yourself. Ask another administrator.');
+    if (address === ownerEmail_()) throw new Error(t_('err.theScriptOwnerIsAlways'));
+    if (address === me) throw new Error(t_('err.youCannotRemoveYourselfAsk'));
   }
   const key = ROLE_KEYS[role] || 'MODERATORS';
   withLock_(function () {
@@ -497,6 +522,13 @@ function removePerson(role, email) {
       });
     }
   });
+  if (!onRoster_('ADMINS', address) && !onRoster_('MODERATORS', address) && !onRoster_('COORDINATORS', address)) {
+    withLock_(function () {
+      const all = personLanguages_();
+      delete all[address];
+      props_().setProperty('PEOPLE_LANG', JSON.stringify(all));
+    });
+  }
   audit_((ROLE_NAMES[role] || ROLE_NAMES.moderator) + ' removed', null, address);
   return adminState();
 }
@@ -534,6 +566,15 @@ function summaryRecipients_(session) {
   return list.slice(0, CONFIG.maxRecipients);
 }
 
+/** The language the app itself is read in when nobody has chosen one: staff, and every room. */
+function saveSiteLanguage(code) {
+  requireAdmin_();
+  const clean = cleanAppLanguage_(code);
+  props_().setProperty('APP_LANGUAGE', clean || 'en');
+  audit_('App language changed', null, CONFIG.appLanguages[clean || 'en'].name);
+  return adminState();
+}
+
 /** The languages sessions outside an event use (and any event that doesn't choose). */
 function saveSiteLanguages(codes) {
   requireAdmin_();
@@ -563,15 +604,15 @@ function saveBrand(input) {
   // Check everything first, so a rejected field never leaves a half-saved page.
   const favicon = String(input.faviconUrl || '').trim();
   if (favicon && !/^https:\/\/[^\s"'<>]+$/.test(favicon)) {
-    throw new Error('The tab icon must be an https:// link to an image.');
+    throw new Error(t_('err.theTabIconMustBe'));
   }
   const guest = input.guestPageUrl === undefined ? null : cleanGuestPageUrl_(input.guestPageUrl);
   const url = String(input.publicUrl || '').trim();
   if (url && !/^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(url)) {
     if (!/script\.google\.com/.test(url)) {
-      throw new Error('That looks like a guest page address. Put it in "Guest page address" and leave the Question Desk Google address blank.');
+      throw new Error(t_('err.thatLooksLikeAGuest'));
     }
-    throw new Error('The Question Desk Google address must look like https://script.google.com/macros/s/…/exec — or leave it blank.');
+    throw new Error(t_('err.theQuestionDeskGoogleAddress'));
   }
 
   props_().setProperty('BRAND', JSON.stringify({
@@ -632,9 +673,9 @@ function brand_(session) {
 function cleanLogo_(dataUrl) {
   dataUrl = String(dataUrl || '');
   if (!/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(dataUrl)) {
-    throw new Error('The logo must be a PNG, JPEG or WebP image.');
+    throw new Error(t_('err.theLogoMustBeA'));
   }
-  if (dataUrl.length > CONFIG.logoMaxChars) throw new Error('That logo is too large even after resizing.');
+  if (dataUrl.length > CONFIG.logoMaxChars) throw new Error(t_('err.thatLogoIsTooLarge'));
   return dataUrl;
 }
 

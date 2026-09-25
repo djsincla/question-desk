@@ -82,7 +82,7 @@ class QD_Coordinator {
 		}
 		$question = $ids ? QD_Questions::get( $question_id ) : null;
 		if ( ! $question || ! in_array( $question['sessionId'], $ids, true ) || ! $question['logistics'] ) {
-			throw new QD_Error( 'That question is no longer in this event.' );
+			throw new QD_Error( QD_App::t( 'err.thatQuestionIsNoLonger' ) );
 		}
 		$wpdb->update( QD_Install::table( 'questions' ), array( 'logistics' => $sorted ? 'sorted' : 'yes' ), array( 'id' => $question['id'] ) );
 		QD_Cache::invalidate( $question['sessionId'] );

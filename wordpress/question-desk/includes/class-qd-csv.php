@@ -173,15 +173,15 @@ class QD_Csv {
 			$mi = (int) $m[5];
 			if ( ! empty( $m[6] ) ) {
 				if ( $h < 1 || $h > 12 ) {
-					throw new QD_Error( $label . ' "' . $v . '" has an hour that doesn\'t fit AM/PM.' );
+					throw new QD_Error( QD_App::t( 'err.csvBadHour', array( 'label' => $label, 'value' => $v ) ) );
 				}
 				$h = ( $h % 12 ) + ( preg_match( '/p/i', $m[6] ) ? 12 : 0 );
 			}
 		} else {
-			throw new QD_Error( $label . ' "' . $v . '" is not a date and time like 2026-10-03 18:30.' );
+			throw new QD_Error( QD_App::t( 'err.csvNotADateTime', array( 'label' => $label, 'value' => $v ) ) );
 		}
 		if ( $mo < 1 || $mo > 12 || $d < 1 || $d > 31 || $h > 23 || $mi > 59 ) {
-			throw new QD_Error( $label . ' "' . $v . '" is not a real date and time.' );
+			throw new QD_Error( QD_App::t( 'err.csvNotRealDate', array( 'label' => $label, 'value' => $v ) ) );
 		}
 		$when = new DateTimeImmutable( sprintf( '%04d-%02d-%02d %02d:%02d', $y, $mo, $d, $h, $mi ), wp_timezone() );
 		return $when->getTimestamp() * 1000;
@@ -198,7 +198,7 @@ class QD_Csv {
 		if ( preg_match( '/^(no|n|false|0)$/', $v ) ) {
 			return false;
 		}
-		throw new QD_Error( $label . ' should be yes or no, not "' . $value . '".' );
+		throw new QD_Error( QD_App::t( 'err.csvYesNo', array( 'label' => $label, 'value' => $value ) ) );
 	}
 
 	/** The duplicate key: name, plus start and end when either is set (sessionKey_). */
@@ -220,15 +220,15 @@ class QD_Csv {
 		$me           = QD_People::require_admin();
 		$on_duplicate = ( ( (array) $options )['duplicates'] ?? '' ) === 'skip' ? 'skip' : 'update';
 		if ( strlen( (string) $text ) > 2000000 ) {
-			throw new QD_Error( 'That file is too large to import.' );
+			throw new QD_Error( QD_App::t( 'err.thatFileIsTooLarge' ) );
 		}
 		$table = self::parse( $text );
 		if ( ! $table ) {
-			throw new QD_Error( 'The file is empty.' );
+			throw new QD_Error( QD_App::t( 'err.theFileIsEmpty' ) );
 		}
 		$max = (int) QD_App::config( 'maxImportRows' );
 		if ( count( $table ) - 1 > $max ) {
-			throw new QD_Error( 'Import at most ' . $max . ' sessions at a time.' );
+			throw new QD_Error( QD_App::t( 'err.csvTooManyRows', array( 'max' => $max ) ) );
 		}
 
 		// Columns by header name, forgiving case, spacing and the time zone suffix.
@@ -244,7 +244,7 @@ class QD_Csv {
 			$columns[] = $known[ $norm( $header ) ] ?? null;
 		}
 		if ( ! in_array( 'name', $columns, true ) ) {
-			throw new QD_Error( 'The file needs a "Session" column. Export sessions first to get the format.' );
+			throw new QD_Error( QD_App::t( 'err.theFileNeedsASession' ) );
 		}
 
 		$roster   = QD_People::moderators();
@@ -288,27 +288,27 @@ class QD_Csv {
 			);
 			try {
 				if ( '' === $out['name'] ) {
-					throw new QD_Error( 'No session name.' );
+					throw new QD_Error( QD_App::t( 'err.noSessionName' ) );
 				}
-				$start = $has( 'scheduledStart' ) ? self::read_time( $get['scheduledStart'], 'Scheduled start' ) : false;
-				$end   = $has( 'scheduledEnd' ) ? self::read_time( $get['scheduledEnd'], 'Scheduled end' ) : false;
+				$start = $has( 'scheduledStart' ) ? self::read_time( $get['scheduledStart'], QD_App::t( 'csv.label.scheduledStart' ) ) : false;
+				$end   = $has( 'scheduledEnd' ) ? self::read_time( $get['scheduledEnd'], QD_App::t( 'csv.label.scheduledEnd' ) ) : false;
 				$key   = self::session_key( $out['name'], false === $start ? null : $start, false === $end ? null : $end );
 				if ( isset( $seen[ $key ] ) ) {
-					throw new QD_Error( 'The same session is already on row ' . $seen[ $key ] . '.' );
+					throw new QD_Error( QD_App::t( 'err.csvDuplicateRow', array( 'row' => $seen[ $key ] ) ) );
 				}
 				$seen[ $key ] = $row_number;
 				$match        = $existing[ $key ] ?? null;
 
 				if ( $match && 'skip' === $on_duplicate ) {
 					$out['action']     = 'skip';
-					$out['warnings'][] = 'Already exists; skipped.';
+					$out['warnings'][] = QD_App::t( 'csv.alreadyExists' );
 					$result['skipped']++;
 					$result['rows'][] = $out;
 					continue;
 				}
 				if ( $match && 'ended' === $match['status'] ) {
 					$out['action']     = 'skip';
-					$out['warnings'][] = 'Already exists and has ended; ended sessions can\'t be changed.';
+					$out['warnings'][] = QD_App::t( 'csv.alreadyEnded' );
 					$result['skipped']++;
 					$result['rows'][] = $out;
 					continue;
@@ -326,7 +326,7 @@ class QD_Csv {
 				if ( $has( 'access' ) ) {
 					$a = strtolower( trim( $get['access'] ) );
 					if ( $a && 'room' !== $a && 'link' !== $a ) {
-						throw new QD_Error( 'How people join should be room or link, not "' . $get['access'] . '".' );
+						throw new QD_Error( QD_App::t( 'err.csvAccess', array( 'value' => $get['access'] ) ) );
 					}
 					if ( $a ) {
 						$input['access'] = $a;
@@ -335,7 +335,7 @@ class QD_Csv {
 				if ( $has( 'theme' ) ) {
 					$t = strtolower( trim( $get['theme'] ) );
 					if ( $t && ! in_array( $t, array( 'dark', 'light', 'contrast' ), true ) ) {
-						throw new QD_Error( 'Theme should be dark, light or contrast, not "' . $get['theme'] . '".' );
+						throw new QD_Error( QD_App::t( 'err.csvTheme', array( 'value' => $get['theme'] ) ) );
 					}
 					if ( $t ) {
 						$input['theme'] = $t;
@@ -348,7 +348,7 @@ class QD_Csv {
 					$input['maxLength'] = trim( $get['maxLength'] );
 				}
 				if ( $has( 'emailOnEnd' ) ) {
-					$input['emailOnEnd'] = self::read_yes( $get['emailOnEnd'], 'Email summary', ! empty( $input['emailOnEnd'] ) );
+					$input['emailOnEnd'] = self::read_yes( $get['emailOnEnd'], QD_App::t( 'csv.label.emailOnEnd' ), ! empty( $input['emailOnEnd'] ) );
 				}
 				if ( false !== $start ) {
 					$input['scheduledStart'] = $start;
@@ -360,24 +360,24 @@ class QD_Csv {
 					$listed  = QD_Util::parse_emails( $get['moderators'] );
 					$missing = array_values( array_diff( $listed, $roster ) );
 					if ( $missing ) {
-						$out['warnings'][] = 'Not on the QA Facilitator list, so not added: ' . implode( ', ', $missing ) . '. Add them on the People tab.';
+						$out['warnings'][] = QD_App::t( 'csv.notOnFacilitatorList', array( 'names' => implode( ', ', $missing ) ) );
 					}
 					$input['moderators'] = array_values( array_intersect( $listed, $roster ) );
 				}
 				if ( $has( 'guestRoom' ) || $has( 'guestSlide' ) || $has( 'guestPanel' ) || $has( 'guestUrl' ) ) {
 					$g                  = QD_Sessions::guest_choice( $input['guestPage'] ?? null );
 					$input['guestPage'] = array(
-						'room'  => self::read_yes( $get['guestRoom'] ?? '', 'Guest page for room screen', $g['room'] ),
-						'slide' => self::read_yes( $get['guestSlide'] ?? '', 'Guest page for slide', $g['slide'] ),
-						'panel' => self::read_yes( $get['guestPanel'] ?? '', 'Guest page for panelist view', $g['panel'] ),
+						'room'  => self::read_yes( $get['guestRoom'] ?? '', QD_App::t( 'csv.label.guestRoom' ), $g['room'] ),
+						'slide' => self::read_yes( $get['guestSlide'] ?? '', QD_App::t( 'csv.label.guestSlide' ), $g['slide'] ),
+						'panel' => self::read_yes( $get['guestPanel'] ?? '', QD_App::t( 'csv.label.guestPanel' ), $g['panel'] ),
 						'url'   => $has( 'guestUrl' ) ? trim( $get['guestUrl'] ) : $g['url'],
 					);
 				}
 				if ( $has( 'roomQuestions' ) ) {
-					$input['roomQuestions'] = self::read_yes( $get['roomQuestions'], 'Room screen lists questions', ! empty( $input['roomQuestions'] ) );
+					$input['roomQuestions'] = self::read_yes( $get['roomQuestions'], QD_App::t( 'csv.label.roomQuestions' ), ! empty( $input['roomQuestions'] ) );
 				}
 				if ( $has( 'translatePrepared' ) ) {
-					$input['translatePrepared'] = self::read_yes( $get['translatePrepared'], 'Translate prepared questions', false !== ( $input['translatePrepared'] ?? true ) );
+					$input['translatePrepared'] = self::read_yes( $get['translatePrepared'], QD_App::t( 'csv.label.translatePrepared' ), false !== ( $input['translatePrepared'] ?? true ) );
 				}
 				if ( $has( 'brandOrgName' ) ) {
 					$input['brandOrgName'] = $get['brandOrgName'];
@@ -404,7 +404,7 @@ class QD_Csv {
 							$result['events'][]                      = $event_name;
 						}
 						$input['eventId']  = '';   // made below, when importing for real
-						$out['warnings'][] = 'New event "' . $event_name . '" will be created.';
+						$out['warnings'][] = QD_App::t( 'csv.newEvent', array( 'name' => $event_name ) );
 					}
 				}
 
@@ -483,7 +483,7 @@ class QD_Csv {
 		}
 		$table = self::parse( $text );
 		if ( ! $table ) {
-			throw new QD_Error( 'The file is empty.' );
+			throw new QD_Error( QD_App::t( 'err.theFileIsEmpty' ) );
 		}
 		$norm  = function ( $header ) {
 			return strtolower( preg_replace( '/[^a-z]/i', '', preg_replace( '/\(.*?\)/', '', (string) $header ) ) );
@@ -499,7 +499,7 @@ class QD_Csv {
 			$columns[] = $known[ $norm( $header ) ] ?? null;
 		}
 		if ( ! in_array( 'text', $columns, true ) ) {
-			throw new QD_Error( 'The file needs an "Original question" column. Use the CSV from a Question Desk summary email.' );
+			throw new QD_Error( QD_App::t( 'wp.err.needsOriginalQuestion' ) );
 		}
 		$have = array();
 		foreach ( QD_Questions::rows( $sid, true ) as $q ) {
@@ -518,7 +518,7 @@ class QD_Csv {
 			$out = array( 'row' => $i + 2, 'text' => mb_substr( $get['text'] ?? '', 0, 80 ), 'action' => '', 'problem' => '' );
 			try {
 				if ( '' === ( $get['text'] ?? '' ) ) {
-					throw new QD_Error( 'No question.' );
+					throw new QD_Error( QD_App::t( 'wp.err.noQuestion' ) );
 				}
 				$id = ( ! empty( $get['id'] ) && preg_match( QD_Util::ID_RE, $get['id'] ) ) ? $get['id'] : QD_Util::new_id( 8 );
 				if ( isset( $have[ $id ] ) ) {

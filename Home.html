@@ -19,15 +19,13 @@
   </div>
 
   <section class="staff" id="staff">
-    <h2>For staff</h2>
+    <h2 data-w="home.staff.heading">For staff</h2>
     <div id="staffSignedIn" hidden>
       <ul id="sessions"></ul>
-      <p class="quiet" id="noSessions" hidden>No open sessions assigned to you.</p>
-      <p class="quiet"><a id="adminLink" hidden>Open the admin page</a></p>
+      <p class="quiet" id="noSessions" data-w="home.staff.none" hidden>No open sessions assigned to you.</p>
+      <p class="quiet"><a id="adminLink" data-w="home.staff.admin" hidden>Open the admin page</a></p>
     </div>
-    <p class="quiet" id="staffSignedOut" hidden>
-      QA Facilitators and administrators: <a id="signIn">sign in</a> with your <span id="domain"></span> account.
-    </p>
+    <p class="quiet" id="staffSignedOut" hidden></p>
   </section>
 </main>
 <footer id="footer" hidden></footer>
@@ -36,12 +34,15 @@
 <script>
   var BOOT = <?!= boot ?>;
   var brand = BOOT.brand;
+  fillWords();
 
 
   // "Scan the code" in the site's languages, from UI_TEXT.home in Code.js.
   var JOIN = BOOT.text;
   (function () {
     var slot = $('joinLines');
+    $('title').textContent = JOIN.en.title;
+    $('anon').textContent = JOIN.en.anonymous;
     $('joinEn').textContent = JOIN.en.join;
     (BOOT.languages || ['en', 'ko', 'es']).forEach(function (code) {
       if (code === 'en' || !JOIN[code]) return;
@@ -85,12 +86,12 @@
       var name = document.createElement('div');
       name.textContent = (s.eventName ? s.eventName + ' — ' : '') + s.name + ' ';
       var status = document.createElement('span');
-      status.textContent = s.status === 'active' ? 'Active' : 'Not active';
+      status.textContent = W(s.status === 'active' ? 'home.session.active' : 'home.session.inactive');
       name.appendChild(status);
       li.appendChild(name);
       var links = document.createElement('div');
       links.className = 'links';
-      [['Room screen', s.present], ['Queue', s.moderate]].forEach(function (pair) {
+      [[W('home.link.present'), s.present], [W('home.link.queue'), s.moderate]].forEach(function (pair) {
         var a = document.createElement('a');
         a.textContent = pair[0];
         a.href = pair[1];
@@ -100,9 +101,16 @@
       $('sessions').appendChild(li);
     });
   } else {
-    $('staffSignedOut').hidden = false;
-    $('signIn').href = BOOT.signInUrl;
-    $('domain').textContent = '@' + BOOT.domain;
+    // One sentence with the link inside it, so another language can put it anywhere.
+    var link = el('a', null, W('home.staff.signInLink'));
+    link.id = 'signIn';
+    link.href = BOOT.signInUrl;
+    var said = W('home.staff.signIn', { domain: '@' + BOOT.domain }).split('{link}');
+    var where = $('staffSignedOut');
+    where.appendChild(document.createTextNode(said[0]));
+    where.appendChild(link);
+    where.appendChild(document.createTextNode(said[1] || ''));
+    where.hidden = false;
   }
 </script>
 </body>

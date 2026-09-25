@@ -17,7 +17,7 @@
 
 /** Bump with every release; scripts/ship.sh tags git and publishes release notes from CHANGELOG.md. */
 const APP = {
-  version: '2.28.0',
+  version: '2.29.0',
   repo: 'https://github.com/djsincla/question-desk'
 };
 
@@ -45,6 +45,12 @@ const CONFIG = {
   },
   defaultLanguages: ['en', 'ko', 'es'],
   maxLanguages: 4,
+  // Languages the app itself is read in: the queue, Admin, the coordinator portal, emails and
+  // the room screen footer. Separate from languages above, whose names are compared as values.
+  appLanguages: {
+    en: { name: 'English', native: 'English' },
+    es: { name: 'Spanish', native: 'Español' }
+  },
   defaultMaxLength: 300,          // per session, admin can change
   maxLengthCeiling: 1024,         // no session may allow more than this
   cooldownSeconds: 300,           // default wait between questions per phone; each session can change it
@@ -96,7 +102,7 @@ function doGet(e) {
 
   if (view === 'admin') {
     if (!isAdmin_()) return notice_('denied');
-    return page_('Admin.html', 'Question Desk admin', {}, null);
+    return page_('Admin.html', t_('page.admin'), {}, null);
   }
 
   // Printable QR sheets for an event's shareable-link sessions (admins; opened in a new tab to print).
@@ -156,7 +162,7 @@ function doGet(e) {
       if (!ev) return notice_('pickEvent');
       return notice_('denied');
     }
-    return page_('Coordinator.html', ev.name + ' — event logistics', {
+    return page_('Coordinator.html', t_('page.coordinator', { event: ev.name }), {
       eid: ev.id, board: getCoordinatorBoard(ev.id)
     }, { eventId: ev.id });
   }
@@ -173,7 +179,7 @@ function doGet(e) {
   if (view === 'ask' && !p.s) return home_();
 
   const session = getSession_(sid);
-  return page_('Ask.html', 'Ask a question', {
+  return page_('Ask.html', t_('page.ask'), {
     sid: session ? session.id : '',
     credential: String(p.t || p.k || '').slice(0, 64),
     languages: languageList_(session)
@@ -189,6 +195,13 @@ function page_(file, title, boot, session) {
   template.scripts = scriptsFor_(file);
   boot.brand = brand_(session);
   if (UI_TEXT_FOR[file]) boot.text = UI_TEXT[UI_TEXT_FOR[file]];
+  if (APP_TEXT_FOR[file]) {
+    // Nobody is signed in at a venue laptop, so the room screen and the panelist view read the
+    // session's language; every other page reads the language of the person in front of it.
+    const room = file === 'Present.html' || file === 'Panel.html';
+    boot.lang = room ? roomLanguage_(session) : appLanguage_();
+    boot.words = wordsFor_(boot.lang, APP_TEXT_FOR[file]);
+  }
   template.boot = JSON.stringify(boot)
     .replace(/</g, '\\u003c')
     .split(String.fromCharCode(0x2028)).join('\\u2028')
@@ -273,13 +286,13 @@ function notice_(mode, view) {
         const ev = eventName_(s);
         return {
           label: ev ? ev + ' — ' + s.name : s.name,
-          note: s.status === 'active' ? 'Active' : 'Not active',
+          note: t_(s.status === 'active' ? 'notice.pick.active' : 'notice.pick.inactive'),
           href: view === 'present' ? sessionLinks_(s).present : base + '?view=' + view + '&s=' + s.id
         };
       });
-    return page_('Denied.html', 'Choose a session', {
-      heading: 'Choose a session',
-      body: links.length ? 'Pick the session to open.' : 'You are not assigned to any open sessions.',
+    return page_('Denied.html', t_('notice.pick.title'), {
+      heading: t_('notice.pick.title'),
+      body: t_(links.length ? 'notice.pick.body' : 'notice.pick.none'),
       links: links
     }, null);
   }
@@ -288,29 +301,29 @@ function notice_(mode, view) {
     const links = eventsForCoordinator_(currentEmail_()).map(function (ev) {
       return { label: ev.name, note: '', href: base + '?view=coordinator&e=' + ev.id };
     });
-    return page_('Denied.html', 'Choose an event', {
-      heading: 'Choose an event',
-      body: links.length ? 'Pick the event to open.' : 'You are not an Event Coordinator for any event.',
+    return page_('Denied.html', t_('notice.pickEvent.title'), {
+      heading: t_('notice.pickEvent.title'),
+      body: t_(links.length ? 'notice.pickEvent.body' : 'notice.pickEvent.none'),
       links: links
     }, null);
   }
   if (mode === 'oldScreenLink') {
-    return page_('Denied.html', 'Room screen link out of date', {
-      heading: 'This room screen link is out of date',
-      body: 'Room screen and PowerPoint slide links changed. Ask whoever runs the session to copy the new one from the Admin page (Sessions → Links). To ask a question, scan the code on the screen in the room.',
+    return page_('Denied.html', t_('notice.oldScreenLink.tab'), {
+      heading: t_('notice.oldScreenLink.title'),
+      body: t_('notice.oldScreenLink.body'),
       links: []
     }, null);
   }
   if (mode === 'noSession') {
-    return page_('Denied.html', 'Session not found', {
-      heading: 'This room screen link is not valid',
-      body: 'Check the link with whoever is running the session, or scan the code on the screen in the room to ask a question.',
+    return page_('Denied.html', t_('notice.noSession.tab'), {
+      heading: t_('notice.noSession.title'),
+      body: t_('notice.noSession.body'),
       links: []
     }, null);
   }
-  return page_('Denied.html', 'Not available', {
-    heading: 'This view is for QA Facilitators',
-    body: 'Sign in with an account listed as a QA Facilitator, or scan the code on the screen in the room to ask a question.',
+  return page_('Denied.html', t_('notice.denied.tab'), {
+    heading: t_('notice.denied.title'),
+    body: t_('notice.denied.body'),
     links: []
   }, null);
 }

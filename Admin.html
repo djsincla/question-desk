@@ -10,45 +10,45 @@
 <header>
   <div class="title">
     <img id="logo" alt="" hidden>
-    <h1>Question Desk Administration</h1>
+    <h1 data-w="admin.top.questionDeskAdministration">Question Desk Administration</h1>
   </div>
-  <div class="who"><span id="who">Loading…</span> · <span id="version"></span> <a id="notes" target="_blank" rel="noopener" hidden>Release notes</a></div>
+  <div class="who"><span id="who">Loading…</span> · <span id="version"></span> <a id="notes" target="_blank" rel="noopener" data-w="admin.releaseNotes" hidden>Release notes</a></div>
 </header>
 
 <nav class="tabs" role="tablist">
-  <button type="button" role="tab" data-tab="sessions" aria-selected="true">Sessions</button>
-  <button type="button" role="tab" data-tab="people" aria-selected="false">People</button>
-  <button type="button" role="tab" data-tab="branding" aria-selected="false">Branding</button>
-  <button type="button" role="tab" data-tab="activity" aria-selected="false">Activity</button>
-  <button type="button" role="tab" data-tab="health" aria-selected="false">Health &amp; testing</button>
+  <button type="button" role="tab" data-tab="sessions" aria-selected="true" data-w="admin.top.sessions">Sessions</button>
+  <button type="button" role="tab" data-tab="people" aria-selected="false" data-w="admin.top.people">People</button>
+  <button type="button" role="tab" data-tab="branding" aria-selected="false" data-w="admin.top.branding">Branding</button>
+  <button type="button" role="tab" data-tab="activity" aria-selected="false" data-w="admin.top.activity">Activity</button>
+  <button type="button" role="tab" data-tab="health" aria-selected="false" data-w="admin.top.healthTesting">Health &amp; testing</button>
 </nav>
 
 <!-- Sessions -->
 <section id="tab-sessions">
   <div class="actions space-below-16">
-    <button type="button" class="primary" id="newEvent">New event</button>
-    <button type="button" id="newSession">New session</button>
+    <button type="button" class="primary" id="newEvent" data-w="admin.sessions.newEvent">New event</button>
+    <button type="button" id="newSession" data-w="admin.sessions.newSession">New session</button>
     <span class="grow"></span>
-    <button type="button" class="quiet" id="exportCsv">Export CSV</button>
-    <button type="button" class="quiet" id="importCsv">Import CSV</button>
+    <button type="button" class="quiet" id="exportCsv" data-w="admin.sessions.exportCsv">Export CSV</button>
+    <button type="button" class="quiet" id="importCsv" data-w="admin.sessions.importCsv">Import CSV</button>
   </div>
 
   <div class="panel form" id="exportPanel" hidden>
-    <h2>Sessions CSV</h2>
+    <h2 data-w="admin.sessions.sessionsCsv">Sessions CSV</h2>
     <p class="hint flush-top" id="exportHint"></p>
     <textarea class="full-width code-text" id="exportText" rows="6" readonly spellcheck="false"></textarea>
     <div class="actions space-above-8">
-      <button type="button" id="exportCopy">Copy</button>
-      <button type="button" class="quiet" id="exportClose">Close</button>
+      <button type="button" id="exportCopy" data-w="admin.sessions.exportCopy">Copy</button>
+      <button type="button" class="quiet" id="exportClose" data-w="admin.sessions.exportClose">Close</button>
     </div>
   </div>
 
   <div class="panel form checklist" id="checklistPanel" hidden>
     <div class="actions spread">
-      <h2 class="flush" id="checklistTitle">Day-of checklist</h2>
+      <h2 class="flush" id="checklistTitle" data-w="admin.sessions.checklistTitle">Day-of checklist</h2>
       <span>
-        <button type="button" id="checklistRefresh">Check again</button>
-        <button type="button" class="quiet" id="checklistClose">Close</button>
+        <button type="button" id="checklistRefresh" data-w="admin.sessions.checklistRefresh">Check again</button>
+        <button type="button" class="quiet" id="checklistClose" data-w="admin.sessions.checklistClose">Close</button>
       </span>
     </div>
     <p class="hint" id="checklistWhen"></p>
@@ -56,57 +56,61 @@
   </div>
 
   <form class="panel form" id="importForm" hidden autocomplete="off">
-    <h2>Import sessions from CSV</h2>
+    <h2 data-w="admin.sessions.importSessionsFromCsv">Import sessions from CSV</h2>
     <p class="hint flush-top">Use the format from <b>Export CSV</b> — edit it in Google Sheets or Excel, then save as CSV. Only the <b>Session</b> column is required; columns you leave out keep their current settings. Times are in the app's time zone, like <code>2026-10-03 18:30</code>. Events that don't exist yet are created; a blank Event cell takes a session out of its event. Ended sessions are never changed.</p>
     <label class="field"><span>CSV file</span><input type="file" id="importFile" accept=".csv,text/csv"></label>
     <label class="field"><span>…or paste it</span>
       <textarea class="code-text" id="importText" rows="5" spellcheck="false"></textarea>
     </label>
     <div class="field">
-      <span class="field-label">When a session already exists (same name, start and end — or same name when it has no times)</span>
+      <span class="field-label" data-w="admin.sessions.whenASessionAlready">When a session already exists (same name, start and end — or same name when it has no times)</span>
       <label class="choice"><input type="radio" name="importDup" value="update" checked><span>Update it with the file's values</span></label>
       <label class="choice"><input type="radio" name="importDup" value="skip"><span>Leave it as it is</span></label>
     </div>
     <div id="importPreview"></div>
     <div class="actions">
-      <button type="button" class="primary" id="importCheck">Check file</button>
-      <button type="submit" class="primary" id="importGo" hidden>Import</button>
-      <button type="button" class="quiet" id="importCancel">Cancel</button>
+      <button type="button" class="primary" id="importCheck" data-w="admin.sessions.importCheck">Check file</button>
+      <button type="submit" class="primary" id="importGo" hidden data-w="admin.sessions.importGo">Import</button>
+      <button type="button" class="quiet" id="importCancel" data-w="admin.sessions.importCancel">Cancel</button>
     </div>
   </form>
 
   <form class="panel form" id="eventForm" hidden autocomplete="off">
-    <h2 id="eventFormTitle">New event</h2>
+    <h2 id="eventFormTitle" data-w="admin.sessions.eventFormTitle">New event</h2>
     <input type="hidden" id="ev-id">
     <label class="field"><span>Event name</span>
-      <input type="text" id="ev-name" maxlength="80" required placeholder="Spring Family Conference 2027">
-      <div class="hint">Groups the sessions held at one event, such as a conference with several rooms.</div>
+      <input type="text" id="ev-name" maxlength="80" required data-w-ph="admin.sessions.evname.hint" placeholder="Spring Family Conference 2027">
+      <div class="hint" data-w="admin.sessions.groupsTheSessionsHeld">Groups the sessions held at one event, such as a conference with several rooms.</div>
     </label>
     <div class="field">
-      <span class="field-label">QA Facilitators for every session in this event</span>
+      <span class="field-label" data-w="admin.sessions.qaFacilitatorsForEvery">QA Facilitators for every session in this event</span>
       <div id="ev-mods"></div>
-      <div class="hint">They can run the queue for all of this event's sessions. Sessions can add more of their own. (Summaries go to the Session Summary Email Recipients on the People tab.)</div>
+      <div class="hint" data-w="admin.sessions.theyCanRunThe">They can run the queue for all of this event's sessions. Sessions can add more of their own. (Summaries go to the Session Summary Email Recipients on the People tab.)</div>
     </div>
     <div class="field">
-      <span class="field-label">Event Coordinators</span>
+      <span class="field-label" data-w="admin.sessions.eventCoordinators">Event Coordinators</span>
       <div id="ev-coords"></div>
-      <div class="hint">They get this event's own portal: every question the audience asks about running it — rooms, timing, access, food — from all its sessions. Add people to the role on the People tab first.</div>
+      <div class="hint" data-w="admin.sessions.theyGetThisEvent">They get this event's own portal: every question the audience asks about running it — rooms, timing, access, food — from all its sessions. Add people to the role on the People tab first.</div>
     </div>
+    <label class="field"><span data-w="admin.roomLanguageLabel">Room language</span>
+      <select id="ev-room-lang"></select>
+      <div class="hint" data-w="admin.roomLanguageHint">The room screen, slide and panelist view read their status lines in this. Blank uses the site's.</div>
+    </label>
     <fieldset>
-      <legend>Languages</legend>
+      <legend data-w="admin.sessions.languages">Languages</legend>
       <label class="choice"><input type="radio" name="evLangMode" value="site" checked><span>The site's languages<small id="ev-lang-site"></small></span></label>
       <label class="choice"><input type="radio" name="evLangMode" value="custom"><span>Choose for this event<small>For example, add Vietnamese for a community partner. English is always included.</small></span></label>
       <div class="lang-grid indent" id="ev-langs" hidden></div>
     </fieldset>
     <fieldset>
-      <legend>Event branding (optional)</legend>
-      <div class="hint flush-top flush-sides space-below-10">Overrides the site branding for this event's sessions. Leave a field blank to use the site's. A session can still set its own name, color and logo.</div>
+      <legend data-w="admin.sessions.eventBrandingOptional">Event branding (optional)</legend>
+      <div class="hint flush-top flush-sides space-below-10" data-w="admin.sessions.overridesTheSiteBranding">Overrides the site branding for this event's sessions. Leave a field blank to use the site's. A session can still set its own name, color and logo.</div>
       <div class="row">
         <label class="field"><span>Organization name</span><input type="text" id="ev-org" maxlength="80"></label>
         <div class="field">
-          <span class="field-label">Accent color</span>
+          <span class="field-label" data-w="admin.sessions.accentColor">Accent color</span>
           <label class="choice"><input type="checkbox" id="ev-accent-on"><span>Use a different accent</span></label>
-          <input type="color" id="ev-accent" aria-label="Event accent color">
+          <input type="color" id="ev-accent" data-w-a="admin.sessions.evaccent.says" aria-label="Event accent color">
         </div>
       </div>
       <div class="row">
@@ -115,34 +119,34 @@
       </div>
       <div class="row">
         <div class="field">
-          <span class="field-label">Room screen background — dark</span>
+          <span class="field-label" data-w="admin.sessions.roomScreenBackgroundDark">Room screen background — dark</span>
           <label class="choice"><input type="checkbox" id="ev-dark-on"><span>Use a different color</span></label>
-          <input type="color" id="ev-dark" aria-label="Event dark background">
+          <input type="color" id="ev-dark" data-w-a="admin.sessions.evdark.says" aria-label="Event dark background">
         </div>
         <div class="field">
-          <span class="field-label">Room screen background — light</span>
+          <span class="field-label" data-w="admin.sessions.roomScreenBackgroundLight">Room screen background — light</span>
           <label class="choice"><input type="checkbox" id="ev-light-on"><span>Use a different color</span></label>
-          <input type="color" id="ev-light" aria-label="Event light background">
+          <input type="color" id="ev-light" data-w-a="admin.sessions.evlight.says" aria-label="Event light background">
         </div>
       </div>
       <div class="field" id="ev-logo-box">
-        <span class="field-label">Logo</span>
+        <span class="field-label" data-w="admin.sessions.logo">Logo</span>
         <div class="logo-preview" id="ev-logo-preview"><span class="hint">Uses the site logo</span></div>
         <div class="actions">
           <input type="file" id="ev-logo" accept="image/png,image/jpeg,image/webp,image/svg+xml">
-          <button type="button" class="danger" id="ev-logo-remove" hidden>Remove event logo</button>
+          <button type="button" class="danger" id="ev-logo-remove" hidden data-w="admin.sessions.evlogoremove">Remove event logo</button>
         </div>
       </div>
-      <div class="hint" id="ev-logo-later" hidden>Save the event first, then edit it to add a logo.</div>
+      <div class="hint" id="ev-logo-later" hidden data-w="admin.sessions.evlogolater">Save the event first, then edit it to add a logo.</div>
     </fieldset>
     <div class="actions">
-      <button type="submit" class="primary" id="saveEvent">Save event</button>
-      <button type="button" class="quiet" id="cancelEvent">Cancel</button>
+      <button type="submit" class="primary" id="saveEvent" data-w="admin.sessions.saveEvent">Save event</button>
+      <button type="button" class="quiet" id="cancelEvent" data-w="admin.sessions.cancelEvent">Cancel</button>
     </div>
   </form>
 
   <form class="panel form" id="sessionForm" hidden autocomplete="off">
-    <h2 id="formTitle">New session</h2>
+    <h2 id="formTitle" data-w="admin.sessions.formTitle">New session</h2>
     <input type="hidden" id="f-id">
     <label class="field"><span>Event</span>
       <select id="f-event"></select>
@@ -151,11 +155,11 @@
     <div class="row">
       <label class="field"><span>Name</span>
         <input type="text" id="f-name" maxlength="80" required>
-        <div class="hint">For administrators and QA Facilitators, e.g. "Family night — Sept".</div>
+        <div class="hint" data-w="admin.sessions.forAdministratorsAndQa">For administrators and QA Facilitators, e.g. "Family night — Sept".</div>
       </label>
       <label class="field"><span>Room</span>
-        <input type="text" id="f-room" maxlength="60" placeholder="Ballroom A">
-        <div class="hint">Where it happens. Shown to staff and in their emails; participants never see it.</div>
+        <input type="text" id="f-room" maxlength="60" data-w-ph="admin.sessions.froom.hint" placeholder="Ballroom A">
+        <div class="hint" data-w="admin.sessions.whereItHappensShown">Where it happens. Shown to staff and in their emails; participants never see it.</div>
       </label>
     </div>
 
@@ -167,19 +171,23 @@
 
     <div class="row">
       <div class="field">
-        <span class="field-label">How people join</span>
+        <span class="field-label" data-w="admin.sessions.howPeopleJoin">How people join</span>
         <label class="choice"><input type="radio" name="access" value="room" checked>
           <span>In-room QR<small>The code on the room screen changes every 150 seconds. Only people in the room can ask.</small></span></label>
         <label class="choice"><input type="radio" name="access" value="link">
           <span>Shareable link<small>A fixed link and QR you can email or print. Anyone with the link can ask.</small></span></label>
       </div>
       <div class="field">
-        <span class="field-label">Room screen theme</span>
+        <span class="field-label" data-w="admin.sessions.roomScreenTheme">Room screen theme</span>
         <label class="choice"><input type="radio" name="theme" value="dark" checked><span>Dark<small>Best for dim rooms and most projectors.</small></span></label>
         <label class="choice"><input type="radio" name="theme" value="light"><span>Light<small>Best for bright rooms and TVs.</small></span></label>
         <label class="choice"><input type="radio" name="theme" value="contrast"><span>High contrast<small>Black, white and yellow, for low vision and washed-out projectors.</small></span></label>
         <label class="choice space-above-8"><input type="checkbox" id="f-room-questions"><span>List questions on the room screen<small>What participants' phones show — topics and questions a QA Facilitator put on phones — most Me too first. Nothing unreviewed. QA Facilitators can also switch it on and off from the queue.</small></span></label>
       </div>
+      <label class="field space-above-8"><span data-w="admin.roomLanguageLabel">Room language</span>
+        <select id="f-room-lang"></select>
+        <div class="hint" data-w="admin.roomLanguageHint">The room screen, slide and panelist view read their status lines in this. Blank uses the site's.</div>
+      </label>
     </div>
 
     <div class="row">
@@ -198,8 +206,8 @@
     </div>
 
     <fieldset>
-      <legend>Use the guest page for</legend>
-      <p class="hint flush-top">Avoids Google's "Sorry, unable to open the file" on phones and browsers signed into several Google accounts. Unticked opens Google's address directly.</p>
+      <legend data-w="admin.sessions.useTheGuestPage">Use the guest page for</legend>
+      <p class="hint flush-top" data-w="admin.sessions.avoidsGoogleSSorry">Avoids Google's "Sorry, unable to open the file" on phones and browsers signed into several Google accounts. Unticked opens Google's address directly.</p>
       <label class="choice"><input type="checkbox" id="f-guest-room">
         <span>Room screen<small>The room screen link, and the QR code on the room screen.</small></span></label>
       <label class="choice"><input type="checkbox" id="f-guest-slide">
@@ -207,60 +215,60 @@
       <label class="choice"><input type="checkbox" id="f-guest-panel">
         <span>Panelist view<small>The panelist view link, for the panel's tablet or laptop.</small></span></label>
       <label class="field indent" id="f-guest-url-box" hidden>
-        <span>Guest page address for this session (optional)</span>
-        <input type="url" id="f-guest-url" placeholder="Uses the address on the Branding tab">
-        <div class="hint">Leave blank to use the organization's guest page. Fill in to use another site, such as a partner's. A shareable questions link uses the guest page when Room screen or PowerPoint slide is ticked.</div>
+        <span data-w="admin.sessions.guestPageAddressFor">Guest page address for this session (optional)</span>
+        <input type="url" id="f-guest-url" data-w-ph="admin.sessions.fguesturl.hint" placeholder="Uses the address on the Branding tab">
+        <div class="hint" data-w="admin.sessions.leaveBlankToUse">Leave blank to use the organization's guest page. Fill in to use another site, such as a partner's. A shareable questions link uses the guest page when Room screen or PowerPoint slide is ticked.</div>
       </label>
     </fieldset>
 
 
     <label class="field"><span>Prepared questions (optional)</span>
-      <textarea id="f-prepared" rows="5" placeholder="One question per line"></textarea>
-      <div class="hint">Loaded ahead of time and kept out of sight. A QA Facilitator adds each one to the queue when it's useful. Saving replaces the ones not yet added.</div>
+      <textarea id="f-prepared" rows="5" data-w-ph="admin.sessions.fprepared.hint" placeholder="One question per line"></textarea>
+      <div class="hint" data-w="admin.sessions.loadedAheadOfTime">Loaded ahead of time and kept out of sight. A QA Facilitator adds each one to the queue when it's useful. Saving replaces the ones not yet added.</div>
     </label>
     <label class="choice tuck-up"><input type="checkbox" id="f-translate-prepared" checked>
       <span>Translate prepared questions when saved<small id="f-translate-hint">Into English and this session's languages, so they're ready to read out and to show on phones and the room screen with Answer now.</small></span></label>
 
     <fieldset>
-      <legend>Schedule (optional)</legend>
+      <legend data-w="admin.sessions.scheduleOptional">Schedule (optional)</legend>
       <div class="row">
         <label class="field"><span>Start automatically</span><input type="datetime-local" id="f-start"></label>
         <label class="field"><span>End automatically</span><input type="datetime-local" id="f-end"></label>
       </div>
-      <div class="hint">Checked every minute. Ending sends the summary if the box above is ticked. You can still start, stop and end by hand.</div>
+      <div class="hint" data-w="admin.sessions.checkedEveryMinuteEnding">Checked every minute. Ending sends the summary if the box above is ticked. You can still start, stop and end by hand.</div>
     </fieldset>
 
     <fieldset>
-      <legend>Session branding (optional)</legend>
-      <div class="hint flush-top flush-sides space-below-10">For partner events. Leave blank to use your organization's branding.</div>
+      <legend data-w="admin.sessions.sessionBrandingOptional">Session branding (optional)</legend>
+      <div class="hint flush-top flush-sides space-below-10" data-w="admin.sessions.forPartnerEventsLeave">For partner events. Leave blank to use your organization's branding.</div>
       <div class="row">
         <label class="field"><span>Organization name</span><input type="text" id="f-org" maxlength="80"></label>
         <div class="field">
-          <span class="field-label">Accent color</span>
+          <span class="field-label" data-w="admin.sessions.accentColor2">Accent color</span>
           <label class="choice"><input type="checkbox" id="f-accent-on"><span>Use a different accent</span></label>
-          <input type="color" id="f-accent" aria-label="Session accent color">
+          <input type="color" id="f-accent" data-w-a="admin.sessions.faccent.says" aria-label="Session accent color">
         </div>
       </div>
       <div class="field" id="f-logo-box">
-        <span class="field-label">Logo</span>
+        <span class="field-label" data-w="admin.sessions.logo2">Logo</span>
         <div class="logo-preview" id="f-logo-preview"><span class="hint">Uses the organization logo</span></div>
         <div class="actions">
           <input type="file" id="f-logo" accept="image/png,image/jpeg,image/webp,image/svg+xml">
-          <button type="button" class="danger" id="f-logo-remove" hidden>Remove session logo</button>
+          <button type="button" class="danger" id="f-logo-remove" hidden data-w="admin.sessions.flogoremove">Remove session logo</button>
         </div>
       </div>
-      <div class="hint" id="f-logo-later" hidden>Save the session first, then edit it to add a logo.</div>
+      <div class="hint" id="f-logo-later" hidden data-w="admin.sessions.flogolater">Save the session first, then edit it to add a logo.</div>
     </fieldset>
 
     <div class="field">
-      <span class="field-label">QA Facilitators for this session</span>
+      <span class="field-label" data-w="admin.sessions.qaFacilitatorsForThis">QA Facilitators for this session</span>
       <div id="f-mods"></div>
-      <div class="hint">Administrators can run every session. Add people to the QA Facilitator list on the People tab.</div>
+      <div class="hint" data-w="admin.sessions.administratorsCanRunEvery">Administrators can run every session. Add people to the QA Facilitator list on the People tab.</div>
     </div>
 
     <div class="actions">
-      <button type="submit" class="primary" id="saveSession">Save session</button>
-      <button type="button" class="quiet" id="cancelSession">Cancel</button>
+      <button type="submit" class="primary" id="saveSession" data-w="admin.sessions.saveSession">Save session</button>
+      <button type="button" class="quiet" id="cancelSession" data-w="admin.sessions.cancelSession">Cancel</button>
     </div>
   </form>
 
@@ -272,39 +280,39 @@
   <p class="hint flush-top" id="domainHint"></p>
   <div class="people-cards">
     <div class="panel">
-      <h2>Administrators</h2>
-      <p class="hint flush-top">Can create and run sessions, manage people, and change branding.</p>
+      <h2 data-w="admin.people.administrators">Administrators</h2>
+      <p class="hint flush-top" data-w="admin.people.canCreateAndRun">Can create and run sessions, manage people, and change branding.</p>
       <ul class="people" id="adminList"></ul>
       <form class="adder" data-role="admin">
-        <input type="email" placeholder="name@domain.org" aria-label="Administrator email">
-        <button type="submit">Add</button>
+        <input type="email" data-w-ph="admin.people.nameDomainOrg" placeholder="name@domain.org" data-w-a="admin.people.administratorEmail" aria-label="Administrator email">
+        <button type="submit" data-w="admin.people.add">Add</button>
       </form>
     </div>
     <div class="panel">
-      <h2>QA Facilitators</h2>
-      <p class="hint flush-top">Run the queue for the sessions they are assigned to: group, merge, approve topics for phones, and mark questions answered.</p>
+      <h2 data-w="admin.people.qaFacilitators">QA Facilitators</h2>
+      <p class="hint flush-top" data-w="admin.people.runTheQueueFor">Run the queue for the sessions they are assigned to: group, merge, approve topics for phones, and mark questions answered.</p>
       <ul class="people" id="modList"></ul>
       <form class="adder" data-role="moderator">
-        <input type="email" placeholder="name@domain.org" aria-label="QA Facilitator email">
-        <button type="submit">Add</button>
+        <input type="email" data-w-ph="admin.people.nameDomainOrg2" placeholder="name@domain.org" data-w-a="admin.people.qaFacilitatorEmail" aria-label="QA Facilitator email">
+        <button type="submit" data-w="admin.people.add2">Add</button>
       </form>
     </div>
     <div class="panel">
-      <h2>Event Coordinators</h2>
-      <p class="hint flush-top">See the questions about running an event — rooms, timing, access, food — in their own portal, for the events they are assigned to.</p>
+      <h2 data-w="admin.people.eventCoordinators">Event Coordinators</h2>
+      <p class="hint flush-top" data-w="admin.people.seeTheQuestionsAbout">See the questions about running an event — rooms, timing, access, food — in their own portal, for the events they are assigned to.</p>
       <ul class="people" id="coordList"></ul>
       <form class="adder" data-role="coordinator">
-        <input type="email" placeholder="name@domain.org" aria-label="Event Coordinator email">
-        <button type="submit">Add</button>
+        <input type="email" data-w-ph="admin.people.nameDomainOrg3" placeholder="name@domain.org" data-w-a="admin.people.eventCoordinatorEmail" aria-label="Event Coordinator email">
+        <button type="submit" data-w="admin.people.add3">Add</button>
       </form>
     </div>
     <div class="panel" id="summaryPanel">
-      <h2>Session Summary Email Recipients</h2>
-      <p class="hint flush-top" id="summaryHint">Get every session's questions summary when it ends. Anyone can be added, even outside your organization.</p>
+      <h2 data-w="admin.people.sessionSummaryEmailRecipients">Session Summary Email Recipients</h2>
+      <p class="hint flush-top" id="summaryHint" data-w="admin.people.summaryHint">Every session's questions summary goes to these addresses, and only these, when it ends. Anyone can be added, even outside your organization.</p>
       <ul class="people" id="summaryList"></ul>
       <form class="adder" id="summaryAdder">
-        <input type="email" placeholder="name@domain.org" aria-label="Session summary email recipient">
-        <button type="submit">Add</button>
+        <input type="email" data-w-ph="admin.people.nameDomainOrg4" placeholder="name@domain.org" data-w-a="admin.people.sessionSummaryEmailRecipient" aria-label="Session summary email recipient">
+        <button type="submit" data-w="admin.people.add4">Add</button>
       </form>
     </div>
   </div>
@@ -313,72 +321,76 @@
 <!-- Branding & settings -->
 <section id="tab-branding" hidden>
   <form class="panel" id="langForm">
-    <h2>Languages</h2>
+    <h2 data-w="admin.branding.languages">Languages</h2>
     <p class="hint flush-top">Shown on participants' phones, the room screen and topic labels for sessions that aren't in an event (and events that don't choose their own). English is always included; choose up to <span id="langMax">3</span> more so the room screen stays readable. Questions can be asked in any language either way.</p>
     <div class="lang-grid" id="siteLangs"></div>
-    <button type="submit" class="primary" id="saveLangs">Save languages</button>
+    <button type="submit" class="primary" id="saveLangs" data-w="admin.branding.saveLangs">Save languages</button>
   </form>
   <div class="row">
     <form class="panel" id="brandForm">
-      <h2>Branding</h2>
+      <h2 data-w="admin.branding.branding">Branding</h2>
+      <label class="field"><span data-w="admin.appLanguageLabel">App language</span>
+        <select id="b-lang"></select>
+        <div class="hint" data-w="admin.appLanguageHint">What staff read when they have not chosen for themselves, and what every room screen reads.</div>
+      </label>
       <label class="field"><span>Organization name</span>
         <input type="text" id="b-org" maxlength="80">
-        <div class="hint">Shown beside the logo and as the sender name on emails.</div>
+        <div class="hint" data-w="admin.branding.shownBesideTheLogo">Shown beside the logo and as the sender name on emails.</div>
       </label>
       <div class="field">
-        <span class="field-label">Accent color</span>
+        <span class="field-label" data-w="admin.branding.accentColor">Accent color</span>
         <div class="swatch">
-          <input type="color" id="b-accent-pick" aria-label="Pick accent color">
-          <input class="hex-input" type="text" id="b-accent" maxlength="7" aria-label="Accent color hex">
+          <input type="color" id="b-accent-pick" data-w-a="admin.branding.baccentpick.says" aria-label="Pick accent color">
+          <input class="hex-input" type="text" id="b-accent" maxlength="7" data-w-a="admin.branding.baccent.says" aria-label="Accent color hex">
         </div>
-        <div class="hint">Used for buttons on the participant page.</div>
+        <div class="hint" data-w="admin.branding.usedForButtonsOn">Used for buttons on the participant page.</div>
       </div>
       <label class="field"><span>Welcome text</span>
         <input type="text" id="b-welcome" maxlength="200">
-        <div class="hint">One line on the landing page and participant page, e.g. "Thank you for joining us tonight."</div>
+        <div class="hint" data-w="admin.branding.oneLineOnThe">One line on the landing page and participant page, e.g. "Thank you for joining us tonight."</div>
       </label>
       <label class="field"><span>Footer</span>
         <input type="text" id="b-footer" maxlength="160">
-        <div class="hint">Website or contact line on every page and email.</div>
+        <div class="hint" data-w="admin.branding.websiteOrContactLine">Website or contact line on every page and email.</div>
       </label>
       <div class="row">
         <div class="field">
-          <span class="field-label">Room screen background — dark</span>
-          <div class="swatch"><input type="color" id="b-bg-dark" aria-label="Dark background"></div>
+          <span class="field-label" data-w="admin.branding.roomScreenBackgroundDark">Room screen background — dark</span>
+          <div class="swatch"><input type="color" id="b-bg-dark" data-w-a="admin.branding.bbgdark.says" aria-label="Dark background"></div>
         </div>
         <div class="field">
-          <span class="field-label">Room screen background — light</span>
-          <div class="swatch"><input type="color" id="b-bg-light" aria-label="Light background"></div>
+          <span class="field-label" data-w="admin.branding.roomScreenBackgroundLight">Room screen background — light</span>
+          <div class="swatch"><input type="color" id="b-bg-light" data-w-a="admin.branding.bbglight.says" aria-label="Light background"></div>
         </div>
       </div>
       <label class="field"><span>Tab icon</span>
-        <input type="url" id="b-favicon" placeholder="https://your-site.org/icon.png">
-        <div class="hint">A link to a square PNG on your website. Google only accepts a public image link here, not an upload.</div>
+        <input type="url" id="b-favicon" data-w-ph="admin.branding.bfavicon.hint" placeholder="https://your-site.org/icon.png">
+        <div class="hint" data-w="admin.branding.aLinkToA">A link to a square PNG on your website. Google only accepts a public image link here, not an upload.</div>
       </label>
       <label class="field"><span>Guest page address</span>
-        <input type="url" id="b-guest" placeholder="https://djsincla.github.io/question-desk/join/">
+        <input type="url" id="b-guest" data-w-ph="admin.branding.bguest.hint" placeholder="https://djsincla.github.io/question-desk/join/">
         <div class="hint">Where the guest page files are hosted — this project's GitHub Pages copy above, or your own site such as https://autismla.org/questions/ (copy <a href="https://github.com/djsincla/question-desk/tree/main/docs/join" target="_blank" rel="noopener">docs/join</a> there). Leave blank to use the GitHub Pages copy. Sessions set to open guest pages through it avoid Google's "Sorry, unable to open the file" in Safari and Firefox.</div>
       </label>
       <details class="field advanced">
-        <summary>Advanced</summary>
+        <summary data-w="admin.branding.advanced">Advanced</summary>
         <label class="field space-above-10"><span>Question Desk Google address</span>
           <input type="url" id="b-url" placeholder="">
           <div class="hint"><strong>Almost always leave this blank</strong> — Question Desk detects it. This is never the guest page address. Only if links open an old version, paste the <code>https://script.google.com/macros/s/…/exec</code> address from the Apps Script editor (Deploy → Manage deployments).</div>
         </label>
       </details>
-      <button type="submit" class="primary">Save branding</button>
+      <button type="submit" class="primary" data-w="admin.branding.saveBranding">Save branding</button>
     </form>
 
     <div class="panel">
-      <h2>Logo</h2>
+      <h2 data-w="admin.branding.logo">Logo</h2>
       <div class="logo-preview" id="logoPreview"><span class="hint">No logo</span></div>
       <div class="actions">
         <label class="choice flush"><input type="file" id="logoFile" accept="image/png,image/jpeg,image/webp,image/svg+xml"></label>
       </div>
       <div class="actions space-above-8">
-        <button type="button" id="removeLogo" class="danger" hidden>Remove logo</button>
+        <button type="button" id="removeLogo" class="danger" hidden data-w="admin.branding.removeLogo">Remove logo</button>
       </div>
-      <div class="hint">Resized in your browser before upload so pages stay fast on venue wifi. A wide logo on a transparent or white background works best.</div>
+      <div class="hint" data-w="admin.branding.resizedInYourBrowser">Resized in your browser before upload so pages stay fast on venue wifi. A wide logo on a transparent or white background works best.</div>
 
     </div>
   </div>
@@ -388,12 +400,12 @@
 <!-- Health & testing -->
 <section id="tab-activity" hidden>
   <div class="panel">
-    <h2>Activity log</h2>
+    <h2 data-w="admin.activity.activityLog">Activity log</h2>
     <p class="hint flush-top">Who changed what, and when: administrators, QA Facilitators and the automatic schedule. Participants' questions aren't listed here. The full log is the <b>Activity log</b> tab of the spreadsheet.</p>
     <div class="actions activity-filters">
-      <input type="search" id="actSearch" placeholder="Search people, actions, sessions…" aria-label="Search the activity log">
-      <select id="actTarget" aria-label="Show one session or event"></select>
-      <button type="button" id="actRefresh">Refresh</button>
+      <input type="search" id="actSearch" data-w-ph="admin.activity.actSearch.hint" placeholder="Search people, actions, sessions…" data-w-a="admin.activity.actSearch.says" aria-label="Search the activity log">
+      <select id="actTarget" data-w-a="admin.activity.actTarget.says" aria-label="Show one session or event"></select>
+      <button type="button" id="actRefresh" data-w="admin.activity.actRefresh">Refresh</button>
     </div>
     <div class="import-wrap"><table class="import-table activity-table" id="actTable"></table></div>
     <p class="hint" id="actNote"></p>
@@ -403,52 +415,52 @@
 <section id="tab-health" hidden>
   <div class="row">
     <div class="panel">
-      <h2>Health check</h2>
-      <p class="hint flush-top">Tests the Gemini key and model, the every-minute trigger, the sheet, email quota and the app address. Admins are also emailed automatically if grouping fails 3 minutes in a row.</p>
-      <button type="button" class="primary" id="runHealth">Run health check</button>
+      <h2 data-w="admin.health.healthCheck">Health check</h2>
+      <p class="hint flush-top" data-w="admin.health.testsTheGeminiKey">Tests the Gemini key and model, the every-minute trigger, the sheet, email quota and the app address. Admins are also emailed automatically if grouping fails 3 minutes in a row.</p>
+      <button type="button" class="primary" id="runHealth" data-w="admin.health.runHealth">Run health check</button>
       <table class="checks" id="checks"></table>
       <dl class="status space-above-14">
-        <dt>Last grouping</dt><dd id="s-grouping"></dd>
-        <dt>Emails left today</dt><dd id="s-quota"></dd>
-        <dt>Submissions sheet</dt><dd><a id="s-sheet" target="_blank" rel="noopener">Open</a></dd>
+        <dt data-w="admin.health.sgrouping">Last grouping</dt><dd id="s-grouping"></dd>
+        <dt data-w="admin.health.squota">Emails left today</dt><dd id="s-quota"></dd>
+        <dt data-w="admin.health.ssheet">Submissions sheet</dt><dd><a id="s-sheet" target="_blank" rel="noopener">Open</a></dd>
       </dl>
     </div>
 
     <div class="panel" id="opsPanel">
-      <h2>Data and reports</h2>
+      <h2 data-w="admin.health.dataAndReports">Data and reports</h2>
       <label class="field"><span>Question wording</span>
         <select id="ops-retention">
-          <option value="0">Keep it</option>
-          <option value="3">Remove it 3 months after a session ends</option>
-          <option value="6">Remove it 6 months after a session ends</option>
-          <option value="12">Remove it 12 months after a session ends</option>
-          <option value="24">Remove it 24 months after a session ends</option>
+          <option value="0" data-w="admin.health.keepIt">Keep it</option>
+          <option value="3" data-w="admin.health.removeIt3Months">Remove it 3 months after a session ends</option>
+          <option value="6" data-w="admin.health.removeIt6Months">Remove it 6 months after a session ends</option>
+          <option value="12" data-w="admin.health.removeIt12Months">Remove it 12 months after a session ends</option>
+          <option value="24" data-w="admin.health.removeIt24Months">Remove it 24 months after a session ends</option>
         </select>
-        <div class="hint">Removing replaces each question's original wording, its translation and merged questions with a note. Topics, languages, answered status, times and counts stay, so summaries and reports still add up. It can't be undone.</div>
+        <div class="hint" data-w="admin.health.removingReplacesEachQuestion">Removing replaces each question's original wording, its translation and merged questions with a note. Topics, languages, answered status, times and counts stay, so summaries and reports still add up. It can't be undone.</div>
       </label>
       <label class="choice"><input type="checkbox" id="ops-weekly"><span>Email administrators a weekly report<small>Mondays after 8 a.m.: grouping, Gemini, email quota and storage health, sessions coming up and just ended, and questions asked.</small></span></label>
       <div class="field space-above-12">
-        <span class="field-label">Settings storage</span>
+        <span class="field-label" data-w="admin.health.settingsStorage">Settings storage</span>
         <div class="meter-bar"><span id="ops-storage-bar"></span></div>
         <div class="hint" id="ops-storage"></div>
       </div>
       <div class="actions">
-        <button type="button" class="primary" id="ops-save">Save</button>
-        <button type="button" id="ops-report">Send me the weekly report now</button>
+        <button type="button" class="primary" id="ops-save" data-w="admin.health.opssave">Save</button>
+        <button type="button" id="ops-report" data-w="admin.health.opsreport">Send me the weekly report now</button>
       </div>
     </div>
     <div class="panel">
-      <h2>Load test</h2>
-      <p class="hint flush-top">Simulates a full room submitting at once, through the same code path phones use, against a throwaway session. Run it before an event, not during one.</p>
+      <h2 data-w="admin.health.loadTest">Load test</h2>
+      <p class="hint flush-top" data-w="admin.health.simulatesAFullRoom">Simulates a full room submitting at once, through the same code path phones use, against a throwaway session. Run it before an event, not during one.</p>
       <div id="lt-off">
-        <button type="button" id="startLoad">Start load test</button>
+        <button type="button" id="startLoad" data-w="admin.health.startLoad">Start load test</button>
       </div>
       <div id="lt-on" hidden>
         <p class="flush">Running until <strong id="lt-expires"></strong>. On your computer, in the project folder, run:</p>
         <pre class="cmd" id="lt-cmd"></pre>
         <div class="actions">
-          <button type="button" id="copyLoad">Copy command</button>
-          <button type="button" class="danger" id="stopLoad">Finish and delete test data</button>
+          <button type="button" id="copyLoad" data-w="admin.health.copyLoad">Copy command</button>
+          <button type="button" class="danger" id="stopLoad" data-w="admin.health.stopLoad">Finish and delete test data</button>
         </div>
         <p class="hint">Increase <code>--count</code> to the size of your largest room. The key only works until the time above.</p>
       </div>
@@ -456,8 +468,8 @@
   </div>
 
   <div class="panel wide" id="promptPanel">
-    <h2>Prompts</h2>
-    <p class="hint flush-top">Exactly what Question Desk asks Gemini, for each thing it does. Edit it to suit your audience; changes apply to the very next request. The rules underneath each prompt are always added and can't be edited — they are what keeps a question from being treated as an instruction, keeps topic labels in one language so questions group across languages, and keeps criticism unsoftened.</p>
+    <h2 data-w="admin.health.prompts">Prompts</h2>
+    <p class="hint flush-top" data-w="admin.health.exactlyWhatQuestionDesk">Exactly what Question Desk asks Gemini, for each thing it does. Edit it to suit your audience; changes apply to the very next request. The rules underneath each prompt are always added and can't be edited — they are what keeps a question from being treated as an instruction, keeps topic labels in one language so questions group across languages, and keeps criticism unsoftened.</p>
     <label class="field"><span>Prompt</span>
       <select id="prompt-pick"></select>
     </label>
@@ -466,26 +478,26 @@
       <div class="hint" id="prompt-needs"></div>
     </label>
     <div class="actions">
-      <button type="button" class="primary" id="prompt-save">Save prompt</button>
-      <button type="button" class="quiet" id="prompt-reset">Reset to the built-in one</button>
+      <button type="button" class="primary" id="prompt-save" data-w="admin.health.promptsave">Save prompt</button>
+      <button type="button" class="quiet" id="prompt-reset" data-w="admin.health.promptreset">Reset to the built-in one</button>
       <span class="hint" id="prompt-state"></span>
     </div>
     <details class="guards">
-      <summary>Always added, whatever you write</summary>
+      <summary data-w="admin.health.alwaysAddedWhateverYou">Always added, whatever you write</summary>
       <pre id="prompt-guards"></pre>
     </details>
   </div>
     <div class="panel" id="geminiPanel">
-      <h2>Gemini</h2>
-      <p class="hint flush-top">How Question Desk asks Gemini to group, merge and translate. Saved changes apply to the very next request — no redeploy. More thinking can group and translate messy or mixed-language questions better, but takes longer; less thinking answers faster.</p>
+      <h2 data-w="admin.health.gemini">Gemini</h2>
+      <p class="hint flush-top" data-w="admin.health.howQuestionDeskAsks">How Question Desk asks Gemini to group, merge and translate. Saved changes apply to the very next request — no redeploy. More thinking can group and translate messy or mixed-language questions better, but takes longer; less thinking answers faster.</p>
       <form id="keyForm" class="keyform">
         <label class="field"><span>API key</span>
-          <input type="password" id="gem-key" autocomplete="off" spellcheck="false" placeholder="Paste a new key to replace it">
+          <input type="password" id="gem-key" autocomplete="off" spellcheck="false" data-w-ph="admin.health.gemkey.hint" placeholder="Paste a new key to replace it">
           <div class="hint" id="gem-key-state"></div>
         </label>
         <div class="actions">
-          <button type="submit" class="primary" id="gem-key-save">Save key</button>
-          <button type="button" class="quiet" id="gem-key-clear">Remove key</button>
+          <button type="submit" class="primary" id="gem-key-save" data-w="admin.health.gemkeysave">Save key</button>
+          <button type="button" class="quiet" id="gem-key-clear" data-w="admin.health.gemkeyclear">Remove key</button>
         </div>
       </form>
       <form id="gemForm">
@@ -497,31 +509,31 @@
         <div class="row">
           <label class="field"><span>Thinking: grouping</span>
             <select id="gem-think-grouping"></select>
-            <div class="hint">Every minute, in the background. Quality matters most here.</div>
+            <div class="hint" data-w="admin.health.everyMinuteInThe">Every minute, in the background. Quality matters most here.</div>
           </label>
           <label class="field"><span>Thinking: merging</span>
             <select id="gem-think-merging"></select>
-            <div class="hint">"Merge into one question": a facilitator is waiting.</div>
+            <div class="hint" data-w="admin.health.mergeIntoOneQuestion">"Merge into one question": a facilitator is waiting.</div>
           </label>
           <label class="field"><span>Thinking: translating one question</span>
             <select id="gem-think-translating"></select>
-            <div class="hint">Show on phones, Answer now on one question, prepared questions.</div>
+            <div class="hint" data-w="admin.health.showOnPhonesAnswer">Show on phones, Answer now on one question, prepared questions.</div>
           </label>
         </div>
         <div class="row">
           <label class="field"><span>Temperature</span>
             <input type="number" id="gem-temperature" min="0" max="1" step="0.05" required>
-            <div class="hint">0–1. Lower keeps topics and translations consistent and literal; 0–0.3 suits Question Desk.</div>
+            <div class="hint" data-w="admin.health.01LowerKeeps">0–1. Lower keeps topics and translations consistent and literal; 0–0.3 suits Question Desk.</div>
           </label>
           <label class="field"><span>Questions per grouping request</span>
             <input type="number" id="gem-batch" min="5" max="100" step="1" required>
-            <div class="hint">5–100. Smaller answers sooner; larger groups a busy room in fewer requests.</div>
+            <div class="hint" data-w="admin.health.5100SmallerAnswers">5–100. Smaller answers sooner; larger groups a busy room in fewer requests.</div>
           </label>
         </div>
         <div class="actions">
-          <button type="submit" class="primary" id="gem-save">Save</button>
-          <button type="button" id="gem-test">Try these settings</button>
-          <button type="button" class="quiet" id="gem-reset">Reset to defaults</button>
+          <button type="submit" class="primary" id="gem-save" data-w="admin.health.gemsave">Save</button>
+          <button type="button" id="gem-test" data-w="admin.health.gemtest">Try these settings</button>
+          <button type="button" class="quiet" id="gem-reset" data-w="admin.health.gemreset">Reset to defaults</button>
         </div>
         <table class="checks" id="gem-results" hidden></table>
       </form>
@@ -532,13 +544,13 @@
 
 <div class="modal" id="emailModal" hidden>
   <form class="panel" id="emailForm">
-    <h2 id="emailTitle">Email links</h2>
+    <h2 id="emailTitle" data-w="admin.health.emailTitle">Email links</h2>
     <label class="field"><span>Recipients</span>
-      <textarea id="e-to" placeholder="one@example.org, two@example.org"></textarea>
-      <div class="hint">Separate addresses with commas or new lines. Each person gets their own email.</div>
+      <textarea id="e-to" data-w-ph="admin.health.eto.hint" placeholder="one@example.org, two@example.org"></textarea>
+      <div class="hint" data-w="admin.health.separateAddressesWithCommas">Separate addresses with commas or new lines. Each person gets their own email.</div>
     </label>
     <div class="field" id="e-kinds">
-      <span class="field-label">Include</span>
+      <span class="field-label" data-w="admin.health.include">Include</span>
       <label class="choice"><input type="checkbox" id="e-participant">
         <span>Participant link<small id="e-participant-hint">Anyone with this link can ask a question.</small></span></label>
       <label class="choice"><input type="checkbox" id="e-present">
@@ -547,8 +559,8 @@
         <span>QA Facilitator queue link<small>Only works for assigned QA Facilitators and administrators.</small></span></label>
     </div>
     <div class="actions">
-      <button type="submit" class="primary" id="e-send">Send</button>
-      <button type="button" class="quiet" id="e-cancel">Cancel</button>
+      <button type="submit" class="primary" id="e-send" data-w="admin.health.esend">Send</button>
+      <button type="button" class="quiet" id="e-cancel" data-w="admin.health.ecancel">Cancel</button>
     </div>
   </form>
 </div>
@@ -562,8 +574,8 @@
       <input type="text" id="dialogType" autocomplete="off" spellcheck="false">
     </label>
     <div class="actions">
-      <button type="submit" class="primary" id="dialogOk">OK</button>
-      <button type="button" class="quiet" id="dialogCancel">Cancel</button>
+      <button type="submit" class="primary" id="dialogOk" data-w="admin.health.dialogOk">OK</button>
+      <button type="button" class="quiet" id="dialogCancel" data-w="admin.health.dialogCancel">Cancel</button>
     </div>
   </form>
 </div>
@@ -573,12 +585,21 @@
 <?!= scripts ?>
 <script>
   var BOOT = <?!= boot ?>;
+  fillWords();
   var state = null;
   var openLinks = {};
 
   // ------------------------------------------------------------ helpers
 
 
+
+  /** A single-line row in the checks and Gemini tables, while they are working or when they fail. */
+  function noteRow(text, mark, symbol) {
+    var tr = el('tr');
+    tr.appendChild(el('td', mark || null, symbol || ''));
+    tr.appendChild(el('td', null, text));
+    return tr;
+  }
 
   var toastTimer = null;
   function toast(message, isError) {
@@ -608,7 +629,7 @@
       })
       .withFailureHandler(function (err) {
         if (button) button.disabled = false;
-        toast(err && err.message ? err.message : 'Something went wrong.', true);
+        toast(err && err.message ? err.message : W('admin.somethingWentWrong'), true);
         if (onFail) onFail(err);
       });
     runner[fn].apply(runner, args);
@@ -622,8 +643,8 @@
   function fmtDate(ms) {
     if (!ms) return '';
     var d = new Date(ms);
-    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ' ' +
-      d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+    return d.toLocaleDateString(BOOT.lang, { month: 'short', day: 'numeric' }) + ' ' +
+      d.toLocaleTimeString(BOOT.lang, { hour: 'numeric', minute: '2-digit' });
   }
 
   function copyInput(input) {
@@ -631,7 +652,7 @@
     input.select();
     var done = false;
     try { done = document.execCommand('copy'); } catch (e) {}
-    toast(done ? 'Copied' : 'Selected — press Ctrl/Cmd+C to copy');
+    toast(done ? W('admin.copied') : W('admin.selectedPressCtrlCmd'));
   }
 
   // ------------------------------------------------------------ tabs
@@ -656,11 +677,11 @@
     var select = $('actTarget');
     var current = select.value;
     select.innerHTML = '';
-    var all = el('option', null, 'All sessions and events');
+    var all = el('option', null, W('admin.allSessionsAndEvents'));
     all.value = '';
     select.appendChild(all);
     (state ? state.events : []).forEach(function (ev) {
-      var o = el('option', null, 'Event: ' + ev.name);
+      var o = el('option', null, W('admin.eventOption', { name: ev.name }));
       o.value = ev.id;
       select.appendChild(o);
     });
@@ -675,12 +696,12 @@
 
   function loadActivity() {
     fillActivityTargets();
-    $('actNote').textContent = 'Loading…';
+    $('actNote').textContent = W('admin.loading');
     call('getActivity', [{ query: $('actSearch').value, target: $('actTarget').value, limit: 300 }], function (res) {
       var table = $('actTable');
       table.innerHTML = '';
       var head = el('tr');
-      ['When', 'Who', 'Action', 'Session or event', 'Details'].forEach(function (t) { head.appendChild(el('th', null, t)); });
+      [W('admin.when'), W('admin.who'), W('admin.action'), W('admin.sessionOrEvent'), W('admin.details')].forEach(function (t) { head.appendChild(el('th', null, t)); });
       table.appendChild(head);
       res.entries.forEach(function (e) {
         var tr = el('tr');
@@ -691,8 +712,11 @@
         tr.appendChild(el('td', null, e.details));
         table.appendChild(tr);
       });
-      $('actNote').textContent = !res.entries.length ? 'Nothing matches.'
-        : 'Showing the ' + res.entries.length + ' most recent' + (res.total > res.scanned ? ' of the last ' + res.scanned + ' entries' : '') + '.';
+      $('actNote').textContent = !res.entries.length ? W('admin.nothingMatches')
+        : W('admin.activityShowing', {
+          shown: res.entries.length,
+          scanned: res.total > res.scanned ? W('admin.activityOfLast', { n: res.scanned }) : ''
+        });
     }, $('actRefresh'), function () { $('actNote').textContent = ''; });
   }
 
@@ -707,8 +731,8 @@
 
   function render(next) {
     state = next;
-    $('who').textContent = 'Signed in as ' + state.me;
-    $('version').textContent = 'Version ' + state.app.version;
+    $('who').textContent = W('admin.signedInAs', { email: state.me });
+    $('version').textContent = W('admin.version', { version: state.app.version });
     $('notes').href = state.app.releaseNotes;
     $('notes').hidden = false;
     renderLogo(state.brand.logo);
@@ -726,13 +750,14 @@
   if (BOOT.brand.accent) document.documentElement.style.setProperty('--action', BOOT.brand.accent);
 
   function waitLabel(seconds) {
-    if (!seconds) return 'no wait between questions';
+    if (!seconds) return W('admin.noWaitBetweenQuestions');
     var m = Math.floor(seconds / 60), r = seconds % 60;
-    return (m ? m + ' min' : '') + (m && r ? ' ' : '') + (r ? r + ' s' : '') + ' between questions';
+    if (m && r) return W('admin.waitMinutesSeconds', { m: m, s: r });
+    return m ? W('admin.waitMinutes', { m: m }) : W('admin.waitSeconds', { s: r });
   }
 
   function statusLabel(s) {
-    return s.status === 'active' ? 'Active' : s.status === 'ended' ? 'Ended' : 'Not active';
+    return W(s.status === 'active' ? 'admin.statusActive' : s.status === 'ended' ? 'admin.statusEnded' : 'admin.notActive');
   }
 
   function eventById(id) {
@@ -754,7 +779,7 @@
   function updateFoldAll() {
     var button = $('foldAll');
     if (!button || !state) return;
-    button.textContent = state.events.every(function (ev) { return collapsed[ev.id]; }) ? 'Expand all events' : 'Collapse all events';
+    button.textContent = state.events.every(function (ev) { return collapsed[ev.id]; }) ? W('admin.expandAllEvents') : W('admin.collapseAllEvents');
   }
 
   function saveCollapsed() {
@@ -765,13 +790,13 @@
     var list = $('sessionList');
     list.innerHTML = '';
     if (!state.sessions.length && !state.events.length) {
-      list.appendChild(el('p', 'empty', 'No events or sessions yet. Create an event for a conference or meeting, then add its sessions.'));
+      list.appendChild(el('p', 'empty', W('admin.noEventsOrSessions')));
       renderArchived(list);
       return;
     }
     var tools = el('div', 'actions');
     tools.classList.add('spread', 'space-below-10');
-    var toolsHint = el('p', 'hint', state.sessions.length > 1 ? 'Drag ⋮⋮ or use ▲ ▼ to change the order of sessions within an event.' : '');
+    var toolsHint = el('p', 'hint', state.sessions.length > 1 ? W('admin.dragOrUseTo') : '');
     toolsHint.classList.add('flush');
     tools.appendChild(toolsHint);
     if (state.events.length) {
@@ -803,8 +828,8 @@
         var block = el('section', 'event loose');
         var head = el('div', 'event-head');
         var title = el('div', 'title');
-        title.appendChild(el('h2', null, 'Not in an event'));
-        title.appendChild(el('div', 'meta', 'Uses the site branding. Edit a session to put it in an event.'));
+        title.appendChild(el('h2', null, W('admin.notInAnEvent')));
+        title.appendChild(el('div', 'meta', W('admin.usesTheSiteBranding')));
         head.appendChild(title);
         block.appendChild(head);
         var box = el('div', 'event-sessions');
@@ -829,13 +854,13 @@
     fold.appendChild(el('span', null, '›'));
     fold.type = 'button';
     fold.setAttribute('aria-expanded', collapsed[ev.id] ? 'false' : 'true');
-    fold.setAttribute('aria-label', (collapsed[ev.id] ? 'Show' : 'Hide') + ' sessions in ' + ev.name);
+    fold.setAttribute('aria-label', W(collapsed[ev.id] ? 'admin.foldShow' : 'admin.foldHide', { event: ev.name }));
     fold.onclick = function () {
       collapsed[ev.id] = !collapsed[ev.id];
       saveCollapsed();
       block.classList.toggle('collapsed', !!collapsed[ev.id]);
       fold.setAttribute('aria-expanded', collapsed[ev.id] ? 'false' : 'true');
-      fold.setAttribute('aria-label', (collapsed[ev.id] ? 'Show' : 'Hide') + ' sessions in ' + ev.name);
+      fold.setAttribute('aria-label', W(collapsed[ev.id] ? 'admin.foldShow' : 'admin.foldHide', { event: ev.name }));
       updateFoldAll();
     };
     head.appendChild(fold);
@@ -843,14 +868,14 @@
     var order = el('div', 'order');
     var up = el('button', null, '▲');
     up.type = 'button';
-    up.setAttribute('aria-label', 'Move event ' + ev.name + ' up');
-    up.title = 'Move event up';
+    up.setAttribute('aria-label', W('admin.moveEventUpName', { event: ev.name }));
+    up.title = W('admin.moveEventUp');
     up.disabled = index === 0;
     up.onclick = function () { moveEvent(ev.id, -1); };
     var down = el('button', null, '▼');
     down.type = 'button';
-    down.setAttribute('aria-label', 'Move event ' + ev.name + ' down');
-    down.title = 'Move event down';
+    down.setAttribute('aria-label', W('admin.moveEventDownName', { event: ev.name }));
+    down.title = W('admin.moveEventDown');
     down.disabled = index === total - 1;
     down.onclick = function () { moveEvent(ev.id, 1); };
     order.appendChild(up);
@@ -859,7 +884,7 @@
     var title = el('div', 'title');
     var name = el('h2', null, ev.name);
     name.classList.add('clickable');
-    name.title = 'Show or hide this event\'s sessions';
+    name.title = W('admin.showOrHideThis');
     name.onclick = function () { fold.click(); };
     title.appendChild(name);
     var meta = el('div', 'meta');
@@ -869,26 +894,26 @@
       dot.style.background = b.accent;
       meta.appendChild(dot);
     }
-    var bits = [sessions.length + (sessions.length === 1 ? ' session' : ' sessions')];
+    var bits = [Wn('admin.evSessions', sessions.length)];
     var active = sessions.filter(function (x) { return x.status === 'active'; }).length;
-    if (active) bits.push(active + ' active');
+    if (active) bits.push(W('admin.evActive', { n: active }));
     if ((ev.coordinators || []).length) {
-      bits.push(ev.coordinators.length + (ev.coordinators.length === 1 ? ' Event Coordinator' : ' Event Coordinators'));
+      bits.push(Wn('admin.evCoordinators', ev.coordinators.length));
     }
     if (ev.languages && ev.languages.length) bits.push(languageNames(ev.languages));
-    if (b.orgName) bits.push('branded as ' + b.orgName);
-    else if (b.accent || b.welcome || b.footer || ev.hasLogo) bits.push('own branding');
-    else bits.push('site branding');
+    if (b.orgName) bits.push(W('admin.brandedAs', { name: b.orgName }));
+    else if (b.accent || b.welcome || b.footer || ev.hasLogo) bits.push(W('admin.ownBranding'));
+    else bits.push(W('admin.siteBranding'));
     meta.appendChild(document.createTextNode(bits.join(' · ')));
     title.appendChild(meta);
     head.appendChild(title);
 
     var acts = el('div', 'actions');
-    var add = el('button', 'primary', 'Add session');
+    var add = el('button', 'primary', W('admin.addSession'));
     add.type = 'button';
     add.onclick = function () { openForm(null, ev.id); };
     acts.appendChild(add);
-    var edit = el('button', null, 'Edit event');
+    var edit = el('button', null, W('admin.editEvent'));
     edit.type = 'button';
     edit.onclick = function () { openEventForm(ev); };
     acts.appendChild(edit);
@@ -898,28 +923,32 @@
     open.forEach(function (x) {
       (x.moderators || []).concat(ev.moderators || []).forEach(function (e) { if (people.indexOf(e) === -1) people.push(e); });
     });
-    var mailFacilitators = el('button', null, 'Email QA Facilitators');
+    var mailFacilitators = el('button', null, W('admin.emailQaFacilitators'));
     mailFacilitators.type = 'button';
     mailFacilitators.disabled = !people.length;
     mailFacilitators.title = people.length
-      ? 'Each QA Facilitator gets one email with the queue link for each session they are running: ' + people.join(', ')
-      : 'No QA Facilitators assigned to this event or its sessions';
+      ? W('admin.mailFacilitatorsTitle', { people: people.join(', ') })
+      : W('admin.noQaFacilitatorsAssigned');
     mailFacilitators.onclick = function () {
       ask({
-        title: 'Email QA Facilitators their links?',
-        body: people.length + (people.length === 1 ? ' QA Facilitator gets' : ' QA Facilitators each get') + ' one email with the queue link for each ' +
-          'session they are running in ' + ev.name + ' (' + open.length + (open.length === 1 ? ' session' : ' sessions') + ' that haven\'t ended): ' + people.join(', ') + '.',
-        ok: 'Send'
+        title: W('admin.emailQaFacilitatorsTheir'),
+        body: Wn('admin.mailFacilitatorsBody', people.length, {
+          event: ev.name, open: Wn('admin.openSessions', open.length), people: people.join(', ')
+        }),
+        ok: W('admin.send')
       }, function () {
         call('emailEventFacilitators', [ev.id], function (res) {
-          toast('Sent ' + res.facilitators + (res.facilitators === 1 ? ' email' : ' emails') + ' covering ' + res.sessions + (res.sessions === 1 ? ' session' : ' sessions'));
+          toast(W('admin.sentFacilitators', {
+            emails: Wn('admin.sentEmails', res.facilitators),
+            sessions: Wn('admin.evSessions', res.sessions)
+          }));
         }, mailFacilitators);
       });
     };
     acts.appendChild(mailFacilitators);
     var more = el('details', 'more');
-    var moreLabel = el('summary', null, 'More ▾');
-    moreLabel.setAttribute('aria-label', 'More actions for ' + ev.name);
+    var moreLabel = el('summary', null, W('admin.more'));
+    moreLabel.setAttribute('aria-label', W('admin.moreActionsFor', { event: ev.name }));
     more.appendChild(moreLabel);
     var menu = el('div', 'menu');
     var menuItem = function (label, fn, cls) {
@@ -929,41 +958,44 @@
       menu.appendChild(b);
       return b;
     };
-    menuItem('Day-of checklist', function () { openChecklist(ev); });
+    menuItem(W('admin.dayOfChecklist'), function () { openChecklist(ev); });
     if ((ev.coordinators || []).length) {
-      var portal = el('a', null, 'Event Coordinator portal');
+      var portal = el('a', null, W('admin.eventCoordinatorPortal'));
       portal.href = state.appUrl + '?view=coordinator&e=' + ev.id;
       portal.target = '_blank';
       portal.rel = 'noopener';
-      portal.title = 'Questions about running this event, for ' + ev.coordinators.join(', ');
+      portal.title = W('admin.portalFor', { people: ev.coordinators.join(', ') });
       portal.onclick = function () { more.open = false; };
       menu.appendChild(portal);
     }
-    var sheet = el('a', null, 'Print QR sheets');
+    var sheet = el('a', null, W('admin.printQrSheets'));
     sheet.href = state.appUrl + '?view=qrsheet&e=' + ev.id;
     sheet.target = '_blank';
     sheet.rel = 'noopener';
-    sheet.title = 'A printable page with the QR code for each shareable-link session';
+    sheet.title = W('admin.aPrintablePageWith');
     menu.appendChild(sheet);
-    menuItem('Email summary for the whole event', function () { openEmail({ id: ev.id, name: ev.name, eventSummary: true, sessions: sessions }, 'eventSummary'); });
-    menuItem('Duplicate event', function (b) {
-      call('duplicateEvent', [ev.id], function (res) { render(res); toast('Copied ' + ev.name + ' with its ' + sessions.length + (sessions.length === 1 ? ' session' : ' sessions')); });
+    menuItem(W('admin.emailSummaryForThe'), function () { openEmail({ id: ev.id, name: ev.name, eventSummary: true, sessions: sessions }, 'eventSummary'); });
+    menuItem(W('admin.duplicateEvent'), function (b) {
+      call('duplicateEvent', [ev.id], function (res) {
+        render(res);
+        toast(W('admin.copiedEventWith', { name: ev.name, sessions: Wn('admin.evSessions', sessions.length) }));
+      });
     });
     menu.appendChild(el('hr'));
-    var del = menuItem('Delete event', function () {}, 'danger');
+    var del = menuItem(W('admin.deleteEvent'), function () {}, 'danger');
     more.appendChild(menu);
     del.onclick = function () {
       more.open = false;
       ask({
-        title: 'Delete this event?',
+        title: W('admin.deleteThisEvent'),
         body: sessions.length
-          ? 'Its ' + sessions.length + (sessions.length === 1 ? ' session is' : ' sessions are') + ' kept and move to "Not in an event", with the site branding. Event branding and logo are deleted.'
-          : 'Its branding and logo are deleted.',
-        ok: 'Delete event',
+          ? Wn('admin.deleteEventBody', sessions.length)
+          : W('admin.itsBrandingAndLogo'),
+        ok: W('admin.deleteEvent'),
         danger: true,
         typeToConfirm: ev.name
       }, function (typed) {
-        call('deleteEvent', [ev.id, typed], function (res) { render(res); toast('Event deleted'); });
+        call('deleteEvent', [ev.id, typed], function (res) { render(res); toast(W('admin.eventDeleted')); });
       });
     };
     acts.appendChild(more);
@@ -975,7 +1007,7 @@
     var foldBox = el('div', 'event-fold');
     var inner = el('div', 'event-fold-inner');
     var box = el('div', 'event-sessions');
-    if (!sessions.length) box.appendChild(el('p', 'hint', 'No sessions yet. Use Add session.'));
+    if (!sessions.length) box.appendChild(el('p', 'hint', W('admin.noSessionsYetUse')));
     sessions.forEach(function (s, i) { box.appendChild(sessionCard(s, i, sessions.length)); });
     inner.appendChild(box);
     foldBox.appendChild(inner);
@@ -986,17 +1018,18 @@
   function renderArchived(list) {
     if (!state.archived || !state.archived.length) return;
     var box = el('details', 'panel archived');
-    box.appendChild(el('summary', null, 'Archived sessions · ' + state.archived.length));
-    box.appendChild(el('p', 'hint', 'Ended sessions move here ' + 30 + ' days after ending, to keep the app fast. Their questions stay in the spreadsheet. Restore one to email its summary again.'));
+    box.appendChild(el('summary', null, W('admin.archivedSessions', { n: state.archived.length })));
+    box.appendChild(el('p', 'hint', W('admin.archivedHint', { days: 30 })));
     var ul = el('ul');
     state.archived.forEach(function (a) {
       var li = el('li');
       var ev = a.eventId ? eventById(a.eventId) : null;
-      li.appendChild(el('span', null, (ev ? ev.name + ' — ' : '') + a.name + (a.ended ? ' · ended ' + fmtDate(a.ended) : '')));
-      var restore = el('button', 'quiet', 'Restore');
+      li.appendChild(el('span', null, (ev ? ev.name + ' — ' : '') + a.name +
+        (a.ended ? W('admin.archivedEnded', { at: fmtDate(a.ended) }) : '')));
+      var restore = el('button', 'quiet', W('admin.restore'));
       restore.type = 'button';
       restore.onclick = function () {
-        call('restoreSession', [a.id], function (res) { render(res); toast('Restored ' + a.name); }, restore);
+        call('restoreSession', [a.id], function (res) { render(res); toast(W('admin.restored', { name: a.name })); }, restore);
       };
       li.appendChild(restore);
       ul.appendChild(li);
@@ -1011,7 +1044,7 @@
     var to = from + delta;
     if (to < 0 || to >= ids.length) return;
     ids.splice(to, 0, ids.splice(from, 1)[0]);
-    call('reorderEvents', [ids], function (res) { render(res); toast('Order saved'); });
+    call('reorderEvents', [ids], function (res) { render(res); toast(W('admin.orderSaved')); });
   }
 
   function sessionCard(s, index, total) {
@@ -1020,19 +1053,19 @@
     card.setAttribute('data-group', s.eventId && eventById(s.eventId) ? s.eventId : '');
     var grip = el('div', 'grip');
     var handle = el('span', 'handle', '⋮⋮');
-    handle.title = 'Drag to reorder';
+    handle.title = W('admin.dragToReorder');
     handle.setAttribute('aria-hidden', 'true');
     // Only the handle starts a drag, so text in link fields stays selectable.
     handle.addEventListener('mousedown', function () { card.draggable = true; });
     card.addEventListener('mouseup', function () { card.draggable = false; });
     var up = el('button', null, '▲');
     up.type = 'button';
-    up.setAttribute('aria-label', 'Move ' + s.name + ' up');
+    up.setAttribute('aria-label', W('admin.moveSessionUp', { name: s.name }));
     up.disabled = index === 0;
     up.onclick = function () { moveSession(s.id, -1); };
     var down = el('button', null, '▼');
     down.type = 'button';
-    down.setAttribute('aria-label', 'Move ' + s.name + ' down');
+    down.setAttribute('aria-label', W('admin.moveSessionDown', { name: s.name }));
     down.disabled = index === total - 1;
     down.onclick = function () { moveSession(s.id, 1); };
     grip.appendChild(up);
@@ -1049,28 +1082,29 @@
     var h = el('h3', null, s.name);
     if (s.room) h.appendChild(el('span', 'room', s.room));
     h.appendChild(el('span', 'pill ' + s.status, statusLabel(s)));
-    if (s.loadTest) h.appendChild(el('span', 'pill test', 'Load test'));
+    if (s.loadTest) h.appendChild(el('span', 'pill test', W('admin.loadTest')));
     info.appendChild(h);
     var meta = [
-      s.access === 'link' ? 'Shareable link' : 'In-room QR',
-      (s.theme === 'light' ? 'Light screen' : s.theme === 'contrast' ? 'High-contrast screen' : 'Dark screen') + (s.roomQuestions ? ' listing questions' : ''),
-      s.questionCount + (s.questionCount === 1 ? ' question' : ' questions') +
-        (s.prepared && s.prepared.length ? ' (+' + s.prepared.length + ' prepared)' : ''),
-      s.moderators.length + (s.moderators.length === 1 ? ' QA Facilitator' : ' QA Facilitators'),
-      'max ' + s.maxLength + ' chars',
+      s.access === 'link' ? W('admin.shareableLink') : W('admin.inRoomQr'),
+      W(s.theme === 'light' ? 'admin.themeLight' : s.theme === 'contrast' ? 'admin.themeContrast' : 'admin.themeDark') +
+        (s.roomQuestions ? W('admin.themeListing') : ''),
+      Wn('admin.metaQuestions', s.questionCount) +
+        (s.prepared && s.prepared.length ? W('admin.metaPrepared', { n: s.prepared.length }) : ''),
+      Wn('admin.metaFacilitators', s.moderators.length),
+      W('admin.metaMaxChars', { n: s.maxLength }),
       waitLabel(typeof s.cooldownSeconds === 'number' ? s.cooldownSeconds : state.limits.cooldownSeconds)
     ];
-    if (s.ended) meta.push('ended ' + fmtDate(s.ended));
-    else if (s.started) meta.push('started ' + fmtDate(s.started));
-    else meta.push('created ' + fmtDate(s.created));
-    if (s.status !== 'ended' && s.scheduledStart && !s.scheduleStarted) meta.push('starts ' + fmtDate(s.scheduledStart));
-    if (s.status !== 'ended' && s.scheduledEnd) meta.push('ends ' + fmtDate(s.scheduledEnd));
-    if (s.brand && s.brand.orgName) meta.push('branded for ' + s.brand.orgName);
-    if (s.summaryPending && !s.summarySent) meta.push('summary email not sent yet (' + s.summaryPending.error + ') — retrying every 30 minutes, or use Email summary');
+    if (s.ended) meta.push(W('admin.metaEnded', { at: fmtDate(s.ended) }));
+    else if (s.started) meta.push(W('admin.metaStarted', { at: fmtDate(s.started) }));
+    else meta.push(W('admin.metaCreated', { at: fmtDate(s.created) }));
+    if (s.status !== 'ended' && s.scheduledStart && !s.scheduleStarted) meta.push(W('admin.metaStarts', { at: fmtDate(s.scheduledStart) }));
+    if (s.status !== 'ended' && s.scheduledEnd) meta.push(W('admin.metaEnds', { at: fmtDate(s.scheduledEnd) }));
+    if (s.brand && s.brand.orgName) meta.push(W('admin.metaBrandedFor', { name: s.brand.orgName }));
+    if (s.summaryPending && !s.summarySent) meta.push(W('admin.metaSummaryPending', { why: s.summaryPending.error }));
     var gp = s.guestPage || {};
-    var gpUses = [gp.room ? 'room screen' : '', gp.slide ? 'slide' : '', gp.panel ? 'panelist view' : ''].filter(Boolean);
-    if (gpUses.length) meta.push('guest page for ' + gpUses.join(', '));
-    if (s.summarySent) meta.push('summary emailed ' + fmtDate(s.summarySent));
+    var gpUses = [gp.room ? W('admin.roomScreen') : '', gp.slide ? 'slide' : '', gp.panel ? W('admin.panelistView') : ''].filter(Boolean);
+    if (gpUses.length) meta.push(W('admin.metaGuestPageFor', { uses: gpUses.join(', ') }));
+    if (s.summarySent) meta.push(W('admin.metaSummarySent', { at: fmtDate(s.summarySent) }));
     info.appendChild(el('div', 'meta', meta.join(' · ')));
     head.appendChild(info);
 
@@ -1078,104 +1112,107 @@
     var ended = s.status === 'ended';
 
     if (!ended) {
-      var toggle = el('button', s.status === 'active' ? '' : 'primary', s.status === 'active' ? 'Deactivate' : 'Activate');
+      var toggle = el('button', s.status === 'active' ? '' : 'primary', W(s.status === 'active' ? 'admin.deactivate' : 'admin.activate'));
       toggle.type = 'button';
       toggle.onclick = function () {
         call('setSessionActive', [s.id, s.status !== 'active'], function (res) {
           render(res);
-          toast(s.status === 'active' ? 'Session deactivated' : 'Session is live');
+          toast(s.status === 'active' ? W('admin.sessionDeactivated') : W('admin.sessionIsLive'));
         }, toggle);
       };
       acts.appendChild(toggle);
     }
 
-    var linksBtn = el('button', null, openLinks[s.id] ? 'Hide links' : 'Links');
+    var linksBtn = el('button', null, openLinks[s.id] ? W('admin.hideLinks') : W('admin.links'));
     linksBtn.type = 'button';
     linksBtn.onclick = function () { openLinks[s.id] = !openLinks[s.id]; renderSessions(); };
     acts.appendChild(linksBtn);
 
     if (!s.loadTest) {
-      var dup = el('button', 'quiet', 'Duplicate');
+      var dup = el('button', 'quiet', W('admin.duplicate'));
       dup.type = 'button';
-      dup.title = 'A copy with the same settings, facilitators and prepared questions — not active, not scheduled';
+      dup.title = W('admin.aCopyWithThe');
       dup.onclick = function () {
         call('duplicateSession', [s.id], function (res) {
           render(res);
-          toast('Copied — edit the copy to rename or schedule it');
+          toast(W('admin.copiedEditTheCopy'));
         }, dup);
       };
       acts.appendChild(dup);
     }
 
     if (!ended) {
-      var edit = el('button', null, 'Edit');
+      var edit = el('button', null, W('admin.edit'));
       edit.type = 'button';
       edit.onclick = function () { openForm(s); };
       acts.appendChild(edit);
 
-      var mail = el('button', null, 'Email links');
+      var mail = el('button', null, W('admin.emailLinks'));
       mail.type = 'button';
       mail.onclick = function () { openEmail(s, 'links'); };
       acts.appendChild(mail);
 
-      var mailMods = el('button', null, 'Email QA Facilitators');
+      var mailMods = el('button', null, W('admin.emailQaFacilitators'));
       mailMods.type = 'button';
       mailMods.disabled = !s.moderators.length;
-      mailMods.title = s.moderators.length ? s.moderators.join(', ') : 'No QA Facilitators assigned';
+      mailMods.title = s.moderators.length ? s.moderators.join(', ') : W('admin.noFacilitatorsAssigned');
       mailMods.onclick = function () {
         call('emailLinks', [s.id, { toModerators: true, present: true, moderate: true }], function (n) {
-          toast('Sent room screen and queue links to ' + n + (n === 1 ? ' QA Facilitator' : ' QA Facilitators'));
+          toast(Wn('admin.sentLinksTo', n));
         }, mailMods);
       };
       acts.appendChild(mailMods);
 
-      var end = el('button', 'danger', 'End session');
+      var end = el('button', 'danger', W('admin.endSession'));
       end.type = 'button';
       end.onclick = function () {
         ask({
-          title: 'End this session?',
-          body: 'Participants can no longer ask questions, and an ended session cannot be reopened.' +
-            (s.emailOnEnd && s.summaryTo.length ? '\n\nThe questions summary will be emailed to ' + s.summaryTo.join(', ') + '.' : ''),
-          ok: 'End session',
+          title: W('admin.endThisSession'),
+          body: W('admin.endSessionBody', {
+            summary: s.emailOnEnd && s.summaryTo.length ? W('admin.endSessionSummaryTo', { to: s.summaryTo.join(', ') }) : ''
+          }),
+          ok: W('admin.endSession'),
           danger: true,
           typeToConfirm: s.name
         }, function (typed) {
-          end.textContent = 'Ending…';
+          end.textContent = W('admin.ending');
           call('endSession', [s.id, typed], function (res) {
             render(res.state);
-            toast('Session ended' + (res.emailed ? ' — summary emailed to ' + res.emailed : '') + (res.note ? '. ' + res.note : ''), !!res.note);
-          }, end, function () { end.textContent = 'End session'; });
+            toast(W('admin.sessionEnded', {
+              emailed: res.emailed ? W('admin.sessionEndedEmailed', { to: res.emailed }) : '',
+              note: res.note ? '. ' + res.note : ''
+            }), !!res.note);
+          }, end, function () { end.textContent = W('admin.endSession'); });
         });
       };
       acts.appendChild(end);
     } else {
-      var summary = el('button', 'primary', 'Email summary');
+      var summary = el('button', 'primary', W('admin.emailSummary'));
       summary.type = 'button';
       summary.onclick = function () { openEmail(s, 'summary'); };
       acts.appendChild(summary);
       if (!s.loadTest) {
-        var archive = el('button', null, 'Archive');
+        var archive = el('button', null, W('admin.archive'));
         archive.type = 'button';
-        archive.title = 'Move out of the list; restore any time from Archived sessions';
+        archive.title = W('admin.moveOutOfThe');
         archive.onclick = function () {
-          call('archiveSession', [s.id], function (res) { render(res); toast('Archived ' + s.name); }, archive);
+          call('archiveSession', [s.id], function (res) { render(res); toast(W('admin.archived', { name: s.name })); }, archive);
         };
         acts.appendChild(archive);
       }
     }
     if (s.status !== 'active') {
-      var del = el('button', 'quiet', 'Delete');
+      var del = el('button', 'quiet', W('admin.delete'));
       del.type = 'button';
       del.onclick = function () {
         ask({
-          title: 'Delete this session?',
-          body: 'This permanently deletes the session and all ' + s.questionCount +
-            (s.questionCount === 1 ? ' question' : ' questions') + ', topics and votes. It cannot be undone.',
-          ok: 'Delete session',
+          title: W('admin.deleteThisSession'),
+          body: Wn('admin.deleteSessionBody', s.questionCount),
+          ok: W('admin.deleteSession'),
           danger: true,
           typeToConfirm: s.name
         }, function (typed) {
-          call('deleteSession', [s.id, typed], function (res) { render(res); toast('Session deleted'); }, del);
+          call('deleteSession', [s.id, typed], function (res) { render(res); toast(W('admin.sessionDeleted')); }, del);
         });
       };
       acts.appendChild(del);
@@ -1185,45 +1222,45 @@
 
     if (openLinks[s.id]) {
       var links = el('div', 'links');
-      linkRow(links, 'Room screen', s.links.present);
-      linkRow(links, 'PowerPoint slide', s.links.slide);
+      linkRow(links, W('admin.roomScreen2'), s.links.present);
+      linkRow(links, W('admin.powerpointSlide'), s.links.slide);
       if (!ended) {
-        var regenScreen = el('button', 'quiet', 'Replace room screen link');
+        var regenScreen = el('button', 'quiet', W('admin.replaceRoomScreenLink'));
         regenScreen.type = 'button';
         regenScreen.onclick = function () {
           ask({
-            title: 'Replace the room screen link?',
-            body: 'The current room screen link and PowerPoint slide link stop working, including on screens and slides already showing them. Copy the new links into those places. Participants are not affected.',
-            ok: 'Replace link',
+            title: W('admin.replaceTheRoomScreen'),
+            body: W('admin.theCurrentRoomScreen'),
+            ok: W('admin.replaceLink'),
             danger: true
           }, function () {
-            call('regenerateLink', [s.id, 'screen'], function (res) { render(res); toast('New room screen and slide links created'); }, regenScreen);
+            call('regenerateLink', [s.id, 'screen'], function (res) { render(res); toast(W('admin.newRoomScreenAnd')); }, regenScreen);
           });
         };
         links.appendChild(regenScreen);
       }
-      linkRow(links, 'Panelist view', s.links.panel);
-      linkRow(links, 'QA Facilitator queue', s.links.moderate);
+      linkRow(links, W('admin.panelistView2'), s.links.panel);
+      linkRow(links, W('admin.qaFacilitatorQueue'), s.links.moderate);
       if (s.links.participant) {
-        linkRow(links, 'Participant link', s.links.participant);
+        linkRow(links, W('admin.participantLink'), s.links.participant);
         if (!ended) {
-          var regen = el('button', 'quiet', 'Replace participant link');
+          var regen = el('button', 'quiet', W('admin.replaceParticipantLink'));
           regen.type = 'button';
           regen.onclick = function () {
             ask({
-              title: 'Replace the participant link?',
-              body: 'The old link stops working for anyone who has not joined yet. People already in the session can keep asking.',
-              ok: 'Replace link'
+              title: W('admin.replaceTheParticipantLink'),
+              body: W('admin.theOldLinkStops'),
+              ok: W('admin.replaceLink')
             }, function () {
-              call('regenerateLink', [s.id], function (res) { render(res); toast('New participant link created'); }, regen);
+              call('regenerateLink', [s.id], function (res) { render(res); toast(W('admin.newParticipantLinkCreated')); }, regen);
             });
           };
           links.appendChild(regen);
         }
       } else {
-        links.appendChild(el('div', 'hint', 'In-room sessions have no participant link — people join by scanning the room screen.'));
+        links.appendChild(el('div', 'hint', W('admin.inRoomSessionsHave')));
       }
-      links.appendChild(el('div', 'hint', 'If a link shows Google\'s "Sorry, unable to open the file at this time", the browser is signed into more than one Google account. Open the link in a private browsing window. Use one on the projector computer too.'));
+      links.appendChild(el('div', 'hint', W('admin.ifALinkShows')));
       bodyWrap.appendChild(links);
     }
     return card;
@@ -1238,7 +1275,7 @@
     state.sessions.forEach(function (s) { byId[s.id] = s; });
     state.sessions = ids.map(function (id) { return byId[id]; });
     renderSessions();
-    call('reorderSessions', [ids], function (res) { render(res); toast('Order saved'); });
+    call('reorderSessions', [ids], function (res) { render(res); toast(W('admin.orderSaved')); });
   }
 
   function moveSession(id, delta) {
@@ -1313,11 +1350,11 @@
     input.value = url;
     input.onfocus = function () { input.select(); };
     row.appendChild(input);
-    var copy = el('button', null, 'Copy');
+    var copy = el('button', null, W('admin.copy'));
     copy.type = 'button';
     copy.onclick = function () { copyInput(input); };
     row.appendChild(copy);
-    var open = el('a', null, 'Open');
+    var open = el('a', null, W('admin.open'));
     open.href = url;
     open.target = '_blank';
     open.rel = 'noopener';
@@ -1338,10 +1375,10 @@
   function openForm(s, presetEvent) {
     s = s || {};
     $('eventForm').hidden = true;
-    $('formTitle').textContent = s.id ? 'Edit session' : 'New session';
+    $('formTitle').textContent = s.id ? W('admin.editSession') : W('admin.newSession');
     var select = $('f-event');
     select.innerHTML = '';
-    var none = el('option', null, 'Not in an event');
+    var none = el('option', null, W('admin.notInAnEvent'));
     none.value = '';
     select.appendChild(none);
     state.events.forEach(function (ev) {
@@ -1359,14 +1396,14 @@
     $('f-max').value = s.maxLength || state.limits.defaultMaxLength;
     $('f-cooldown').value = typeof s.cooldownSeconds === 'number' ? s.cooldownSeconds : state.limits.cooldownSeconds;
     $('f-cooldown').max = state.limits.cooldownCeiling;
-    $('cooldownHint').textContent = '0 for no wait, up to ' + state.limits.cooldownCeiling +
-      ' (one hour). Changes apply immediately, even to phones already waiting.';
+    $('cooldownHint').textContent = W('admin.cooldownHint', { max: state.limits.cooldownCeiling });
     $('f-max').max = state.limits.maxLengthCeiling;
-    $('maxHint').textContent = 'Between 50 and ' + state.limits.maxLengthCeiling + '. Shorter questions are easier to read aloud.';
+    $('maxHint').textContent = W('admin.maxHint', { max: state.limits.maxLengthCeiling });
     $('f-email').checked = s.id ? !!s.emailOnEnd : true;
     $('f-prepared').value = (s.prepared || []).join('\n');
     loadedPrepared = $('f-prepared').value;
     $('f-translate-prepared').checked = s.id ? s.translatePrepared !== false : true;
+    languagePicker($('f-room-lang'), s.roomLanguage, true);
     $('f-room-questions').checked = !!s.roomQuestions;
     var guest = s.guestPage || {};
     $('f-guest-room').checked = !!guest.room;
@@ -1374,8 +1411,8 @@
     $('f-guest-panel').checked = !!guest.panel;
     $('f-guest-url').value = guest.url || '';
     $('f-guest-url-box').hidden = !(guest.room || guest.slide || guest.panel);
-    $('f-guest-url').placeholder = 'Uses ' + (state.guestPageUrl || state.guestPageDefault);
-    $('f-summary-to').textContent = (state.summaryDefaults.extra || []).join(', ') || 'nobody yet — add them on the People tab';
+    $('f-guest-url').placeholder = W('admin.guestUrlHint', { url: state.guestPageUrl || state.guestPageDefault });
+    $('f-summary-to').textContent = (state.summaryDefaults.extra || []).join(', ') || W('admin.nobodyYetAddThem');
     $('f-start').value = toLocalInput(s.scheduledStart);
     $('f-end').value = toLocalInput(s.scheduledEnd);
     var own = s.brand || {};
@@ -1396,7 +1433,7 @@
     var box = $('f-mods');
     box.innerHTML = '';
     if (!state.moderators.length) {
-      box.appendChild(el('div', 'hint', 'No QA Facilitators yet.'));
+      box.appendChild(el('div', 'hint', W('admin.noQaFacilitatorsYet')));
     }
     state.moderators.forEach(function (email) {
       var label = el('label', 'choice');
@@ -1434,10 +1471,10 @@
     if (src) {
       var img = el('img');
       img.src = src;
-      img.alt = 'Session logo';
+      img.alt = W('admin.sessionLogo');
       box.appendChild(img);
     } else {
-      box.appendChild(el('span', 'hint', 'Uses the organization logo'));
+      box.appendChild(el('span', 'hint', W('admin.usesTheOrganizationLogo')));
     }
     $('f-logo-remove').hidden = !src;
   }
@@ -1459,13 +1496,13 @@
       call('saveLogo', [dataUrl, editingId], function (res) {
         render(res);
         renderSessionLogo(dataUrl);
-        toast('Session logo saved');
+        toast(W('admin.sessionLogoSaved'));
       });
     });
   });
 
   $('f-logo-remove').onclick = function () {
-    call('removeLogo', [editingId], function (res) { render(res); renderSessionLogo(''); toast('Session logo removed'); }, this);
+    call('removeLogo', [editingId], function (res) { render(res); renderSessionLogo(''); toast(W('admin.sessionLogoRemoved')); }, this);
   };
 
   $('newSession').onclick = function () { openForm(null); };
@@ -1478,7 +1515,7 @@
     ev = ev || {};
     var b = ev.brand || {};
     $('sessionForm').hidden = true;
-    $('eventFormTitle').textContent = ev.id ? 'Edit event' : 'New event';
+    $('eventFormTitle').textContent = ev.id ? W('admin.editEvent') : W('admin.newEvent');
     $('ev-id').value = ev.id || '';
     $('ev-name').value = ev.name || '';
     $('ev-org').value = b.orgName || '';
@@ -1493,8 +1530,9 @@
     $('ev-dark').value = b.roomBgDark || state.brand.roomBgDark;
     $('ev-light-on').checked = !!b.roomBgLight;
     $('ev-light').value = b.roomBgLight || state.brand.roomBgLight;
-    peopleBoxes($('ev-mods'), state.moderators, ev.moderators, 'No QA Facilitators yet. Add them on the People tab.');
-    peopleBoxes($('ev-coords'), state.coordinators, ev.coordinators, 'No Event Coordinators yet. Add them on the People tab.');
+    peopleBoxes($('ev-mods'), state.moderators, ev.moderators, W('admin.noQaFacilitatorsYet2'));
+    peopleBoxes($('ev-coords'), state.coordinators, ev.coordinators, W('admin.noEventCoordinatorsYet'));
+    languagePicker($('ev-room-lang'), ev.roomLanguage, true);
     var custom = ev.languages && ev.languages.length;
     radio('evLangMode', custom ? 'custom' : 'site');
     $('ev-lang-site').textContent = languageNames(state.siteLanguages);
@@ -1517,10 +1555,10 @@
     if (src) {
       var img = el('img');
       img.src = src;
-      img.alt = 'Event logo';
+      img.alt = W('admin.eventLogo');
       box.appendChild(img);
     } else {
-      box.appendChild(el('span', 'hint', 'Uses the site logo'));
+      box.appendChild(el('span', 'hint', W('admin.usesTheSiteLogo')));
     }
     $('ev-logo-remove').hidden = !src;
   }
@@ -1536,11 +1574,11 @@
     shrinkImage(file, 60000, function (err, dataUrl) {
       picker.value = '';
       if (err) { toast(err, true); return; }
-      call('saveEventLogo', [editingEvent, dataUrl], function (res) { render(res); renderEventLogo(dataUrl); toast('Event logo saved'); });
+      call('saveEventLogo', [editingEvent, dataUrl], function (res) { render(res); renderEventLogo(dataUrl); toast(W('admin.eventLogoSaved')); });
     });
   });
   $('ev-logo-remove').onclick = function () {
-    call('removeEventLogo', [editingEvent], function (res) { render(res); renderEventLogo(''); toast('Event logo removed'); }, this);
+    call('removeEventLogo', [editingEvent], function (res) { render(res); renderEventLogo(''); toast(W('admin.eventLogoRemoved')); }, this);
   };
 
   $('newEvent').onclick = function () { openEventForm(null); };
@@ -1558,9 +1596,9 @@
     $('sessionForm').hidden = true;
     $('eventForm').hidden = true;
     $('importForm').hidden = true;
-    $('checklistTitle').textContent = 'Day-of checklist — ' + ev.name;
+    $('checklistTitle').textContent = W('admin.checklistTitle', { event: ev.name });
     $('checklistBody').innerHTML = '';
-    $('checklistWhen').textContent = 'Checking…';
+    $('checklistWhen').textContent = W('admin.checking');
     $('checklistPanel').hidden = false;
     call('eventChecklist', [ev.id], drawChecklist, $('checklistRefresh'));
   }
@@ -1585,24 +1623,27 @@
     var count = function (checks) { checks.forEach(function (c) { if (c.ok === false) problems++; else if (c.ok === null) warnings++; }); };
     count(res.site);
     res.sessions.forEach(function (s) { count(s.checks); });
-    $('checklistWhen').textContent = (problems ? problems + (problems === 1 ? ' problem' : ' problems') : 'No problems') +
-      (warnings ? ', ' + warnings + ' to look at' : '') + ' · checked ' + fmtDate(res.generated) + '. ✓ ready · ! worth a look · ✗ needs fixing.';
-    body.appendChild(el('h3', null, 'Whole app'));
+    $('checklistWhen').textContent = W('admin.checklistWhen', {
+      problems: problems ? Wn('admin.checklistProblems', problems) : W('admin.checklistNoProblems'),
+      warnings: warnings ? W('admin.checklistWarnings', { n: warnings }) : '',
+      at: fmtDate(res.generated)
+    });
+    body.appendChild(el('h3', null, W('admin.wholeApp')));
     body.appendChild(checkTable(res.site));
-    if (!res.sessions.length) body.appendChild(el('p', 'hint', 'This event has no sessions yet.'));
+    if (!res.sessions.length) body.appendChild(el('p', 'hint', W('admin.thisEventHasNo')));
     res.sessions.forEach(function (s) {
       var h = el('h3', null, s.name);
-      h.appendChild(el('span', 'pill ' + s.status, s.status === 'active' ? 'Active' : s.status === 'ended' ? 'Ended' : 'Not active'));
+      h.appendChild(el('span', 'pill ' + s.status, statusLabel(s)));
       body.appendChild(h);
-      body.appendChild(el('p', 'hint', (s.access === 'link' ? 'Shareable link' : 'In-room QR') + ' · ' + s.languages));
+      body.appendChild(el('p', 'hint', W(s.access === 'link' ? 'admin.shareableLink' : 'admin.inRoomQr') + ' · ' + s.languages));
       body.appendChild(checkTable(s.checks));
       if (s.status !== 'ended') {
         var links = el('div', 'links');
-        linkRow(links, 'Room screen', s.links.present);
-        linkRow(links, 'PowerPoint slide', s.links.slide);
-        linkRow(links, 'Panelist view', s.links.panel);
-        linkRow(links, 'QA Facilitator queue', s.links.moderate);
-        if (s.links.participant) linkRow(links, 'Participant link', s.links.participant);
+        linkRow(links, W('admin.roomScreen2'), s.links.present);
+        linkRow(links, W('admin.powerpointSlide'), s.links.slide);
+        linkRow(links, W('admin.panelistView2'), s.links.panel);
+        linkRow(links, W('admin.qaFacilitatorQueue'), s.links.moderate);
+        if (s.links.participant) linkRow(links, W('admin.participantLink'), s.links.participant);
         body.appendChild(links);
       }
     });
@@ -1625,13 +1666,12 @@
         a.click();
         setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
       } catch (e) {}
-      $('exportHint').textContent = res.count + (res.count === 1 ? ' session' : ' sessions') + ' exported as ' + res.filename +
-        '. If the download didn\'t start, copy the text below into a file ending in .csv.';
+      $('exportHint').textContent = Wn('admin.exportHint', res.count, { file: res.filename });
       $('exportText').value = res.csv.replace(/^\ufeff/, '');
       $('exportPanel').hidden = false;
     }, btn);
   };
-  $('exportCopy').onclick = function () { copyInput($('exportText')); toast('Copied'); };
+  $('exportCopy').onclick = function () { copyInput($('exportText')); toast(W('admin.copied')); };
   $('exportClose').onclick = function () { $('exportPanel').hidden = true; };
 
   var checkedText = null;
@@ -1669,16 +1709,18 @@
     var box = $('importPreview');
     box.innerHTML = '';
     var summary = done
-      ? 'Imported: ' + res.created + ' created, ' + res.updated + ' updated, ' + res.skipped + ' skipped, ' + res.failed + ' with problems (not imported).'
-      : 'Check: ' + res.created + ' to create, ' + res.updated + ' to update, ' + res.skipped + ' to skip, ' + res.failed + ' with problems.' +
-        (res.events.length ? ' New events: ' + res.events.join(', ') + '.' : '');
+      ? W('admin.imported', { created: res.created, updated: res.updated, skipped: res.skipped, failed: res.failed })
+      : W('admin.checked', {
+          created: res.created, updated: res.updated, skipped: res.skipped, failed: res.failed,
+          events: res.events.length ? W('admin.checkedNewEvents', { names: res.events.join(', ') }) : ''
+        });
     box.appendChild(el('p', res.failed ? 'hint error-text' : 'hint', summary));
     var wrap = el('div', 'import-wrap');
     var table = el('table', 'import-table');
     var head = el('tr');
-    ['Row', 'Event', 'Session', 'Result', 'Notes'].forEach(function (t) { head.appendChild(el('th', null, t)); });
+    [W('admin.row'), W('admin.event'), W('admin.session'), W('admin.result'), W('admin.notes')].forEach(function (t) { head.appendChild(el('th', null, t)); });
     table.appendChild(head);
-    var words = { create: done ? 'Created' : 'Create', update: done ? 'Updated' : 'Update', skip: 'Skip', error: 'Problem' };
+    var words = { create: done ? W('admin.created') : W('admin.create'), update: done ? W('admin.updated') : W('admin.update'), skip: W('admin.skip'), error: W('admin.problem') };
     res.rows.forEach(function (r) {
       var tr = el('tr');
       tr.appendChild(el('td', null, String(r.row)));
@@ -1694,12 +1736,12 @@
 
   $('importCheck').onclick = function () {
     var text = importText();
-    if (!text.trim()) { toast('Choose a CSV file or paste one first.', true); return; }
+    if (!text.trim()) { toast(W('admin.chooseACsvFile'), true); return; }
     call('importSessionsCsv', [text, { duplicates: radio('importDup') }, true], function (res) {
       drawImport(res, false);
       checkedText = text;
       var n = res.created + res.updated;
-      $('importGo').textContent = 'Import ' + n + (n === 1 ? ' session' : ' sessions');
+      $('importGo').textContent = Wn('admin.importGo', n);
       $('importGo').hidden = !n;
     }, this);
   };
@@ -1712,7 +1754,10 @@
       render(res.state);
       $('importGo').hidden = true;
       checkedText = null;
-      toast('Imported ' + (res.created + res.updated) + ' sessions' + (res.failed ? ' — ' + res.failed + ' rows had problems' : ''), !!res.failed);
+      toast(W('admin.importDone', {
+        n: res.created + res.updated,
+        problems: res.failed ? W('admin.importProblems', { n: res.failed }) : ''
+      }), !!res.failed);
     }, $('importGo'));
   });
   $('cancelEvent').onclick = function () { $('eventForm').hidden = true; };
@@ -1730,12 +1775,13 @@
       roomBgLight: $('ev-light-on').checked ? $('ev-light').value : '',
       languages: radio('evLangMode') === 'custom' ? chosenLanguages($('ev-langs')) : null,
       moderators: ticked($('ev-mods')),
-      coordinators: ticked($('ev-coords'))
+      coordinators: ticked($('ev-coords')),
+      roomLanguage: $('ev-room-lang').value
     };
     call('saveEvent', [input], function (res) {
       $('eventForm').hidden = true;
       render(res);
-      toast(input.id ? 'Event saved' : 'Event created — add its sessions');
+      toast(input.id ? W('admin.eventSaved') : W('admin.eventCreatedAddIts'));
     }, $('saveEvent'));
   });
   $('cancelSession').onclick = function () { $('sessionForm').hidden = true; };
@@ -1760,6 +1806,7 @@
       prepared: $('f-prepared').value !== loadedPrepared ? $('f-prepared').value : undefined,
       translatePrepared: $('f-translate-prepared').checked,
       roomQuestions: $('f-room-questions').checked,
+      roomLanguage: $('f-room-lang').value,
       guestPage: { room: $('f-guest-room').checked, slide: $('f-guest-slide').checked, panel: $('f-guest-panel').checked, url: $('f-guest-url').value },
       emailOnEnd: $('f-email').checked,
       moderators: mods,
@@ -1771,7 +1818,7 @@
     call('saveSession', [input], function (res) {
       $('sessionForm').hidden = true;
       render(res);
-      toast(input.id ? 'Session saved' : 'Session created — activate it when you are ready');
+      toast(input.id ? W('admin.sessionSaved') : W('admin.sessionCreatedActivateIt'));
     }, $('saveSession'));
   });
 
@@ -1783,7 +1830,8 @@
   function openEmail(s, mode) {
     emailTarget = s;
     emailMode = mode;
-    $('emailTitle').textContent = (mode === 'summary' ? 'Email summary — ' : mode === 'eventSummary' ? 'Email event summary — ' : 'Email links — ') + s.name;
+    $('emailTitle').textContent = W(mode === 'summary' ? 'admin.emailSummaryTitle'
+      : mode === 'eventSummary' ? 'admin.emailEventSummaryTitle' : 'admin.emailLinksTitle', { name: s.name });
     $('e-kinds').hidden = mode === 'summary' || mode === 'eventSummary';
     if (mode === 'eventSummary') {
       var everyone = [];
@@ -1798,8 +1846,8 @@
     $('e-participant').disabled = !hasLink;
     $('e-participant').checked = hasLink;
     $('e-participant-hint').textContent = hasLink
-      ? 'Anyone with this link can ask a question.'
-      : 'Not available: in-room sessions are joined by scanning the room screen.';
+      ? W('admin.anyoneWithThisLink')
+      : W('admin.notAvailableInRoom');
     $('e-present').checked = !hasLink;
     $('e-moderate').checked = false;
     $('emailModal').hidden = false;
@@ -1817,14 +1865,14 @@
     if (emailMode === 'eventSummary') {
       call('emailEventSummary', [emailTarget.id, to.split(/[\s,;]+/).filter(Boolean)], function (n) {
         closeEmail();
-        toast('Event summary sent to ' + n + (n === 1 ? ' person' : ' people'));
+        toast(Wn('admin.sentEventSummary', n));
       }, $('e-send'));
       return;
     }
     if (emailMode === 'summary') {
       call('emailSummary', [emailTarget.id, to.split(/[\s,;]+/).filter(Boolean)], function (n) {
         closeEmail();
-        toast('Summary sent to ' + n + (n === 1 ? ' person' : ' people'));
+        toast(Wn('admin.sentSummary', n));
         call('adminState', [], render);
       }, $('e-send'));
       return;
@@ -1836,7 +1884,7 @@
       moderate: $('e-moderate').checked
     }], function (n) {
       closeEmail();
-      toast('Links sent to ' + n + (n === 1 ? ' person' : ' people'));
+      toast(Wn('admin.sentLinks', n));
     }, $('e-send'));
   });
 
@@ -1844,10 +1892,8 @@
 
   function renderPeople() {
     $('domainHint').textContent = state.domain
-      ? 'Only @' + state.domain + ' accounts can be administrators, QA Facilitators or Event Coordinators. ' +
-        'Google does not tell the app who is signed in from any other domain.'
-      : 'Everyone here signs in with an account on this site. Adding an address that has no account ' +
-        'creates one and sends them a set-your-password email.';
+      ? W('admin.domainHint', { domain: state.domain }) + W('admin.googleDoesNotTell')
+      : W('admin.everyoneSignsIn') + W('admin.createsOneAndSends');
     personList($('adminList'), 'admin', [state.owner].concat(state.admins.filter(function (e) { return e !== state.owner; })));
     personList($('modList'), 'moderator', state.moderators);
     personList($('coordList'), 'coordinator', state.coordinators);
@@ -1869,28 +1915,66 @@
     });
   }
 
+  /** Fills a language picker. `blank` offers "use the site's" for a session or an event. */
+  function languagePicker(select, chosen, blank) {
+    select.textContent = '';
+    if (blank) {
+      var none = el('option', null, W('admin.useSiteLanguage'));
+      none.value = '';
+      select.appendChild(none);
+    }
+    state.appLanguages.forEach(function (l) {
+      var o = el('option', null, l.native);
+      o.value = l.code;
+      if ((chosen || '') === l.code) o.selected = true;
+      select.appendChild(o);
+    });
+    if (blank && !chosen) select.value = '';
+  }
+
   function personList(ul, role, emails) {
     ul.innerHTML = '';
-    if (!emails.length) ul.appendChild(el('li', 'hint', 'None yet'));
+    if (!emails.length) ul.appendChild(el('li', 'hint', W('admin.noneYet')));
     emails.forEach(function (email) {
       var li = el('li');
       li.appendChild(el('span', null, email));
+      // What this person reads the app in. English is the default, so it stores nothing.
+      if (state.appLanguages.length > 1) {
+        var pick = el('select', 'person-lang');
+        pick.setAttribute('aria-label', W('admin.personLanguage', { email: email }));
+        state.appLanguages.forEach(function (l) {
+          var o = el('option', null, l.native);
+          o.value = l.code;
+          if ((state.personLanguages[email] || 'en') === l.code) o.selected = true;
+          pick.appendChild(o);
+        });
+        pick.onchange = function () {
+          var chosen = this.value;
+          var name = state.appLanguages.filter(function (l) { return l.code === chosen; })[0];
+          call('setPersonLanguage', [email, chosen], function (res) {
+            render(res);
+            toast(W('admin.languageSet', { email: email, language: name ? name.native : chosen }));
+          }, pick);
+        };
+        li.appendChild(pick);
+      }
       var locked = role === 'admin' && (email === state.owner || email === state.me);
       if (locked) {
-        li.appendChild(el('span', 'hint', email === state.owner ? 'Owner' : 'You'));
+        li.appendChild(el('span', 'hint', email === state.owner ? W('admin.owner') : W('admin.you')));
       } else {
-        var rm = el('button', 'quiet', 'Remove');
+        var rm = el('button', 'quiet', W('admin.remove'));
         rm.type = 'button';
         rm.onclick = function () {
           ask({
-            title: 'Remove ' + (role === 'admin' ? 'administrator' : role === 'coordinator' ? 'Event Coordinator' : 'QA Facilitator') + '?',
-            body: email + (role === 'moderator' ? ' will also be removed from every session.'
-              : role === 'coordinator' ? ' will also be removed from every event, and can no longer open a coordinator portal.'
-              : ' will no longer be able to open the Admin page.'),
-            ok: 'Remove',
+            title: W('admin.removePersonTitle', {
+              role: W(role === 'admin' ? 'admin.roleAdministrator' : role === 'coordinator' ? 'admin.roleCoordinator' : 'admin.roleFacilitator')
+            }),
+            body: W(role === 'moderator' ? 'admin.removeFacilitatorBody'
+              : role === 'coordinator' ? 'admin.removeCoordinatorBody' : 'admin.removeAdminBody', { email: email }),
+            ok: W('admin.remove'),
             danger: true
           }, function () {
-            call('removePerson', [role, email], function (res) { render(res); toast('Removed ' + email); }, rm);
+            call('removePerson', [role, email], function (res) { render(res); toast(W('admin.removed', { email: email })); }, rm);
           });
         };
         li.appendChild(rm);
@@ -1906,7 +1990,7 @@
       var form = this;
       var input = form.querySelector('input');
       call('addPerson', [form.getAttribute('data-role'), input.value], function (res) {
-        toast('Added ' + input.value.trim().toLowerCase());
+        toast(W('admin.added', { email: input.value.trim().toLowerCase() }));
         input.value = '';
         render(res);
       }, form.querySelector('button'));
@@ -1962,7 +2046,7 @@
 
   $('langForm').addEventListener('submit', function (e) {
     e.preventDefault();
-    call('saveSiteLanguages', [chosenLanguages($('siteLangs'))], function (res) { render(res); toast('Languages saved'); }, $('saveLangs'));
+    call('saveSiteLanguages', [chosenLanguages($('siteLangs'))], function (res) { render(res); toast(W('admin.languagesSaved')); }, $('saveLangs'));
   });
 
   var evLangRadios = document.querySelectorAll('input[name=evLangMode]');
@@ -1976,20 +2060,21 @@
     var pct = Math.min(100, state.storage.percent);
     $('ops-storage-bar').style.width = Math.max(2, pct) + '%';
     $('ops-storage-bar').className = pct >= 80 ? 'high' : '';
-    $('ops-storage').textContent = pct + '% of the 500 KB Google allows for settings (sessions, events, people). Ended sessions are archived after 30 days to keep it low.';
+    $('ops-storage').textContent = W('admin.storageUsed', { pct: pct });
   }
 
   $('ops-save').onclick = function () {
     var months = Number($('ops-retention').value);
     var go = function () {
-      call('saveOpsSettings', [{ retentionMonths: months, weeklyReport: $('ops-weekly').checked }], function (res) { render(res); toast('Saved'); }, $('ops-save'));
+      call('saveOpsSettings', [{ retentionMonths: months, weeklyReport: $('ops-weekly').checked }], function (res) { render(res); toast(W('admin.saved')); }, $('ops-save'));
     };
     if (months && months !== state.ops.retentionMonths) {
-      ask({ title: 'Remove old question wording?', body: 'Within the hour, the wording of every question from sessions that ended more than ' + months + ' months ago is removed for good. Topics, counts and answered status stay.', ok: 'Remove old wording', danger: true }, go);
+      ask({ title: W('admin.removeOldQuestionWording'), body: W('admin.retentionBody', { months: months }),
+        ok: W('admin.removeOldWording'), danger: true }, go);
     } else go();
   };
   $('ops-report').onclick = function () {
-    call('sendWeeklyReportNow', [], function () { toast('Sent to ' + state.me); }, this);
+    call('sendWeeklyReportNow', [], function () { toast(W('admin.sentTo', { email: state.me })); }, this);
   };
 
   function renderBranding() {
@@ -1999,6 +2084,7 @@
     renderPrompts();
     $('langMax').textContent = String(state.maxLanguages - 1);
     languageBoxes($('siteLangs'), state.siteLanguages, 'siteLang');
+    languagePicker($('b-lang'), state.siteLanguage, false);
     $('b-org').value = state.brand.orgName;
     $('b-accent').value = state.brand.accent;
     $('b-accent-pick').value = state.brand.accent;
@@ -2017,10 +2103,10 @@
     if (state.brand.logo) {
       var img = el('img');
       img.src = state.brand.logo;
-      img.alt = 'Current logo';
+      img.alt = W('admin.currentLogo');
       preview.appendChild(img);
     } else {
-      preview.appendChild(el('span', 'hint', 'No logo'));
+      preview.appendChild(el('span', 'hint', W('admin.noLogo')));
     }
     $('removeLogo').hidden = !state.brand.logo;
 
@@ -2028,8 +2114,8 @@
     $('s-sheet').href = state.sheetUrl;
     var h = state.health || {};
     $('s-grouping').textContent = h.failures
-      ? h.failures + ' failed runs in a row — ' + h.lastError
-      : h.lastOkAt ? 'Working (last ' + fmtDate(h.lastOkAt) + ')' : 'Nothing grouped yet';
+      ? W('admin.groupingFailing', { n: h.failures, why: h.lastError })
+      : h.lastOkAt ? W('admin.groupingWorking', { at: fmtDate(h.lastOkAt) }) : W('admin.nothingGroupedYet');
     renderLoadTest();
   }
 
@@ -2046,30 +2132,30 @@
   // The Gemini API key (Health tab). The key itself is never sent back to the page.
   function renderKey() {
     $('gem-key-state').textContent = state.geminiKeySet
-      ? 'A key is saved. Paste a new one to replace it; the key itself is never shown again.'
-      : 'No key yet. Without one, questions still arrive and can be answered — they are simply not grouped or translated.';
+      ? W('admin.aKeyIsSaved')
+      : W('admin.noKeyYetWithout');
     $('gem-key-clear').hidden = !state.geminiKeySet;
   }
 
   $('keyForm').addEventListener('submit', function (e) {
     e.preventDefault();
     var box = $('gem-key');
-    if (!box.value.trim()) { toast('Paste a key first.', true); return; }
+    if (!box.value.trim()) { toast(W('admin.pasteAKeyFirst'), true); return; }
     call('saveGeminiKey', [box.value.trim()], function (res) {
       box.value = '';
       render(res);
-      toast('Gemini key saved');
+      toast(W('admin.geminiKeySaved'));
     }, $('gem-key-save'));
   });
 
   $('gem-key-clear').onclick = function () {
     ask({
-      title: 'Remove the Gemini key?',
-      body: 'Questions will still arrive and can be answered, but nothing will be grouped or translated until a key is added again.',
-      ok: 'Remove',
+      title: W('admin.removeTheGeminiKey'),
+      body: W('admin.questionsWillStillArrive'),
+      ok: W('admin.remove'),
       danger: true
     }, function () {
-      call('saveGeminiKey', [''], function (res) { render(res); toast('Gemini key removed'); }, $('gem-key-clear'));
+      call('saveGeminiKey', [''], function (res) { render(res); toast(W('admin.geminiKeyRemoved')); }, $('gem-key-clear'));
     });
   };
 
@@ -2094,12 +2180,11 @@
     var p = currentPrompt();
     state.prompts.forEach(function (x) {
       var o = pick.querySelector('option[value="' + x.task + '"]');
-      if (o) o.textContent = x.label + (x.custom ? ' — edited' : '');
+      if (o) o.textContent = x.custom ? W('admin.promptEdited', { label: x.label }) : x.label;
     });
     if (!promptDirty) $('prompt-text').value = p.text;
-    $('prompt-needs').textContent = 'Must still contain ' + p.needs.join(' and ') +
-      '. Question Desk fills those in before sending.';
-    $('prompt-state').textContent = p.custom ? 'Edited here' : 'The built-in prompt';
+    $('prompt-needs').textContent = W('admin.promptNeeds', { tokens: p.needs.join(W('admin.promptNeedsJoin')) });
+    $('prompt-state').textContent = p.custom ? W('admin.editedHere') : W('admin.theBuiltInPrompt');
     $('prompt-guards').textContent = p.guards;
     $('prompt-reset').hidden = !p.custom;
   }
@@ -2111,28 +2196,28 @@
     call('savePrompt', [currentPrompt().task, $('prompt-text').value], function (res) {
       promptDirty = false;
       render(res);
-      toast('Prompt saved — used from the next request');
+      toast(W('admin.promptSavedUsedFrom'));
     }, $('prompt-save'));
   };
 
   $('prompt-reset').onclick = function () {
     var p = currentPrompt();
     ask({
-      title: 'Put the built-in prompt back?',
-      body: 'Your wording for “' + p.label + '” is replaced by the one Question Desk ships with.',
-      ok: 'Reset'
+      title: W('admin.putTheBuiltIn'),
+      body: W('admin.promptResetBody', { label: p.label }),
+      ok: W('admin.reset')
     }, function () {
       call('savePrompt', [p.task, ''], function (res) {
         promptDirty = false;
         render(res);
-        toast('Built-in prompt restored');
+        toast(W('admin.builtInPromptRestored'));
       }, $('prompt-reset'));
     });
   };
 
   // Gemini settings (Health tab).
   var THINKING = [
-    ['default', 'Model default'], ['minimal', 'Minimal (fastest)'], ['low', 'Low'], ['medium', 'Medium'], ['high', 'High (slowest)']
+    ['default', W('admin.modelDefault')], ['minimal', W('admin.minimalFastest')], ['low', W('admin.low')], ['medium', W('admin.medium')], ['high', W('admin.highSlowest')]
   ];
   var GEM_TASKS = ['grouping', 'merging', 'translating'];
   var gemDirty = false;   // don't overwrite what an admin is editing when the page refreshes
@@ -2144,7 +2229,7 @@
       var select = $('gem-think-' + task);
       if (!select.options.length) {
         THINKING.forEach(function (t) {
-          var o = el('option', null, t[1] + (t[0] === state.geminiDefaults.thinking[task] ? ' — recommended' : ''));
+          var o = el('option', null, t[0] === state.geminiDefaults.thinking[task] ? W('admin.thinkingRecommended', { label: t[1] }) : t[1]);
           o.value = t[0];
           select.appendChild(o);
         });
@@ -2165,36 +2250,39 @@
   $('gemForm').addEventListener('change', function () { gemDirty = true; });
   $('gemForm').addEventListener('submit', function (e) {
     e.preventDefault();
-    call('saveGeminiSettings', [geminiInput()], function (res) { gemDirty = false; render(res); toast('Gemini settings saved — used from the next request'); }, $('gem-save'));
+    call('saveGeminiSettings', [geminiInput()], function (res) { gemDirty = false; render(res); toast(W('admin.geminiSettingsSavedUsed')); }, $('gem-save'));
   });
   $('gem-reset').onclick = function () {
-    ask({ title: 'Reset Gemini settings?', body: 'Back to ' + state.geminiDefaults.model + ', the recommended thinking levels, temperature ' + state.geminiDefaults.temperature + ' and ' + state.geminiDefaults.batchSize + ' questions per grouping request.', ok: 'Reset' }, function () {
-      call('saveGeminiSettings', [{ reset: true }], function (res) { gemDirty = false; render(res); toast('Gemini settings reset'); }, $('gem-reset'));
+    ask({ title: W('admin.resetGeminiSettings'), body: W('admin.geminiResetBody', {
+      model: state.geminiDefaults.model, temperature: state.geminiDefaults.temperature, batchSize: state.geminiDefaults.batchSize
+    }), ok: W('admin.reset') }, function () {
+      call('saveGeminiSettings', [{ reset: true }], function (res) { gemDirty = false; render(res); toast(W('admin.geminiSettingsReset')); }, $('gem-reset'));
     });
   };
   $('gem-test').onclick = function () {
     var table = $('gem-results');
     table.hidden = false;
-    table.innerHTML = '<tr><td></td><td>Asking Gemini with these settings…</td></tr>';
+    table.textContent = '';
+    table.appendChild(noteRow(W('admin.askingGemini')));
     call('testGeminiSettings', [geminiInput()], function (res) {
       table.innerHTML = '';
       res.results.forEach(function (r) {
         var tr = el('tr');
         tr.appendChild(el('td', r.ok ? 'ok' : 'bad', r.ok ? '✓' : '✗'));
         var td = el('td');
-        var label = r.task.charAt(0).toUpperCase() + r.task.slice(1) + ' · thinking ' + r.thinking;
+        var label = W('admin.tryTask', { task: r.task.charAt(0).toUpperCase() + r.task.slice(1), thinking: r.thinking });
         td.appendChild(el('strong', null, label));
         td.appendChild(el('div', 'hint', r.ok
-          ? (r.ms / 1000).toFixed(1) + ' seconds' + (r.retried ? ' — this model doesn’t accept that thinking level, so it ran without it' : '')
+          ? W('admin.trySeconds', { seconds: (r.ms / 1000).toFixed(1), retried: r.retried ? W('admin.tryRetried') : '' })
           : r.error));
         tr.appendChild(td);
         table.appendChild(tr);
       });
-      toast('Tried ' + res.model + ' — nothing saved yet');
+      toast(W('admin.triedModel', { model: res.model }));
     }, this, function () { table.hidden = true; });
   };
   $('gem-list').onclick = function () {
-    $('gem-list-note').textContent = ' Loading…';
+    $('gem-list-note').textContent = W('admin.loadingModels');
     call('listGeminiModels', [], function (res) {
       var list = $('gem-models');
       list.innerHTML = '';
@@ -2205,7 +2293,7 @@
         list.appendChild(o);
       });
       $('gem-list-note').textContent = res.ok
-        ? ' ' + res.models.length + ' models — click the Model box to pick one.'
+        ? W('admin.modelsListed', { n: res.models.length })
         : ' ' + res.error;
       if (res.ok) $('gem-model').focus();
     }, this, function () { $('gem-list-note').textContent = ''; });
@@ -2213,8 +2301,12 @@
 
   $('runHealth').onclick = function () {
     var table = $('checks');
-    table.innerHTML = '<tr><td></td><td>Checking…</td></tr>';
-    var failed = function () { table.innerHTML = '<tr><td class="bad">✗</td><td>The health check could not run. Try again.</td></tr>'; };
+    table.textContent = '';
+    table.appendChild(noteRow(W('admin.healthChecking')));
+    var failed = function () {
+      table.textContent = '';
+      table.appendChild(noteRow(W('admin.healthCouldNotRun'), 'bad', '✗'));
+    };
     call('runHealthCheck', [], function (res) {
       table.innerHTML = '';
       res.checks.forEach(function (c) {
@@ -2227,21 +2319,21 @@
         table.appendChild(tr);
       });
       var bad = res.checks.filter(function (c) { return !c.ok; }).length;
-      toast(bad ? bad + ' check(s) need attention' : 'All checks passed', bad > 0);
+      toast(bad ? W('admin.checksNeedAttention', { n: bad }) : W('admin.allChecksPassed'), bad > 0);
     }, this, failed);
   };
 
   $('startLoad').onclick = function () {
-    call('startLoadTest', [], function (res) { render(res); toast('Load test ready — run the command'); }, this);
+    call('startLoadTest', [], function (res) { render(res); toast(W('admin.loadTestReadyRun')); }, this);
   };
   $('stopLoad').onclick = function () {
     var btn = this;
     ask({
-      title: 'Finish the load test?',
-      body: 'The test endpoint is switched off, and its session and every test question are deleted.',
-      ok: 'Finish and delete'
+      title: W('admin.finishTheLoadTest'),
+      body: W('admin.theTestEndpointIs'),
+      ok: W('admin.finishAndDelete')
     }, function () {
-      call('stopLoadTest', [], function (res) { render(res); toast('Load test finished and cleaned up'); }, btn);
+      call('stopLoadTest', [], function (res) { render(res); toast(W('admin.loadTestFinishedAnd')); }, btn);
     });
   };
   $('copyLoad').onclick = function () {
@@ -2252,7 +2344,7 @@
     sel.addRange(range);
     var done = false;
     try { done = document.execCommand('copy'); } catch (e) {}
-    toast(done ? 'Copied' : 'Selected — press Ctrl/Cmd+C to copy');
+    toast(done ? W('admin.copied') : W('admin.selectedPressCtrlCmd'));
   };
 
   // Summary recipients: a list like administrators and QA Facilitators; every change saves.
@@ -2268,22 +2360,21 @@
   function renderSummaryList() {
     var ul = $('summaryList');
     var extra = state.summaryDefaults.extra || [];
-    $('summaryHint').textContent = "Every session's questions summary goes to these addresses, and only these, when it ends. Anyone can be added, even outside your organization.";
     ul.innerHTML = '';
-    if (!extra.length) ul.appendChild(el('li', 'hint', 'None yet'));
+    if (!extra.length) ul.appendChild(el('li', 'hint', W('admin.noneYet')));
     extra.forEach(function (email) {
       var li = el('li');
       li.appendChild(el('span', null, email));
-      var rm = el('button', 'quiet', 'Remove');
+      var rm = el('button', 'quiet', W('admin.remove'));
       rm.type = 'button';
       rm.onclick = function () {
         ask({
-          title: 'Remove summary recipient?',
-          body: email + ' will no longer get session summaries.',
-          ok: 'Remove',
+          title: W('admin.removeSummaryRecipient'),
+          body: W('admin.removeRecipientBody', { email: email }),
+          ok: W('admin.remove'),
           danger: true
         }, function () {
-          saveSummary(extra.filter(function (e) { return e !== email; }), 'Removed ' + email, rm);
+          saveSummary(extra.filter(function (e) { return e !== email; }), W('admin.removed', { email: email }), rm);
         });
       };
       li.appendChild(rm);
@@ -2299,13 +2390,18 @@
     var extra = (state.summaryDefaults.extra || []).slice();
     if (extra.indexOf(email) === -1) extra.push(email);
     // Cleared only once saved, so a rejected address can be fixed instead of retyped.
-    saveSummary(extra, 'Added ' + email, this.querySelector('button'), function () { input.value = ''; });
+    saveSummary(extra, W('admin.added', { email: email }), this.querySelector('button'), function () { input.value = ''; });
   });
 
   $('b-accent-pick').addEventListener('input', function () { $('b-accent').value = this.value; });
   $('b-accent').addEventListener('input', function () {
     if (/^#[0-9a-f]{6}$/i.test(this.value)) $('b-accent-pick').value = this.value;
   });
+
+  // The app's own language saves on its own, so branding keeps one round trip.
+  $('b-lang').onchange = function () {
+    call('saveSiteLanguage', [this.value], function (res) { render(res); toast(W('admin.appLanguageSaved')); }, $('b-lang'));
+  };
 
   $('brandForm').addEventListener('submit', function (e) {
     e.preventDefault();
@@ -2316,7 +2412,7 @@
       guestPageUrl: $('b-guest').value
     }], function (res) {
       render(res);
-      toast('Branding saved');
+      toast(W('admin.brandingSaved'));
     }, this.querySelector('button[type=submit]'));
   });
 
@@ -2327,24 +2423,24 @@
     shrinkImage(file, state ? 60000 : 60000, function (err, dataUrl) {
       picker.value = '';
       if (err) { toast(err, true); return; }
-      call('saveLogo', [dataUrl], function (res) { render(res); toast('Logo saved'); });
+      call('saveLogo', [dataUrl], function (res) { render(res); toast(W('admin.logoSaved')); });
     });
   });
 
   $('removeLogo').onclick = function () {
     var btn = this;
-    ask({ title: 'Remove the logo?', body: 'Pages will show your organization name instead.', ok: 'Remove logo', danger: true }, function () {
-      call('removeLogo', [], function (res) { render(res); toast('Logo removed'); }, btn);
+    ask({ title: W('admin.removeTheLogo'), body: W('admin.pagesWillShowYour'), ok: W('admin.removeLogo'), danger: true }, function () {
+      call('removeLogo', [], function (res) { render(res); toast(W('admin.logoRemoved')); }, btn);
     });
   };
 
   /** Downscale in the browser so the stored logo stays small; tries PNG, then WebP, then smaller sizes. */
   function shrinkImage(file, maxChars, done) {
     var reader = new FileReader();
-    reader.onerror = function () { done('Could not read that file.'); };
+    reader.onerror = function () { done(W('admin.couldNotReadThat')); };
     reader.onload = function () {
       var img = new Image();
-      img.onerror = function () { done('That file is not an image this browser can read.'); };
+      img.onerror = function () { done(W('admin.thatFileIsNot')); };
       img.onload = function () {
         var w = img.naturalWidth || 600, h = img.naturalHeight || 200;
         var scale = Math.min(1, 600 / w, 200 / h);
@@ -2359,7 +2455,7 @@
           if (webp.indexOf('data:image/webp') === 0 && webp.length <= maxChars) return done(null, webp);
           scale *= 0.75;
         }
-        done('That image is too detailed to use as a logo. Try a simpler or smaller version.');
+        done(W('admin.thatImageIsToo'));
       };
       img.src = reader.result;
     };

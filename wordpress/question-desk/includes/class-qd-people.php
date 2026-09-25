@@ -38,7 +38,7 @@ class QD_People {
 	/** Emails of everyone who manages Question Desk (site administrators and QA Desk Admins). */
 	public static function admins() {
 		$emails = array();
-		foreach ( get_users( array( 'role__in' => array( 'administrator', 'qd_admin' ), 'fields' => array( 'user_email' ) ) ) as $u ) {
+		foreach ( get_users( array( 'role__in' => array( QD_App::t( 'admin.roleAdministrator' ), 'qd_admin' ), 'fields' => array( 'user_email' ) ) ) as $u ) {
 			$emails[] = strtolower( $u->user_email );
 		}
 		return array_values( array_unique( $emails ) );
@@ -55,7 +55,7 @@ class QD_People {
 
 	/** What each role is called on screen and in the activity log. */
 	public static function role_name( $role ) {
-		$names = array( 'admin' => 'Administrator', 'moderator' => 'QA Facilitator', 'coordinator' => 'Event Coordinator' );
+		$names = array( 'admin' => 'Administrator', 'moderator' => QD_App::t( 'admin.roleFacilitator' ), 'coordinator' => QD_App::t( 'admin.roleCoordinator' ) );
 		return $names[ $role ] ?? $names['moderator'];
 	}
 
@@ -99,10 +99,10 @@ class QD_People {
 	public static function require_event( $eid ) {
 		$event = QD_Store::get_event( $eid );
 		if ( ! $event ) {
-			throw new QD_Error( 'Event not found.' );
+			throw new QD_Error( QD_App::t( 'err.eventNotFound' ) );
 		}
 		if ( ! self::can_coordinate( $event, self::current_email() ) ) {
-			throw new QD_Error( 'You are not an Event Coordinator for this event.' );
+			throw new QD_Error( QD_App::t( 'err.youAreNotAnEvent' ) );
 		}
 		return $event;
 	}
@@ -131,7 +131,7 @@ class QD_People {
 
 	public static function require_admin() {
 		if ( ! current_user_can( 'qd_manage' ) ) {
-			throw new QD_Error( 'Only administrators can do that.' );
+			throw new QD_Error( QD_App::t( 'err.onlyAdministratorsCanDoThat' ) );
 		}
 		return self::current_email();
 	}
@@ -142,7 +142,7 @@ class QD_People {
 			throw new QD_Error( 'Session not found.' );
 		}
 		if ( ! self::can_moderate( $session, self::current_email() ) ) {
-			throw new QD_Error( 'You are not a QA Facilitator for this session.' );
+			throw new QD_Error( QD_App::t( 'err.youAreNotAQa' ) );
 		}
 		return $session;
 	}
@@ -162,7 +162,7 @@ class QD_People {
 		$emails  = QD_Util::parse_emails( array( $email ) );
 		$address = $emails[0] ?? '';
 		if ( ! $address ) {
-			throw new QD_Error( 'Enter an email address.' );
+			throw new QD_Error( QD_App::t( 'err.enterAnEmailAddress' ) );
 		}
 		$wp_role = 'admin' === $role ? 'qd_admin' : ( 'coordinator' === $role ? 'qd_coordinator' : 'qd_facilitator' );
 		$user    = get_user_by( 'email', $address );
@@ -185,16 +185,51 @@ class QD_People {
 	}
 
 	/** Takes the role away (the WordPress account stays); a QA Facilitator also leaves every session and event. */
+	/**
+	 * The language one person reads the app in (appLanguage_ in server/strings.js). WordPress
+	 * already has somewhere to keep it, so it lives on the user rather than in an option.
+	 */
+	public static function set_person_language( $email = '', $code = '' ) {
+		self::require_admin();
+		$address = strtolower( trim( (string) $email ) );
+		$lang    = (string) $code;
+		if ( $lang && QD_App::app_language_code( $lang ) !== $lang ) {
+			throw new QD_Error( QD_App::t( 'err.notAnAppLanguage', array( 'code' => $lang ) ) );
+		}
+		$user = get_user_by( 'email', $address );
+		if ( $user && $user->ID ) {
+			if ( $lang && 'en' !== $lang ) {
+				update_user_meta( $user->ID, 'qd_lang', $lang );
+			} else {
+				delete_user_meta( $user->ID, 'qd_lang' );   // English is the default
+			}
+		}
+		QD_Activity::log( 'Person language set', null, $address . ': ' . ( $lang ? $lang : 'en' ) );
+		return QD_Admin::state();
+	}
+
+	/** Everyone who reads the app in something other than English, by address. */
+	public static function person_languages() {
+		$out = array();
+		foreach ( get_users( array( 'meta_key' => 'qd_lang', 'fields' => array( 'user_email' ) ) ) as $user ) {
+			$lang = get_user_meta( get_user_by( 'email', $user->user_email )->ID, 'qd_lang', true );
+			if ( $lang ) {
+				$out[ strtolower( $user->user_email ) ] = $lang;
+			}
+		}
+		return $out;
+	}
+
 	public static function remove_person( $role, $email ) {
 		$me      = self::require_admin();
 		$address = strtolower( trim( (string) $email ) );
 		$user    = $address ? get_user_by( 'email', $address ) : false;
 		if ( 'admin' === $role ) {
-			if ( $address === self::owner_email() || ( $user && in_array( 'administrator', (array) $user->roles, true ) ) ) {
-				throw new QD_Error( 'WordPress administrators always manage Question Desk. Change their role in Users.' );
+			if ( $address === self::owner_email() || ( $user && in_array( QD_App::t( 'admin.roleAdministrator' ), (array) $user->roles, true ) ) ) {
+				throw new QD_Error( QD_App::t( 'wp.err.wordpressAdmins' ) );
 			}
 			if ( $address === $me ) {
-				throw new QD_Error( 'You cannot remove yourself. Ask another administrator.' );
+				throw new QD_Error( QD_App::t( 'err.youCannotRemoveYourselfAsk' ) );
 			}
 			if ( $user ) {
 				$user->remove_role( 'qd_admin' );

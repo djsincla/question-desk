@@ -43,10 +43,10 @@ function saveEvent(input) {
   const me = requireAdmin_();
   input = input || {};
   const name = cleanText_(input.name, 80);
-  if (!name) throw new Error('Give the event a name.');
+  if (!name) throw new Error(t_('err.giveTheEventAName'));
   const color = function (value, label) {
     const v = String(value || '').trim();
-    if (v && !HEX_RE.test(v)) throw new Error(label + ' must be a color like #1b5e5a.');
+    if (v && !HEX_RE.test(v)) throw new Error(t_('err.colorFormat', { label: label }));
     return v.toLowerCase();
   };
   const languages = input.languages === undefined || input.languages === null || (Array.isArray(input.languages) && !input.languages.length)
@@ -61,29 +61,31 @@ function saveEvent(input) {
   const coordinators = onList('COORDINATORS', input.coordinators);
   const brand = {
     orgName: cleanText_(input.orgName, 80),
-    accent: color(input.accent, 'The accent'),
+    accent: color(input.accent, t_('err.label.accent')),
     welcome: cleanText_(input.welcome, 200),
     footer: cleanText_(input.footer, 160),
-    roomBgDark: color(input.roomBgDark, 'The dark background'),
-    roomBgLight: color(input.roomBgLight, 'The light background')
+    roomBgDark: color(input.roomBgDark, t_('err.label.darkBackground')),
+    roomBgLight: color(input.roomBgLight, t_('err.label.lightBackground'))
   };
   let id = input.id;
   withLock_(function () {
     if (id) {
       const ev = getEvent_(id);
-      if (!ev) throw new Error('Event not found.');
+      if (!ev) throw new Error(t_('err.eventNotFound'));
       ev.name = name;
       ev.brand = brand;
       if (input.languages !== undefined) ev.languages = languages;   // null: use the site's
       if (moderators !== undefined) ev.moderators = moderators;
       if (coordinators !== undefined) ev.coordinators = coordinators;
+      if (input.roomLanguage !== undefined) ev.roomLanguage = cleanAppLanguage_(input.roomLanguage);
       saveEvent_(ev);
       audit_('Event edited', { id: ev.id, eventName: name }, '');
     } else {
       const orders = allEvents_().map(function (e) { return typeof e.order === 'number' ? e.order : 0; });
       id = newId_(8);
       saveEvent_({ id: id, name: name, brand: brand, languages: languages, moderators: moderators || [],
-                   coordinators: coordinators || [], hasLogo: false, created: Date.now(), createdBy: me,
+                   coordinators: coordinators || [], roomLanguage: cleanAppLanguage_(input.roomLanguage),
+                   hasLogo: false, created: Date.now(), createdBy: me,
                    order: orders.length ? Math.min.apply(null, orders) - 1 : 0 });
       audit_('Event created', { id: id, eventName: name }, '');
     }
@@ -97,7 +99,7 @@ function saveEvent(input) {
 
 function reorderEvents(ids) {
   requireAdmin_();
-  if (!Array.isArray(ids)) throw new Error('Send the events in their new order.');
+  if (!Array.isArray(ids)) throw new Error(t_('err.sendTheEventsInTheir'));
   withLock_(function () {
     const events = allEvents_();
     const byId = {};
@@ -115,7 +117,7 @@ function reorderEvents(ids) {
 function deleteEvent(eid, typedName) {
   requireAdmin_();
   const ev = getEvent_(eid);
-  if (!ev) throw new Error('Event not found.');
+  if (!ev) throw new Error(t_('err.eventNotFound'));
   requireTypedName_(ev, typedName, 'event');
   withLock_(function () {
     allSessions_().forEach(function (s) {
@@ -130,7 +132,7 @@ function deleteEvent(eid, typedName) {
 
 function saveEventLogo(eid, dataUrl) {
   requireAdmin_();
-  if (!getEvent_(eid)) throw new Error('Event not found.');
+  if (!getEvent_(eid)) throw new Error(t_('err.eventNotFound'));
   setAsset_('event:' + eid, cleanLogo_(dataUrl));
   withLock_(function () { const ev = getEvent_(eid); ev.hasLogo = true; saveEvent_(ev); });
   audit_('Event logo changed', { id: eid, eventName: getEvent_(eid).name }, '');
@@ -139,7 +141,7 @@ function saveEventLogo(eid, dataUrl) {
 
 function removeEventLogo(eid) {
   requireAdmin_();
-  if (!getEvent_(eid)) throw new Error('Event not found.');
+  if (!getEvent_(eid)) throw new Error(t_('err.eventNotFound'));
   setAsset_('event:' + eid, '');
   withLock_(function () { const ev = getEvent_(eid); ev.hasLogo = false; saveEvent_(ev); });
   audit_('Event logo removed', { id: eid, eventName: getEvent_(eid).name }, '');
@@ -163,16 +165,16 @@ function getEventLogo(eid) {
 function emailEventFacilitators(eid) {
   requireAdmin_();
   const ev = getEvent_(eid);
-  if (!ev) throw new Error('Event not found.');
+  if (!ev) throw new Error(t_('err.eventNotFound'));
   const sessions = allSessions_().filter(function (s) { return s.eventId === eid && !s.loadTest && s.status !== 'ended'; })
     .sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
-  if (!sessions.length) throw new Error('This event has no sessions that haven\'t ended.');
+  if (!sessions.length) throw new Error(t_('err.thisEventHasNoSessions'));
   const byPerson = {};
   sessions.forEach(function (s) {
     facilitatorsFor_(s).forEach(function (e) { (byPerson[e] = byPerson[e] || []).push(s); });
   });
   const people = Object.keys(byPerson);
-  if (!people.length) throw new Error('No QA Facilitators are assigned to this event or its sessions.');
+  if (!people.length) throw new Error(t_('err.noQaFacilitatorsAreAssigned'));
   checkQuota_(people.length);
 
   const tz = Session.getScriptTimeZone();
@@ -185,9 +187,9 @@ function emailEventFacilitators(eid) {
   const eventBrand = brand_(sessions[0]);
   people.forEach(function (address) {
     const list = byPerson[address];
-    const body = '<p style="margin:0 0 18px">The ' + (list.length === 1 ? 'session' : list.length + ' sessions') +
-      ' you are running in ' + esc_(ev.name) + '. Each link opens that session\'s question queue, and needs your ' +
-      esc_(domain) + ' account.</p>' +
+    const lang = appLanguage_(address);
+    const body = '<p style="margin:0 0 18px">' +
+      esc_(tn_('mail.linksLead', list.length, { event: ev.name, domain: domain }, lang)) + '</p>' +
       list.map(function (s) {
         const links = sessionLinks_(s);
         const accent = brand_(s).accent;
@@ -197,10 +199,10 @@ function emailEventFacilitators(eid) {
         return '<p style="margin:0 0 20px;padding-left:10px;border-left:3px solid ' + accent + '"><strong>' + esc_(s.name) + '</strong>' +
           (s.room ? ' <span style="color:#5c6874">· ' + esc_(s.room) + '</span>' : '') +
           (when(s) ? '<br><span style="color:#5c6874">' + esc_(when(s)) + '</span>' : '') +
-          link('QA Facilitator queue', links.moderate) + '</p>';
+          link(esc_(t_('mail.linksQueue', null, lang)), links.moderate) + '</p>';
       }).join('');
     MailApp.sendEmail({
-      to: address, subject: ev.name + ' — your Question Desk sessions',
+      to: address, subject: t_('mail.linksSubject', { event: ev.name }, lang),
       htmlBody: emailShell_(eventBrand, esc_(ev.name), body), name: eventBrand.orgName || 'Question Desk'
     });
   });
@@ -210,8 +212,8 @@ function emailEventFacilitators(eid) {
 }
 
 /** The review as email HTML, or a line saying why there isn't one. */
-function reviewSection_(result, brand) {
-  if (!result || !result.ok) return reviewProblem_(result && result.error);
+function reviewSection_(result, brand, lang) {
+  if (!result || !result.ok) return reviewProblem_(result && result.error, lang);
   const r = result.review;
   const head = function (text) {
     return '<h2 style="font-size:15px;margin:18px 0 6px;color:#16202b">' + esc_(text) + '</h2>';
@@ -220,34 +222,35 @@ function reviewSection_(result, brand) {
     return '<p style="margin:0 0 10px;color:#3c4854">' + esc_(text) + '</p>';
   };
   let html = '<div style="background:#f5f7f9;border-left:4px solid ' + brand.accent + ';padding:14px 18px;margin:0 0 26px">' +
-    '<h1 style="font-size:17px;margin:0 0 4px">What the questions say</h1>' +
-    '<p style="margin:0 0 12px;color:#5c6874;font-size:13px">Written by Gemini from ' + result.reviewed +
-    ' of the ' + result.questions + (result.questions === 1 ? ' question' : ' questions') + ' asked across ' +
-    result.sessions + (result.sessions === 1 ? ' session' : ' sessions') + '. Read it as a starting point, not a verdict.</p>' +
+    '<h1 style="font-size:17px;margin:0 0 4px">' + esc_(t_('mail.reviewTitle', null, lang)) + '</h1>' +
+    '<p style="margin:0 0 12px;color:#5c6874;font-size:13px">' + esc_(t_('mail.reviewSource', {
+      reviewed: result.reviewed,
+      questions: tn_('mail.reviewQuestions', result.questions, null, lang),
+      sessions: tn_('mail.reviewSessions', result.sessions, null, lang)
+    }, lang)) + '</p>' +
     note(r.sentiment);
 
   if (r.themes && r.themes.length) {
-    html += head('Themes worth acting on');
+    html += head(t_('mail.reviewThemes', null, lang));
     html += '<ol style="margin:0 0 4px;padding-left:20px;color:#3c4854">' + r.themes.map(function (t) {
       return '<li style="margin-bottom:10px"><strong>' + esc_(t.title) + '</strong><br>' + esc_(t.what) +
-        '<br><span style="color:#5c6874">Next time: ' + esc_(t.nextTime) + '</span></li>';
+        '<br><span style="color:#5c6874">' + esc_(t_('mail.reviewNextTime', { what: t.nextTime }, lang)) + '</span></li>';
     }).join('') + '</ol>';
   }
   if (r.logistics && r.logistics.length) {
-    html += head('Running the event');
+    html += head(t_('mail.reviewLogistics', null, lang));
     html += '<ul style="margin:0 0 4px;padding-left:20px;color:#3c4854">' + r.logistics.map(function (l) {
       return '<li style="margin-bottom:8px">' + esc_(l.issue) +
-        '<br><span style="color:#5c6874">Next time: ' + esc_(l.nextTime) + '</span></li>';
+        '<br><span style="color:#5c6874">' + esc_(t_('mail.reviewNextTime', { what: l.nextTime }, lang)) + '</span></li>';
     }).join('') + '</ul>';
   }
   if (r.individual && r.individual.count) {
-    html += head('Questions about one person\'s situation');
-    html += note(r.individual.count + (r.individual.count === 1 ? ' question was' : ' questions were') +
-      ' about somebody\'s own circumstances. ' + r.individual.pattern);
-    html += note('For everyone in that position: ' + r.individual.atScale);
+    html += head(t_('mail.reviewIndividual', null, lang));
+    html += note(tn_('mail.reviewIndividualCount', r.individual.count, { pattern: r.individual.pattern }, lang));
+    html += note(t_('mail.reviewAtScale', { what: r.individual.atScale }, lang));
   }
   if (r.sessionIdeas && r.sessionIdeas.length) {
-    html += head('Sessions to consider next time');
+    html += head(t_('mail.reviewSessionIdeas', null, lang));
     html += '<ul style="margin:0;padding-left:20px;color:#3c4854">' + r.sessionIdeas.map(function (idea) {
       return '<li style="margin-bottom:4px">' + esc_(idea) + '</li>';
     }).join('') + '</ul>';
@@ -255,33 +258,33 @@ function reviewSection_(result, brand) {
   return html + '</div>';
 }
 
-function reviewProblem_(why) {
+function reviewProblem_(why, lang) {
   return '<p style="background:#f5f7f9;padding:12px 16px;margin:0 0 26px;color:#5c6874">' +
-    'The questions are below, but no review was written this time. ' + esc_(why || '') + '</p>';
+    esc_(t_('mail.reviewMissing', { why: why || '' }, lang)) + '</p>';
 }
 
 function emailEventSummary(eid, recipients) {
   requireAdmin_();
   const ev = getEvent_(eid);
-  if (!ev) throw new Error('Event not found.');
+  if (!ev) throw new Error(t_('err.eventNotFound'));
   const sessions = allSessions_().filter(function (s) { return s.eventId === eid && !s.loadTest; });
-  if (!sessions.length) throw new Error('This event has no sessions yet.');
+  if (!sessions.length) throw new Error(t_('err.thisEventHasNoSessions2'));
   let to = recipients && recipients.length ? parseEmails_(recipients) : [];
   if (!to.length) {
     sessions.forEach(function (s) { summaryRecipients_(s).forEach(function (e) { if (to.indexOf(e) === -1) to.push(e); }); });
     to = to.slice(0, CONFIG.maxRecipients);
   }
-  if (!to.length) throw new Error('Add at least one recipient.');
+  if (!to.length) throw new Error(t_('err.addAtLeastOneRecipient'));
   checkQuota_(to.length);
 
   const brand = brand_(sessions[0]);
   // What the questions say about the event, before the questions themselves.
   let review = '';
   try {
-    review = reviewSection_(eventReview_(eid), brand);
+    review = reviewSection_(eventReview_(eid), brand, siteLanguage_());
   } catch (err) {
     console.error('Event review: ' + err);
-    review = reviewProblem_('The review could not be made: ' + err);
+    review = reviewProblem_(t_('list.reviewFailed', { why: String(err) }));
   }
   let body = '<p style="color:#5c6874;margin:0 0 8px">' + sessions.length + (sessions.length === 1 ? ' session' : ' sessions') + '</p>';
   let header = null;
@@ -294,7 +297,7 @@ function emailEventSummary(eid, recipients) {
     body += '<h1 style="font-size:19px;margin:32px 0 4px;padding-top:12px;border-top:1px solid #d9dee3">' + esc_(s.name) + '</h1>' + content.body;
     content.rows.forEach(function (r) { csvRows.push([s.name].concat(r)); });
   });
-  body = body.replace('</p>', ' · ' + questions + ' questions</p>') + '';
+  body = body.replace('</p>', esc_(t_('mail.eventQuestions', { n: questions })) + '</p>') + '';
   body = body.replace('</p>', '</p>' + review);   // the review sits under the counts
   const csv = [header].concat(csvRows).map(function (r) { return r.map(csvCell_).join(','); }).join('\r\n');
   const filename = ev.name.replace(/[^\w -]+/g, '').trim().replace(/\s+/g, '-') || 'event';
@@ -302,8 +305,8 @@ function emailEventSummary(eid, recipients) {
   to.forEach(function (address) {
     MailApp.sendEmail({
       to: address,
-      subject: ev.name + ' — questions summary for the whole event',
-      htmlBody: emailShell_(brand, esc_(ev.name) + ' — questions', body),
+      subject: t_('mail.eventSummarySubject', { event: ev.name }),
+      htmlBody: emailShell_(brand, esc_(t_('mail.eventSummaryTitle', { event: ev.name })), body),
       attachments: [blob],
       name: brand.orgName || 'Question Desk'
     });
@@ -344,7 +347,7 @@ function duplicateSession_(sid, eventId, me, keepName) {
 function duplicateEvent(eid) {
   const me = requireAdmin_();
   const ev = getEvent_(eid);
-  if (!ev) throw new Error('Event not found.');
+  if (!ev) throw new Error(t_('err.eventNotFound'));
   const copy = createEvent_(cleanText_(ev.name + ' (copy)', 80), me);
   withLock_(function () {
     const fresh = getEvent_(copy.id);
@@ -379,17 +382,19 @@ function duplicateEvent(eid) {
 function eventChecklist(eid) {
   requireAdmin_();
   const ev = getEvent_(eid);
-  if (!ev) throw new Error('Event not found.');
+  if (!ev) throw new Error(t_('err.eventNotFound'));
   const tz = Session.getScriptTimeZone();
   const fmt = function (ms) { return Utilities.formatDate(new Date(ms), tz, 'EEE MMM d, h:mm a'); };
   const now = Date.now();
   const health = health_();
   const trigger = ScriptApp.getProjectTriggers().some(function (t) { return t.getHandlerFunction() === 'clusterQuestions'; });
   const site = [
-    { label: 'Question grouping runs every minute', ok: trigger, detail: trigger ? '' : 'Run setUp() in the Apps Script editor.' },
-    { label: 'Gemini is set up', ok: !!props_().getProperty('GEMINI_API_KEY') && !health.failures,
-      detail: !props_().getProperty('GEMINI_API_KEY') ? 'No Gemini API key: add one under Health & testing.' : health.failures ? 'Grouping failed ' + health.failures + ' times in a row: ' + (health.lastError || '') : '' },
-    { label: 'Email quota', ok: MailApp.getRemainingDailyQuota() >= 20, detail: MailApp.getRemainingDailyQuota() + ' emails left today' }
+    { label: t_('list.groupingRuns'), ok: trigger, detail: trigger ? '' : t_('list.runSetUp') },
+    { label: t_('list.geminiSetUp'), ok: !!props_().getProperty('GEMINI_API_KEY') && !health.failures,
+      detail: !props_().getProperty('GEMINI_API_KEY') ? t_('list.geminiNoKey')
+        : health.failures ? t_('list.geminiFailing', { n: health.failures, why: health.lastError || '' }) : '' },
+    { label: t_('list.emailQuota'), ok: MailApp.getRemainingDailyQuota() >= 20,
+      detail: t_('list.emailsLeft', { n: MailApp.getRemainingDailyQuota() }) }
   ];
   const sessions = allSessions_().filter(function (s) { return s.eventId === eid && !s.loadTest; }).map(function (s) {
     const links = sessionLinks_(s);
@@ -397,24 +402,25 @@ function eventChecklist(eid) {
     const recipients = summaryRecipients_(s);
     const checks = [];
     if (s.status === 'ended') {
-      checks.push({ label: 'Ended', ok: true, detail: s.summarySent ? 'Summary emailed ' + fmt(s.summarySent) : (s.summaryPending ? 'Summary not sent yet: ' + s.summaryPending.error : '') });
+      checks.push({ label: t_('list.ended'), ok: true, detail: s.summarySent ? t_('list.summaryEmailed', { at: fmt(s.summarySent) })
+        : (s.summaryPending ? t_('list.summaryNotSent', { why: s.summaryPending.error }) : '') });
     } else {
       checks.push(s.status === 'active'
-        ? { label: 'Active and taking questions', ok: s.open !== false, detail: s.open === false ? 'Questions are paused.' : '' }
+        ? { label: t_('list.activeTaking'), ok: s.open !== false, detail: s.open === false ? t_('list.paused') : '' }
         : s.scheduledStart && !s.scheduleStarted
-          ? { label: 'Starts on its own', ok: s.scheduledStart > now, detail: fmt(s.scheduledStart) }
-          : { label: 'Not active', ok: null, detail: 'Activate it on the Sessions tab when doors open.' });
+          ? { label: t_('list.startsOnItsOwn'), ok: s.scheduledStart > now, detail: fmt(s.scheduledStart) }
+          : { label: t_('list.notActive'), ok: null, detail: t_('list.activateWhenDoorsOpen') });
       checks.push(s.scheduledEnd
-        ? { label: 'Ends on its own', ok: s.scheduledEnd > now, detail: fmt(s.scheduledEnd) }
-        : { label: 'No scheduled end', ok: null, detail: 'End it by hand afterwards.' });
-      checks.push({ label: 'QA Facilitators', ok: facilitators.length > 0, detail: facilitators.join(', ') || 'Nobody can run the queue except administrators.' });
-      checks.push({ label: 'Summary email', ok: !s.emailOnEnd ? null : recipients.length > 0,
-        detail: !s.emailOnEnd ? 'Not emailed when it ends.' : recipients.length ? 'To ' + recipients.join(', ') : 'Turned on, but nobody would get it.' });
+        ? { label: t_('list.endsOnItsOwn'), ok: s.scheduledEnd > now, detail: fmt(s.scheduledEnd) }
+        : { label: t_('list.noScheduledEnd'), ok: null, detail: t_('list.endByHand') });
+      checks.push({ label: t_('list.facilitators'), ok: facilitators.length > 0, detail: facilitators.join(', ') || t_('list.nobodyCanRun') });
+      checks.push({ label: t_('list.summaryEmail'), ok: !s.emailOnEnd ? null : recipients.length > 0,
+        detail: !s.emailOnEnd ? t_('list.notEmailed') : recipients.length ? t_('list.summaryTo', { who: recipients.join(', ') }) : t_('list.nobodyWouldGet') });
       const g = guestChoice_(s.guestPage);
-      const uses = [g.room ? 'room screen' : '', g.slide ? 'PowerPoint slide' : '', g.panel ? 'panelist view' : ''].filter(Boolean);
-      checks.push({ label: 'Guest page', ok: uses.length ? true : null,
-        detail: uses.length ? 'For ' + uses.join(', ') : 'Off: browsers signed into several Google accounts may see "Sorry, unable to open the file".' });
-      checks.push({ label: 'Prepared questions', ok: true, detail: String(sessionRows_(s.id, true).filter(function (q) { return q.status === 'prepared'; }).length) });
+      const uses = [g.room ? t_('list.guestRoom') : '', g.slide ? t_('list.guestSlide') : '', g.panel ? t_('list.guestPanel') : ''].filter(Boolean);
+      checks.push({ label: t_('list.guestPage'), ok: uses.length ? true : null,
+        detail: uses.length ? t_('list.guestFor', { uses: uses.join(', ') }) : t_('list.guestOff') });
+      checks.push({ label: t_('list.prepared'), ok: true, detail: String(sessionRows_(s.id, true).filter(function (q) { return q.status === 'prepared'; }).length) });
     }
     return {
       id: s.id, name: s.name, status: s.status, access: s.access,

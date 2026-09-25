@@ -8,8 +8,8 @@
 <body>
 <div class="toolbar">
   <p id="intro"></p>
-  <button type="button" class="primary" id="print">Print</button>
-  <button type="button" id="images">Download QR images</button>
+  <button type="button" class="primary" id="print" data-w="sheet.print">Print</button>
+  <button type="button" id="images" data-w="sheet.download">Download QR images</button>
 </div>
 <div id="pages"></div>
 <div class="save-these" id="saveThese" hidden></div>
@@ -18,6 +18,7 @@
 <?!= scripts ?>
 <script>
   var BOOT = <?!= boot ?>;
+  fillWords();
   var brand = BOOT.brand || {};
   // "Scan to ask" in each language, from UI_TEXT.screen in Code.js.
   var TEXT = BOOT.text;
@@ -37,15 +38,15 @@
   function qrSvg(url) {
     var scratch = document.createElement('div');
     var q = new QRCode(scratch, { text: url, width: 64, height: 64, correctLevel: QRCode.CorrectLevel.M });
-    return qrArt(q._oQRCode, 'QR code');
+    return qrArt(q._oQRCode, W('sheet.qr'));
   }
 
   var printable = BOOT.sessions.filter(function (s) { return s.url; });
   var roomOnly = BOOT.sessions.filter(function (s) { return !s.url; });
-  document.title = BOOT.eventName + ' — QR sheets';
+  document.title = W('sheet.pageTitle', { event: BOOT.eventName });
   document.getElementById('intro').textContent = printable.length
-    ? printable.length + (printable.length === 1 ? ' page' : ' pages') + ' for ' + BOOT.eventName + ', one per shareable-link session. Print on letter or A4.'
-    : 'No sessions in ' + BOOT.eventName + ' use a shareable link, so there is nothing to print.';
+    ? Wn('sheet.intro', printable.length, { event: BOOT.eventName })
+    : W('sheet.nothing', { event: BOOT.eventName });
   document.getElementById('print').hidden = !printable.length;
 
   printable.forEach(function (s) {
@@ -57,7 +58,7 @@
     if (s.heading) page.appendChild(el('p', 'heading', s.heading));
     var qr = el('div', 'qr');
     qr.appendChild(qrSvg(s.url));
-    qr.firstChild.setAttribute('aria-label', 'QR code for ' + s.name);
+    qr.firstChild.setAttribute('aria-label', W('sheet.qrFor', { name: s.name }));
     page.appendChild(qr);
     var scan = el('p', 'scan', TEXT.en.caption);
     langs.forEach(function (code) {
@@ -74,8 +75,7 @@
 
   if (roomOnly.length) {
     var skipped = document.getElementById('skipped');
-    skipped.textContent = 'Not printed (in-room sessions join by the changing code on the room screen): ' +
-      roomOnly.map(function (s) { return s.name; }).join(', ') + '.';
+    skipped.textContent = W('sheet.skipped', { names: roomOnly.map(function (s) { return s.name; }).join(', ') });
     skipped.hidden = false;
   }
 
@@ -139,7 +139,7 @@
     (function next() {
       if (at >= printable.length) {
         images.disabled = false;
-        images.textContent = saved ? 'Download QR images' : 'Save each image below';
+        images.textContent = W(saved ? 'sheet.download' : 'sheet.downloadFallback');
         return;
       }
       var s = printable[at++];
@@ -171,11 +171,11 @@
     var box = document.getElementById('saveThese');
     if (box.hidden) {
       box.hidden = false;
-      box.appendChild(el('p', null, 'Right-click (or press and hold) each image to save it.'));
+      box.appendChild(el('p', null, W('sheet.saveByHand')));
     }
     var img = el('img');
     img.src = data;
-    img.alt = 'QR code for ' + label(s);
+    img.alt = W('sheet.qrFor', { name: label(s) });
     img.title = fileName(s);
     box.appendChild(img);
   }

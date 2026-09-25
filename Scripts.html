@@ -21,6 +21,51 @@
   }
 </script>
 
+<script data-pages="Admin Coordinator Home Moderate Panel Present Sheet">
+  /*
+   * Words. The server resolves the reader's language and sends that one as BOOT.words (see
+   * APP_TEXT in server/strings.js), so a page never carries a phrase list of its own.
+   *
+   * Static markup keeps its English and names its key: <h1 data-w="coord.title">Event
+   * logistics</h1>. fillWords() overwrites it only when the page is being read in another
+   * language, so the English path substitutes nothing at all. Attributes use data-w-ph
+   * (placeholder), data-w-t (title) and data-w-a (aria-label). Text built in script has no
+   * markup to keep, so it calls W() or Wn() instead.
+   */
+  function W(key, vars) {
+    var text = (BOOT.words && BOOT.words[key]) || '';
+    if (!vars) return text;
+    return text.replace(/\{(\w+)\}/g, function (whole, name) {
+      return vars[name] === undefined || vars[name] === null ? whole : String(vars[name]);
+    });
+  }
+
+  /** W() for a count: the catalog holds key.one and key.other. More forms go here, not at the call sites. */
+  function Wn(key, n, vars) {
+    var form = Number(n) === 1 ? 'one' : 'other';
+    var all = {};
+    if (vars) for (var name in vars) if (vars.hasOwnProperty(name)) all[name] = vars[name];
+    if (all.n === undefined) all.n = n;
+    var counted = key + '.' + form;
+    return W(counted, all);
+  }
+
+  function fillWords() {
+    document.documentElement.lang = BOOT.lang || 'en';
+    if (!BOOT.lang || BOOT.lang === 'en') return;   // the markup already says it in English
+    var pairs = [['data-w', 'textContent'], ['data-w-ph', 'placeholder'], ['data-w-t', 'title'], ['data-w-a', 'ariaLabel']];
+    pairs.forEach(function (pair) {
+      var nodes = document.querySelectorAll('[' + pair[0] + ']');
+      for (var i = 0; i < nodes.length; i++) {
+        var said = W(nodes[i].getAttribute(pair[0]));
+        if (!said) continue;
+        if ('data-w-a' === pair[0]) nodes[i].setAttribute('aria-label', said);
+        else nodes[i][pair[1]] = said;
+      }
+    });
+  }
+</script>
+
 <script data-pages="Admin Moderate">
   /*
    * The in-page confirm dialog (pages never use confirm(): in Google's sandbox it shows a
@@ -36,7 +81,7 @@
   function ask(opts, onOk) {
     $('dialogTitle').textContent = opts.title;
     $('dialogBody').textContent = opts.body || '';
-    $('dialogOk').textContent = opts.ok || 'OK';
+    $('dialogOk').textContent = opts.ok || W('shared.dialog.ok');
     $('dialogOk').className = opts.danger ? 'danger-solid' : 'primary';
     $('dialogCancel').hidden = !!opts.noCancel;
     dialogExpect = $('dialogType') ? opts.typeToConfirm || '' : '';
@@ -46,7 +91,7 @@
     }
     if (dialogExpect) {
       var label = $('dialogTypeLabel');
-      label.textContent = 'To confirm, type ';
+      label.textContent = W('shared.dialog.typePrompt');
       label.appendChild(el('span', 'typed', dialogExpect));
     }
     $('dialogOk').disabled = !!dialogExpect;

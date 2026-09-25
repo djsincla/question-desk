@@ -79,8 +79,8 @@ class QD_Gemini {
 		$body = (string) wp_remote_retrieve_body( $response );
 		if ( 200 !== $code ) {
 			$hint = 404 === $code ? ' — model ' . $settings['model'] . ' not found; it may have been retired. Choose another model under Admin → Health → Gemini.'
-				: ( 429 === $code ? ' — rate limited or out of quota.'
-				: ( in_array( $code, array( 400, 401, 403 ), true ) ? ' — the API key was rejected or the request is invalid.' : '' ) );
+				: ( 429 === $code ? QD_App::t( 'gem.hintRateLimited' )
+				: ( in_array( $code, array( 400, 401, 403 ), true ) ? QD_App::t( 'gem.hintKeyRejected' ) : '' ) );
 			return array( 'ok' => false, 'status' => $code, 'answered' => false, 'error' => 'Gemini ' . $code . $hint . ' ' . substr( $body, 0, 200 ) );
 		}
 		$parsed = json_decode( $body, true );
@@ -151,10 +151,10 @@ class QD_Gemini {
 
 	public static function prompt_labels() {
 		return array(
-			'grouping'    => 'Grouping and translating questions',
-			'translating' => 'Translating a question on its own',
-			'merging'     => 'Writing a topic\'s read-out question',
-			'review'      => 'Reviewing an event afterwards',
+			'grouping'    => QD_App::t( 'gem.label.grouping' ),
+			'translating' => QD_App::t( 'gem.label.translating' ),
+			'merging'     => QD_App::t( 'gem.label.merging' ),
+			'review'      => QD_App::t( 'gem.label.review' ),
 		);
 	}
 
@@ -320,7 +320,7 @@ class QD_Gemini {
 	public static function save_prompt( $task = '', $text = '' ) {
 		QD_People::require_admin();
 		if ( ! in_array( $task, self::PROMPT_TASKS, true ) ) {
-			throw new QD_Error( 'Unknown prompt.' );
+			throw new QD_Error( QD_App::t( 'err.unknownPrompt' ) );
 		}
 		$clean  = trim( (string) $text );
 		$saved  = self::saved_prompts();
@@ -332,7 +332,7 @@ class QD_Gemini {
 			return QD_Admin::state();
 		}
 		if ( strlen( $clean ) > 8000 ) {
-			throw new QD_Error( 'That prompt is too long: keep it under 8000 characters.' );
+			throw new QD_Error( QD_App::t( 'err.thatPromptIsTooLong' ) );
 		}
 		$missing = array();
 		foreach ( self::prompt_needs()[ $task ] as $need ) {
@@ -341,7 +341,7 @@ class QD_Gemini {
 			}
 		}
 		if ( $missing ) {
-			throw new QD_Error( 'The prompt must still contain ' . implode( ' and ', $missing )
+			throw new QD_Error( 'The prompt must still contain ' . implode( QD_App::t( 'err.promptNeedsJoin' ), $missing )
 				. ', or Question Desk has nothing to send. Put it back, or use Reset.' );
 		}
 		$saved[ $task ] = $clean;
@@ -354,7 +354,7 @@ class QD_Gemini {
 	public static function save_key( $key = '' ) {
 		QD_People::require_admin();
 		if ( defined( 'QD_GEMINI_API_KEY' ) ) {
-			throw new QD_Error( 'The key is set in wp-config.php (QD_GEMINI_API_KEY). Change it there.' );
+			throw new QD_Error( QD_App::t( 'wp.err.keyInConfig' ) );
 		}
 		$clean = trim( (string) $key );
 		if ( '' === $clean ) {
@@ -363,7 +363,7 @@ class QD_Gemini {
 			return QD_Admin::state();
 		}
 		if ( ! preg_match( '/^[A-Za-z0-9_-]{20,120}$/', $clean ) ) {
-			throw new QD_Error( 'That does not look like a Gemini API key. Copy it from aistudio.google.com.' );
+			throw new QD_Error( QD_App::t( 'err.thatDoesNotLookLike' ) );
 		}
 		update_option( 'qd_gemini_key', $clean, false );
 		QD_Activity::log( 'Gemini API key changed', null, '' );
@@ -441,7 +441,7 @@ class QD_Gemini {
 
 		$lang  = QD_App::config( 'moderatorLanguage' );
 		$codes = QD_Settings::translation_codes( $session );
-		$names = implode( ' and ', array_map( array( 'QD_Settings', 'language_name' ), $codes ) );
+		$names = implode( QD_App::t( 'err.promptNeedsJoin' ), array_map( array( 'QD_Settings', 'language_name' ), $codes ) );
 		$lines = array();
 		foreach ( $pending as $q ) {
 			$lines[] = wp_json_encode( array( 'id' => $q['id'], 'text' => $q['text'] ) );
@@ -497,7 +497,7 @@ class QD_Gemini {
 		}
 		$assignments = $response['data']['assignments'] ?? null;
 		if ( ! is_array( $assignments ) ) {
-			throw new QD_Error( 'Grouping failed: Gemini returned no assignments.' );
+			throw new QD_Error( QD_App::t( 'err.groupingFailedGeminiReturnedNo' ) );
 		}
 
 		$wanted = array();
@@ -588,7 +588,7 @@ class QD_Gemini {
 			return 0;
 		}
 		$lang  = QD_App::config( 'moderatorLanguage' );
-		$names = implode( ' and ', array_map( array( 'QD_Settings', 'language_name' ), $codes ) );
+		$names = implode( QD_App::t( 'err.promptNeedsJoin' ), array_map( array( 'QD_Settings', 'language_name' ), $codes ) );
 		$lines = array();
 		foreach ( $todo as $q ) {
 			$lines[] = wp_json_encode( array( 'id' => $q['id'], 'text' => $q['text'] ) );
@@ -678,10 +678,10 @@ class QD_Gemini {
 			}
 		}
 		if ( ! $rows ) {
-			return array( 'ok' => false, 'error' => 'This topic has no questions left to merge.' );
+			return array( 'ok' => false, 'error' => QD_App::t( 'gem.noQuestionsToMerge' ) );
 		}
 		$codes  = QD_Settings::translation_codes( $session );
-		$names  = implode( ' and ', array_map( array( 'QD_Settings', 'language_name' ), $codes ) );
+		$names  = implode( QD_App::t( 'err.promptNeedsJoin' ), array_map( array( 'QD_Settings', 'language_name' ), $codes ) );
 		$prompt = self::render_prompt( 'merging', array(
 			'topic'         => $topic,
 			'language'      => QD_App::config( 'moderatorLanguage' ),
@@ -725,7 +725,7 @@ class QD_Gemini {
 			}
 		}
 		if ( ! $exists ) {
-			throw new QD_Error( 'That topic has no questions.' );
+			throw new QD_Error( QD_App::t( 'err.thatTopicHasNoQuestions' ) );
 		}
 		$clean  = QD_Util::clean_text( $text, 400 );
 		$labels = array();
@@ -738,7 +738,7 @@ class QD_Gemini {
 			);
 			$prompt = implode( "\n", array(
 				'A facilitator will read this question aloud at a live meeting. Translate it into '
-					. implode( ' and ', array_map( array( 'QD_Settings', 'language_name' ), $codes ) ) . '.',
+					. implode( QD_App::t( 'err.promptNeedsJoin' ), array_map( array( 'QD_Settings', 'language_name' ), $codes ) ) . '.',
 				'Translate faithfully: keep the tone, keep criticism as sharp as it was written, and do not',
 				'smooth over or soften anything.',
 				'',
@@ -770,7 +770,7 @@ class QD_Gemini {
 	public static function event_review( $eid ) {
 		$event = QD_Store::get_event( $eid );
 		if ( ! $event ) {
-			throw new QD_Error( 'Event not found.' );
+			throw new QD_Error( QD_App::t( 'err.eventNotFound' ) );
 		}
 		// No cap rather than no review, if an older build of the shared data doesn't carry one.
 		$max      = (int) QD_App::config( 'reviewMaxQuestions' );
@@ -803,7 +803,7 @@ class QD_Gemini {
 			}
 		}
 		if ( ! $lines ) {
-			return array( 'ok' => false, 'error' => 'This event has no questions to review yet.' );
+			return array( 'ok' => false, 'error' => QD_App::t( 'gem.noQuestionsToReview' ) );
 		}
 
 		$prompt = self::render_prompt( 'review', array( 'questions' => implode( "\n", $lines ) ) );
@@ -859,21 +859,21 @@ class QD_Gemini {
 		$error  = (string) ( $response['error'] ?? '' );
 		$status = (int) ( $response['status'] ?? 0 );
 		if ( false !== strpos( $error, 'API key' ) ) {
-			return 'Gemini isn\'t set up: an administrator needs to add the API key.';
+			return QD_App::t( 'gem.notSetUp' );
 		}
 		if ( 429 === $status ) {
-			return 'Gemini is busy or out of quota. Try again in a minute.';
+			return QD_App::t( 'gem.busy' );
 		}
 		if ( 404 === $status ) {
 			return 'The Gemini model is no longer available. An administrator needs to choose another one.';
 		}
 		if ( $status >= 500 || false !== strpos( $error, 'Could not reach' ) ) {
-			return 'Gemini didn\'t answer. Try again in a moment.';
+			return QD_App::t( 'gem.noAnswer' );
 		}
 		if ( $status ) {
 			return 'Gemini refused the request (' . $status . '). An administrator can run the health check.';
 		}
-		return 'Gemini\'s answer couldn\'t be used. Try again.';
+		return QD_App::t( 'gem.badAnswer' );
 	}
 
 	// ------------------------------------------------------------ while Gemini is down

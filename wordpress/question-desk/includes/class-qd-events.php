@@ -10,12 +10,12 @@ class QD_Events {
 		$input = (array) $input;
 		$name  = QD_Util::clean_text( $input['name'] ?? '', 80 );
 		if ( ! $name ) {
-			throw new QD_Error( 'Give the event a name.' );
+			throw new QD_Error( QD_App::t( 'err.giveTheEventAName' ) );
 		}
 		$color = function ( $value, $label ) {
 			$v = trim( (string) $value );
 			if ( '' !== $v && ! preg_match( QD_Util::HEX_RE, $v ) ) {
-				throw new QD_Error( $label . ' must be a color like #1b5e5a.' );
+				throw new QD_Error( QD_App::t( 'err.colorFormat', array( 'label' => $label ) ) );
 			}
 			return strtolower( $v );
 		};
@@ -33,8 +33,8 @@ class QD_Events {
 			'accent'      => $color( $input['accent'] ?? '', 'The accent' ),
 			'welcome'     => QD_Util::clean_text( $input['welcome'] ?? '', 200 ),
 			'footer'      => QD_Util::clean_text( $input['footer'] ?? '', 160 ),
-			'roomBgDark'  => $color( $input['roomBgDark'] ?? '', 'The dark background' ),
-			'roomBgLight' => $color( $input['roomBgLight'] ?? '', 'The light background' ),
+			'roomBgDark'  => $color( $input['roomBgDark'] ?? '', QD_App::t( 'err.label.darkBackground' ) ),
+			'roomBgLight' => $color( $input['roomBgLight'] ?? '', QD_App::t( 'err.label.lightBackground' ) ),
 		);
 
 		$id = (string) ( $input['id'] ?? '' );
@@ -42,7 +42,7 @@ class QD_Events {
 			if ( $id ) {
 				$ev = QD_Store::get_event( $id );
 				if ( ! $ev ) {
-					throw new QD_Error( 'Event not found.' );
+					throw new QD_Error( QD_App::t( 'err.eventNotFound' ) );
 				}
 				$ev['name']  = $name;
 				$ev['brand'] = $brand;
@@ -91,7 +91,7 @@ class QD_Events {
 	public static function reorder( $ids ) {
 		QD_People::require_admin();
 		if ( ! is_array( $ids ) ) {
-			throw new QD_Error( 'Send the events in their new order.' );
+			throw new QD_Error( QD_App::t( 'err.sendTheEventsInTheir' ) );
 		}
 		QD_Util::with_lock( 'events', function () use ( $ids ) {
 			$by_id = array();
@@ -127,7 +127,7 @@ class QD_Events {
 		QD_People::require_admin();
 		$ev = QD_Store::get_event( $eid );
 		if ( ! $ev ) {
-			throw new QD_Error( 'Event not found.' );
+			throw new QD_Error( QD_App::t( 'err.eventNotFound' ) );
 		}
 		QD_Util::require_typed_name( $ev, $typed_name, 'event' );
 		QD_Settings::clear_logo( 'event:' . $eid );
@@ -147,7 +147,7 @@ class QD_Events {
 	public static function save_logo( $eid, $data_url ) {
 		QD_People::require_admin();
 		if ( ! QD_Store::get_event( $eid ) ) {
-			throw new QD_Error( 'Event not found.' );
+			throw new QD_Error( QD_App::t( 'err.eventNotFound' ) );
 		}
 		return QD_Settings::save_logo( $data_url, 'event:' . $eid );
 	}
@@ -155,7 +155,7 @@ class QD_Events {
 	public static function remove_logo( $eid ) {
 		QD_People::require_admin();
 		if ( ! QD_Store::get_event( $eid ) ) {
-			throw new QD_Error( 'Event not found.' );
+			throw new QD_Error( QD_App::t( 'err.eventNotFound' ) );
 		}
 		return QD_Settings::remove_logo( 'event:' . $eid );
 	}
@@ -170,7 +170,7 @@ class QD_Events {
 		$me = QD_People::require_admin();
 		$ev = QD_Store::get_event( $eid );
 		if ( ! $ev ) {
-			throw new QD_Error( 'Event not found.' );
+			throw new QD_Error( QD_App::t( 'err.eventNotFound' ) );
 		}
 		$copy_id = QD_Util::new_id( 8 );
 		QD_Store::save_event( array(

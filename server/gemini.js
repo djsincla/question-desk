@@ -50,17 +50,17 @@ function validModel_(name) {
 function cleanGeminiSettings_(input) {
   input = input || {};
   const model = String(input.model || '').trim().replace(/^models\//, '');
-  if (!validModel_(model)) throw new Error('Enter a Gemini model name, like ' + CONFIG.model + '.');
+  if (!validModel_(model)) throw new Error(t_('err.modelName', { example: CONFIG.model }));
   const thinking = {};
   GEMINI_TASKS.forEach(function (task) {
     const level = input.thinking && input.thinking[task];
-    if (GEMINI_THINKING.indexOf(level) === -1) throw new Error('Choose a thinking level for ' + task + '.');
+    if (GEMINI_THINKING.indexOf(level) === -1) throw new Error(t_('err.thinkingLevel', { task: task }));
     thinking[task] = level;
   });
   const temperature = Number(input.temperature);
-  if (!(temperature >= 0 && temperature <= 1)) throw new Error('Temperature must be between 0 and 1.');
+  if (!(temperature >= 0 && temperature <= 1)) throw new Error(t_('err.temperatureMustBeBetween0'));
   const batchSize = Number(input.batchSize);
-  if (!(batchSize >= 5 && batchSize <= 100) || Math.floor(batchSize) !== batchSize) throw new Error('Questions per grouping request must be a whole number from 5 to 100.');
+  if (!(batchSize >= 5 && batchSize <= 100) || Math.floor(batchSize) !== batchSize) throw new Error(t_('err.questionsPerGroupingRequestMust'));
   return { model: model, thinking: thinking, temperature: Math.round(temperature * 100) / 100, batchSize: batchSize };
 }
 
@@ -106,7 +106,7 @@ function testGeminiSettings(input) {
 function listGeminiModels() {
   requireAdmin_();
   const key = props_().getProperty('GEMINI_API_KEY');
-  if (!key) return { ok: false, error: 'No Gemini API key yet: add one above.', models: [] };
+  if (!key) return { ok: false, error: t_('gem.noKeyYet'), models: [] };
   try {
     const res = UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=200', {
       method: 'get', headers: { 'x-goog-api-key': key }, muteHttpExceptions: true
@@ -118,7 +118,7 @@ function listGeminiModels() {
       .filter(function (m) { return validModel_(m.name); });
     return { ok: true, models: models };
   } catch (err) {
-    return { ok: false, error: 'Could not reach Gemini: ' + err, models: [] };
+    return { ok: false, error: t_('gem.unreachable', { why: err }), models: [] };
   }
 }
 
@@ -140,11 +140,20 @@ function listGeminiModels() {
  */
 const PROMPT_TASKS = ['grouping', 'translating', 'merging', 'review'];
 
+// What the activity log records for each prompt. A record, so it stays in one language; the
+// label the Admin page shows is the phrase gem.label.<task>.
 const PROMPT_LABELS = {
   grouping: 'Grouping and translating questions',
   translating: 'Translating a question on its own',
   merging: 'Writing a topic\'s read-out question',
   review: 'Reviewing an event afterwards'
+};
+
+const PROMPT_LABEL_KEYS = {
+  grouping: 'gem.label.grouping',
+  translating: 'gem.label.translating',
+  merging: 'gem.label.merging',
+  review: 'gem.label.review'
 };
 
 const PROMPT_NEEDS = {
@@ -284,7 +293,7 @@ function promptSettings_() {
   return PROMPT_TASKS.map(function (task) {
     return {
       task: task,
-      label: PROMPT_LABELS[task],
+      label: t_(PROMPT_LABEL_KEYS[task]),
       text: promptTemplate_(task),
       defaultText: defaults[task],
       custom: typeof saved[task] === 'string' && !!saved[task].trim() && saved[task] !== defaults[task],
@@ -297,7 +306,7 @@ function promptSettings_() {
 /** Saves one task's prompt, or puts the built-in one back (empty text). */
 function savePrompt(task, text) {
   requireAdmin_();
-  if (PROMPT_TASKS.indexOf(task) === -1) throw new Error('Unknown prompt.');
+  if (PROMPT_TASKS.indexOf(task) === -1) throw new Error(t_('err.unknownPrompt'));
   const clean = String(text || '').trim();
   const saved = savedPrompts_();
   if (!clean || clean === promptDefaults_()[task]) {
@@ -306,11 +315,10 @@ function savePrompt(task, text) {
     audit_('Prompt reset', null, PROMPT_LABELS[task]);
     return adminState();
   }
-  if (clean.length > 8000) throw new Error('That prompt is too long: keep it under 8000 characters.');
+  if (clean.length > 8000) throw new Error(t_('err.thatPromptIsTooLong'));
   const missing = PROMPT_NEEDS[task].filter(function (need) { return clean.indexOf(need) === -1; });
   if (missing.length) {
-    throw new Error('The prompt must still contain ' + missing.join(' and ') +
-      ', or Question Desk has nothing to send. Put it back, or use Reset.');
+    throw new Error(t_('err.promptNeeds', { tokens: missing.join(t_('err.promptNeedsJoin')) }));
   }
   saved[task] = clean;
   props_().setProperty('PROMPTS', JSON.stringify(saved));
@@ -328,7 +336,7 @@ function saveGeminiKey(key) {
     return adminState();
   }
   if (!/^[A-Za-z0-9_-]{20,120}$/.test(clean)) {
-    throw new Error('That does not look like a Gemini API key. Copy it from aistudio.google.com.');
+    throw new Error(t_('err.thatDoesNotLookLike'));
   }
   props_().setProperty('GEMINI_API_KEY', clean);
   audit_('Gemini API key changed', null, '');
@@ -497,7 +505,7 @@ function clusterQuestions(e) {
   const fromTrigger = !!uid && ScriptApp.getProjectTriggers().some(function (t) {
     return t.getUniqueId && String(t.getUniqueId()) === String(uid);
   });
-  if (!fromTrigger && !isAdmin_()) throw new Error('Not allowed.');
+  if (!fromTrigger && !isAdmin_()) throw new Error(t_('err.notAllowed'));
   return clusterAll_();
 }
 
@@ -639,9 +647,9 @@ function clusterSessionNow_(sid, force) {
       cache.put('tries:' + q.id, String(Number(cache.get('tries:' + q.id) || 0) + 1), 21600);
     });
   }
-  if (!response.ok) throw new Error('Grouping failed: ' + response.error);
+  if (!response.ok) throw new Error(t_('err.groupingFailed', { why: response.error }));
   const result = response.data;
-  if (!result || !result.assignments) throw new Error('Grouping failed: Gemini returned no assignments.');
+  if (!result || !result.assignments) throw new Error(t_('err.groupingFailedGeminiReturnedNo'));
 
   const pendingIds = {};
   pending.forEach(function (q) { pendingIds[q.id] = true; });
@@ -690,7 +698,7 @@ function clusterSessionNow_(sid, force) {
     upsertTopics_(sid, byTopic, true);
   }
   invalidateTopics_(sid);
-  if (!written) throw new Error('Grouping failed: Gemini returned no usable topics for ' + pending.length + ' question(s).');
+  if (!written) throw new Error(t_('err.groupingNoTopics', { n: pending.length }));
   return written;
 }
 
@@ -718,7 +726,7 @@ function setMergedQuestion(sid, topic, text) {
   const session = requireSession_(sid);
   topic = String(topic || '');
   if (!sessionRows_(sid).some(function (q) { return q.topic === topic && q.status !== 'dismissed'; })) {
-    throw new Error('That topic has no questions.');
+    throw new Error(t_('err.thatTopicHasNoQuestions'));
   }
   const clean = cleanText_(text, 400);
   let labels = {};
@@ -755,7 +763,7 @@ function mergeTopic(sid, topic) {
       return '- ' + source + (q.lang ? '  [asked in ' + q.lang + ']' : '');
     });
 
-  if (!rows.length) return { ok: false, error: 'This topic has no questions left to merge.' };
+  if (!rows.length) return { ok: false, error: t_('gem.noQuestionsToMerge') };
 
   const codes = translationCodes_(getSession_(sid));
   const names = codes.map(languageName_);
@@ -804,7 +812,7 @@ function mergeTopic(sid, topic) {
  */
 function eventReview_(eid) {
   const ev = getEvent_(eid);
-  if (!ev) throw new Error('Event not found.');
+  if (!ev) throw new Error(t_('err.eventNotFound'));
   const sessions = allSessions_().filter(function (s) { return s.eventId === eid && !s.loadTest; });
   const lines = [];
   let asked = 0;
@@ -821,7 +829,7 @@ function eventReview_(eid) {
       }));
     });
   });
-  if (!lines.length) return { ok: false, error: 'This event has no questions to review yet.' };
+  if (!lines.length) return { ok: false, error: t_('gem.noQuestionsToReview') };
 
   const prompt = renderPrompt_('review', { questions: lines.join('\n') });
 
@@ -874,12 +882,12 @@ function eventReview_(eid) {
 
 /** What to tell a facilitator when a merge fails (details go to the execution log). */
 function mergeProblem_(response) {
-  if (/API key/.test(response.error || '')) return 'Gemini isn\'t set up: an administrator needs to add the API key.';
-  if (response.status === 429) return 'Gemini is busy or out of quota. Try again in a minute.';
-  if (response.status === 404) return 'The Gemini model is no longer available. An admin needs to update Question Desk.';
-  if (response.status >= 500 || /Could not reach/.test(response.error || '')) return 'Gemini didn\'t answer. Try again in a moment.';
-  if (response.status) return 'Gemini refused the request (' + response.status + '). An admin can run the health check on the Admin page.';
-  return 'Gemini\'s answer couldn\'t be used. Try again.';
+  if (/API key/.test(response.error || '')) return t_('gem.notSetUp');
+  if (response.status === 429) return t_('gem.busy');
+  if (response.status === 404) return t_('gem.modelGone');
+  if (response.status >= 500 || /Could not reach/.test(response.error || '')) return t_('gem.noAnswer');
+  if (response.status) return t_('gem.refused', { status: response.status });
+  return t_('gem.badAnswer');
 }
 
 /**
@@ -893,7 +901,7 @@ function mergeProblem_(response) {
 function geminiRequest_(prompt, schema, opts) {
   opts = opts || {};
   const key = props_().getProperty('GEMINI_API_KEY');
-  if (!key) return { ok: false, error: 'No Gemini API key: an administrator can add one under Health & testing.' };
+  if (!key) return { ok: false, error: t_('gem.noKey') };
   const settings = opts.settings || geminiSettings_();
   const level = opts.thinking || (opts.task ? settings.thinking[opts.task] : 'default');
   const thinkingLevel = level && level !== 'default' ? level : '';
@@ -930,18 +938,18 @@ function geminiRequest_(prompt, schema, opts) {
       response = send('');
     }
   } catch (err) {
-    return { ok: false, error: 'Could not reach Gemini: ' + err };
+    return { ok: false, error: t_('gem.unreachable', { why: err }) };
   }
 
   const code = response.getResponseCode();
   if (code !== 200) {
     const text = String(response.getContentText() || '');
     console.error('Gemini ' + code + ': ' + text);
-    const hint = code === 404 ? ' — model ' + settings.model + ' not found; it may have been retired. Choose another model under Admin → Health → Gemini.'
-      : code === 429 ? ' — rate limited or out of quota.'
-      : code === 400 || code === 401 || code === 403 ? ' — the API key was rejected or the request is invalid.'
+    const hint = code === 404 ? t_('gem.hintModelGone', { model: settings.model })
+      : code === 429 ? t_('gem.hintRateLimited')
+      : code === 400 || code === 401 || code === 403 ? t_('gem.hintKeyRejected')
       : '';
-    return { ok: false, status: code, error: 'Gemini ' + code + hint + ' ' + text.slice(0, 200) };
+    return { ok: false, status: code, error: t_('gem.httpError', { code: code, hint: hint, body: text.slice(0, 200) }) };
   }
 
   try {
@@ -952,6 +960,6 @@ function geminiRequest_(prompt, schema, opts) {
   } catch (err) {
     console.error('Could not parse Gemini response: ' + err);
     // Gemini answered but the reply was blocked or cut off: the questions themselves may be why.
-    return { ok: false, answered: true, error: 'Could not parse Gemini response: ' + err };
+    return { ok: false, answered: true, error: t_('gem.parseFailed', { why: err }) };
   }
 }

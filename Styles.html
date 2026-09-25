@@ -251,7 +251,12 @@
   .pill { vertical-align: 2px; margin-left: 6px; }
 
   ul.people { list-style: none; margin: 0 0 12px; padding: 0; }
-  ul.people li { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 7px 0; border-bottom: 1px solid #eef1f3; }
+  /* Address and Remove on one line; the language this person reads sits under the address, so a
+     narrow card never pushes anything out of it. */
+  ul.people li { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 2px 8px; padding: 7px 0; border-bottom: 1px solid #eef1f3; }
+  ul.people li > span:first-child { grid-column: 1; grid-row: 1; min-width: 0; overflow-wrap: anywhere; }
+  ul.people li > button, ul.people li > span.hint { grid-column: 2; grid-row: 1; }
+  select.person-lang { grid-column: 1 / -1; grid-row: 2; justify-self: start; max-width: 100%; padding: 2px 4px; font-size: 12px; }
   .adder { display: flex; gap: 8px; }
 
   .logo-preview { display: flex; align-items: center; justify-content: center; min-height: 80px; border: 1px dashed var(--rule-strong); border-radius: var(--radius-sm); margin-bottom: 8px; padding: 10px; background: var(--paper); }

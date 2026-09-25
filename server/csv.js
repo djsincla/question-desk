@@ -99,14 +99,14 @@ function csvTime_(value, label) {
   if (m) { y = +m[1]; mo = +m[2]; d = +m[3]; h = +m[4]; mi = +m[5]; }
   else {
     m = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})(?::\d{2})?\s*([AaPp][Mm])?$/);
-    if (!m) throw new Error(label + ' "' + v + '" is not a date and time like 2026-10-03 18:30.');
+    if (!m) throw new Error(t_('err.csvNotADateTime', { label: label, value: v }));
     mo = +m[1]; d = +m[2]; y = +m[3]; h = +m[4]; mi = +m[5];
     if (m[6]) {
-      if (h < 1 || h > 12) throw new Error(label + ' "' + v + '" has an hour that doesn\'t fit AM/PM.');
+      if (h < 1 || h > 12) throw new Error(t_('err.csvBadHour', { label: label, value: v }));
       h = (h % 12) + (/p/i.test(m[6]) ? 12 : 0);
     }
   }
-  if (mo < 1 || mo > 12 || d < 1 || d > 31 || h > 23 || mi > 59) throw new Error(label + ' "' + v + '" is not a real date and time.');
+  if (mo < 1 || mo > 12 || d < 1 || d > 31 || h > 23 || mi > 59) throw new Error(t_('err.csvNotRealDate', { label: label, value: v }));
   const p2 = function (n) { return (n < 10 ? '0' : '') + n; };
   return Utilities.parseDate(y + '-' + p2(mo) + '-' + p2(d) + ' ' + p2(h) + ':' + p2(mi), Session.getScriptTimeZone(), CSV_TIME_FORMAT).getTime();
 }
@@ -116,7 +116,7 @@ function csvYes_(value, label, fallback) {
   if (!v) return fallback;
   if (/^(yes|y|true|1|x)$/.test(v)) return true;
   if (/^(no|n|false|0)$/.test(v)) return false;
-  throw new Error(label + ' should be yes or no, not "' + value + '".');
+  throw new Error(t_('err.csvYesNo', { label: label, value: value }));
 }
 
 /** The duplicate key: name, plus start and end when either is set. */
@@ -136,17 +136,17 @@ function importSessionsCsv(text, options, dryRun) {
   const me = requireAdmin_();
   options = options || {};
   const onDuplicate = options.duplicates === 'skip' ? 'skip' : 'update';
-  if (String(text || '').length > 2000000) throw new Error('That file is too large to import.');
+  if (String(text || '').length > 2000000) throw new Error(t_('err.thatFileIsTooLarge'));
   const table = parseCsv_(text);
-  if (!table.length) throw new Error('The file is empty.');
-  if (table.length - 1 > CONFIG.maxImportRows) throw new Error('Import at most ' + CONFIG.maxImportRows + ' sessions at a time.');
+  if (!table.length) throw new Error(t_('err.theFileIsEmpty'));
+  if (table.length - 1 > CONFIG.maxImportRows) throw new Error(t_('err.csvTooManyRows', { max: CONFIG.maxImportRows }));
 
   // Columns by header name, forgiving case, spacing and the time zone suffix.
   const norm = function (h) { return String(h || '').replace(/\(.*?\)/g, '').replace(/[^a-z]/gi, '').toLowerCase(); };
   const known = {};
   SESSION_CSV.forEach(function (c) { known[norm(c[0])] = c[1]; });
   const columns = table[0].map(function (h) { return known[norm(h)] || null; });
-  if (columns.indexOf('name') === -1) throw new Error('The file needs a "Session" column. Export sessions first to get the format.');
+  if (columns.indexOf('name') === -1) throw new Error(t_('err.theFileNeedsASession'));
 
   const roster = roster_('MODERATORS');
   const existing = {};
@@ -168,16 +168,16 @@ function importSessionsCsv(text, options, dryRun) {
     const out = { row: rowNumber, event: (get.event || '').trim(), name: (get.name || '').trim(), action: '', errors: [], warnings: [] };
     result.rows.push(out);
     try {
-      if (!out.name) throw new Error('No session name.');
-      const start = has('scheduledStart') ? csvTime_(get.scheduledStart, 'Scheduled start') : undefined;
-      const end = has('scheduledEnd') ? csvTime_(get.scheduledEnd, 'Scheduled end') : undefined;
+      if (!out.name) throw new Error(t_('err.noSessionName'));
+      const start = has('scheduledStart') ? csvTime_(get.scheduledStart, t_('csv.label.scheduledStart')) : undefined;
+      const end = has('scheduledEnd') ? csvTime_(get.scheduledEnd, t_('csv.label.scheduledEnd')) : undefined;
       const key = sessionKey_(out.name, start, end);
-      if (seenInFile[key]) throw new Error('The same session is already on row ' + seenInFile[key] + '.');
+      if (seenInFile[key]) throw new Error(t_('err.csvDuplicateRow', { row: seenInFile[key] }));
       seenInFile[key] = rowNumber;
 
       const match = existing[sessionKey_(out.name, start === undefined ? null : start, end === undefined ? null : end)];
-      if (match && onDuplicate === 'skip') { out.action = 'skip'; out.warnings.push('Already exists; skipped.'); result.skipped++; return; }
-      if (match && match.status === 'ended') { out.action = 'skip'; out.warnings.push('Already exists and has ended; ended sessions can\'t be changed.'); result.skipped++; return; }
+      if (match && onDuplicate === 'skip') { out.action = 'skip'; out.warnings.push(t_('csv.alreadyExists')); result.skipped++; return; }
+      if (match && match.status === 'ended') { out.action = 'skip'; out.warnings.push(t_('csv.alreadyEnded')); result.skipped++; return; }
 
       // Start from the existing session's settings, so missing columns change nothing.
       const input = match ? sessionInput_(match) : { name: out.name, emailOnEnd: true };
@@ -186,36 +186,36 @@ function importSessionsCsv(text, options, dryRun) {
       if (has('heading')) input.heading = get.heading;
       if (has('access')) {
         const a = get.access.trim().toLowerCase();
-        if (a && a !== 'room' && a !== 'link') throw new Error('How people join should be room or link, not "' + get.access + '".');
+        if (a && a !== 'room' && a !== 'link') throw new Error(t_('err.csvAccess', { value: get.access }));
         if (a) input.access = a;
       }
       if (has('theme')) {
         const t = get.theme.trim().toLowerCase();
-        if (t && t !== 'dark' && t !== 'light' && t !== 'contrast') throw new Error('Theme should be dark, light or contrast, not "' + get.theme + '".');
+        if (t && t !== 'dark' && t !== 'light' && t !== 'contrast') throw new Error(t_('err.csvTheme', { value: get.theme }));
         if (t) input.theme = t;
       }
       if (has('cooldownSeconds') && get.cooldownSeconds.trim() !== '') input.cooldownSeconds = get.cooldownSeconds.trim();
       if (has('maxLength') && get.maxLength.trim() !== '') input.maxLength = get.maxLength.trim();
-      if (has('emailOnEnd')) input.emailOnEnd = csvYes_(get.emailOnEnd, 'Email summary', input.emailOnEnd);
+      if (has('emailOnEnd')) input.emailOnEnd = csvYes_(get.emailOnEnd, t_('csv.label.emailOnEnd'), input.emailOnEnd);
       if (start !== undefined) input.scheduledStart = start;
       if (end !== undefined) input.scheduledEnd = end;
       if (has('moderators')) {
         const listed = parseEmails_(get.moderators);
         const missing = listed.filter(function (e) { return roster.indexOf(e) === -1; });
-        if (missing.length) out.warnings.push('Not on the QA Facilitator list, so not added: ' + missing.join(', ') + '. Add them on the People tab.');
+        if (missing.length) out.warnings.push(t_('csv.notOnFacilitatorList', { names: missing.join(', ') }));
         input.moderators = listed.filter(function (e) { return roster.indexOf(e) !== -1; });
       }
       if (has('guestRoom') || has('guestSlide') || has('guestPanel') || has('guestUrl')) {
         const g = guestChoice_(input.guestPage);
         input.guestPage = {
-          room: csvYes_(get.guestRoom, 'Guest page for room screen', g.room),
-          slide: csvYes_(get.guestSlide, 'Guest page for slide', g.slide),
-          panel: csvYes_(get.guestPanel, 'Guest page for panelist view', g.panel),
+          room: csvYes_(get.guestRoom, t_('csv.label.guestRoom'), g.room),
+          slide: csvYes_(get.guestSlide, t_('csv.label.guestSlide'), g.slide),
+          panel: csvYes_(get.guestPanel, t_('csv.label.guestPanel'), g.panel),
           url: has('guestUrl') ? get.guestUrl.trim() : g.url
         };
       }
-      if (has('roomQuestions')) input.roomQuestions = csvYes_(get.roomQuestions, 'Room screen lists questions', !!input.roomQuestions);
-      if (has('translatePrepared')) input.translatePrepared = csvYes_(get.translatePrepared, 'Translate prepared questions', input.translatePrepared !== false);
+      if (has('roomQuestions')) input.roomQuestions = csvYes_(get.roomQuestions, t_('csv.label.roomQuestions'), !!input.roomQuestions);
+      if (has('translatePrepared')) input.translatePrepared = csvYes_(get.translatePrepared, t_('csv.label.translatePrepared'), input.translatePrepared !== false);
       if (has('brandOrgName')) input.brandOrgName = get.brandOrgName;
       if (has('brandAccent')) input.brandAccent = get.brandAccent.trim().toLowerCase();
       if (has('prepared')) {
@@ -230,7 +230,7 @@ function importSessionsCsv(text, options, dryRun) {
         else {
           if (!newEvents[evName.toLowerCase()]) { newEvents[evName.toLowerCase()] = evName; result.events.push(evName); }
           input.eventId = '';   // created below, when importing for real
-          out.warnings.push('New event "' + evName + '" will be created.');
+          out.warnings.push(t_('csv.newEvent', { name: evName }));
         }
       }
 
@@ -274,6 +274,7 @@ function sessionInput_(s) {
     id: s.id, name: s.name, room: s.room || '', heading: s.heading, access: s.access, theme: s.theme, maxLength: s.maxLength,
     cooldownSeconds: cooldownFor_(s), moderators: (s.moderators || []).slice(), emailOnEnd: !!s.emailOnEnd,
     translatePrepared: s.translatePrepared !== false, roomQuestions: !!s.roomQuestions,
+    roomLanguage: s.roomLanguage || '',
     scheduledStart: s.scheduledStart || null, scheduledEnd: s.scheduledEnd || null,
     brandOrgName: own.orgName || '', brandAccent: own.accent || '', guestPage: s.guestPage, eventId: s.eventId || ''
   };

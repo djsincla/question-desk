@@ -30,7 +30,7 @@ class QD_Util {
 				continue;
 			}
 			if ( ! preg_match( self::EMAIL_RE, $email ) ) {
-				throw new QD_Error( 'Not an email address: ' . $email );
+				throw new QD_Error( QD_App::t( 'err.notAnEmail', array( 'value' => $email ) ) );
 			}
 			if ( ! in_array( $email, $out, true ) ) {
 				$out[] = $email;
@@ -38,7 +38,7 @@ class QD_Util {
 		}
 		$max = (int) QD_App::config( 'maxRecipients' );
 		if ( count( $out ) > $max ) {
-			throw new QD_Error( 'Send to at most ' . $max . ' people at a time.' );
+			throw new QD_Error( QD_App::t( 'err.tooManyRecipients', array( 'max' => $max ) ) );
 		}
 		return $out;
 	}
@@ -49,7 +49,7 @@ class QD_Util {
 			return strtolower( trim( preg_replace( '/\s+/u', ' ', (string) $v ) ) );
 		};
 		if ( '' === $norm( $typed ) || $norm( $typed ) !== $norm( $item['name'] ?? '' ) ) {
-			throw new QD_Error( 'Type the ' . $what . ' name exactly to confirm: ' . ( $item['name'] ?? '' ) );
+			throw new QD_Error( QD_App::t( 'err.typeTheNameToConfirm', array( 'what' => $what, 'name' => $item['name'] ?? '' ) ) );
 		}
 	}
 
@@ -67,7 +67,7 @@ class QD_Util {
 		$lock = 'qd_' . substr( md5( $wpdb->prefix . $name ), 0, 32 );
 		$got  = (int) $wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK(%s, 10)', $lock ) );
 		if ( 1 !== $got ) {
-			throw new QD_Error( 'Question Desk is busy. Try again in a moment.' );
+			throw new QD_Error( QD_App::t( 'wp.err.busy' ) );
 		}
 		try {
 			return $fn();

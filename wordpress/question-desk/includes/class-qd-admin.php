@@ -50,6 +50,9 @@ class QD_Admin {
 			'admins'           => QD_People::admins(),
 			'moderators'       => QD_People::moderators(),
 			'coordinators'     => QD_People::coordinators(),
+			'personLanguages'  => QD_People::person_languages(),
+			'appLanguages'     => QD_App::app_languages(),
+			'siteLanguage'     => QD_App::site_language(),
 			'sessions'         => $sessions,
 			'events'           => QD_Store::all_events(),
 			'languages'        => $languages,
@@ -62,7 +65,7 @@ class QD_Admin {
 			'guestPageUrl'     => QD_Settings::guest_page_url(),
 			// No shared default: a guest page for a WordPress site must name that site itself
 			// (data-site in the copy the organization hosts), so there is nothing to fall back to.
-			'guestPageDefault' => 'your own copy of the guest page',
+			'guestPageDefault' => QD_App::t( 'wp.admin.guestPageDefault' ),
 			'detectedUrl'      => QD_Router::base_url(),
 			'appUrl'           => QD_Router::base_url(),
 			'ops'              => self::ops(),
@@ -163,7 +166,7 @@ class QD_Admin {
 	/** Serves Admin.html itself for that frame. */
 	public static function serve_page() {
 		if ( ! current_user_can( 'qd_manage' ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_GET['qd_admin'] ?? '' ) ), 'qd_admin' ) ) {
-			wp_die( 'Not allowed.', '', array( 'response' => 403 ) );
+			wp_die( QD_App::t( 'err.notAllowed' ), '', array( 'response' => 403 ) );
 		}
 		QD_Pages::send( 'Admin.html', 'Question Desk — Admin', array(
 			'state'   => self::state(),
@@ -198,6 +201,8 @@ class QD_Admin {
 			'getEventLogo'        => array( 'QD_Events', 'get_logo' ),
 			'saveBrand'           => array( 'QD_Settings', 'save_brand' ),
 			'saveSiteLanguages'   => array( 'QD_Settings', 'save_site_languages' ),
+			'saveSiteLanguage'    => array( 'QD_Settings', 'save_site_language' ),
+			'setPersonLanguage'   => array( 'QD_People', 'set_person_language' ),
 			'saveSummaryDefaults' => array( 'QD_Settings', 'save_summary_defaults' ),
 			'saveLogo'            => array( __CLASS__, 'save_logo' ),
 			'removeLogo'          => array( __CLASS__, 'remove_logo' ),

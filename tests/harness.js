@@ -339,7 +339,7 @@ function createApp(options) {
 
   const names = Object.keys(services);
   const factory = new Function(...names,
-    SOURCE + '\nreturn {' + FUNCTION_NAMES.join(',') + ', APP: APP, CONFIG: CONFIG, COLS: COLS, HEADERS: HEADERS, TOPIC_HEADERS: TOPIC_HEADERS, UI_TEXT: UI_TEXT, UI_TEXT_FOR: UI_TEXT_FOR, SESSION_CSV: SESSION_CSV, CSV_TIME_FORMAT: CSV_TIME_FORMAT};');
+    SOURCE + '\nreturn {' + FUNCTION_NAMES.join(',') + ', APP: APP, CONFIG: CONFIG, COLS: COLS, HEADERS: HEADERS, TOPIC_HEADERS: TOPIC_HEADERS, UI_TEXT: UI_TEXT, UI_TEXT_FOR: UI_TEXT_FOR, APP_TEXT: APP_TEXT, APP_TEXT_FOR: APP_TEXT_FOR, SESSION_CSV: SESSION_CSV, CSV_TIME_FORMAT: CSV_TIME_FORMAT};');
   const raw = factory(...names.map((n) => services[n]));
   // Each call from a test is one Apps Script execution: globals (EXEC_) start fresh.
   const app = {};

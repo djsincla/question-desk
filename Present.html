@@ -47,6 +47,7 @@
 <?!= scripts ?>
 <script>
   var BOOT = <?!= boot ?>;
+  fillWords();
 
   var box = document.getElementById('code');
   var waiting = document.getElementById('waiting');
@@ -61,6 +62,16 @@
   var PHRASES = BOOT.text;
   var LANGS = (BOOT.languages && BOOT.languages.length ? BOOT.languages : ['en', 'ko', 'es'])
     .filter(function (c) { return c === 'en' || PHRASES[c]; });
+
+  /**
+   * A phrase the room reads, in the language this screen speaks (its session's Room language).
+   * The stacked instructions below use every language the session offers; these lines replace
+   * the code itself, so they show one.
+   */
+  function roomSay(key, count) {
+    var said = ((PHRASES[BOOT.lang] || PHRASES.en)[key] || PHRASES.en[key] || '');
+    return count === undefined ? said : said.replace('{n}', count);
+  }
 
   (function writeLanguages() {
     document.getElementById('scanEn').textContent = PHRASES.en.scan;
@@ -182,7 +193,7 @@
       if (img) box.appendChild(img);
       return;
     }
-    box.appendChild(qrArt(model, 'QR code to ask a question'));
+    box.appendChild(qrArt(model, roomSay('qrLabel')));
   }
 
   /**
@@ -247,7 +258,7 @@
       var count = document.createElement('span');
       count.className = 'asked-count';
       count.textContent = String(item.count);
-      count.setAttribute('aria-label', item.count === 1 ? '1 person' : item.count + ' people');
+      count.setAttribute('aria-label', item.count === 1 ? roomSay('person') : roomSay('people', item.count));
       li.appendChild(label);
       li.appendChild(count);
       ol.appendChild(li);
@@ -301,16 +312,16 @@
 
       if (screen.status === 'ended') {
         ended = true;
-        showWaiting('This session has ended');
+        showWaiting(roomSay('ended'));
         statusLine.textContent = '';
       } else if (screen.status !== 'active' || !screen.url) {
-        showWaiting('Questions open soon');
-        statusLine.textContent = 'Waiting for this session to start';
+        showWaiting(roomSay('openSoon'));
+        statusLine.textContent = W('present.waitingToStart');
       } else {
         render(screen.url);
         waiting.hidden = true;
         box.hidden = false;
-        statusLine.textContent = screen.open ? 'Code refreshes automatically' : 'Questions are paused';
+        statusLine.textContent = W(screen.open ? 'present.codeRefreshes' : 'present.paused');
       }
       tick();
       fit();
@@ -326,24 +337,24 @@
         tellFrame('refused');
         fit();
       } else {
-        statusLine.textContent = 'Lost connection — retrying';
+        statusLine.textContent = W('present.lostConnection');
       }
       schedule(15);
     }).getRoomScreen(BOOT.sid, BOOT.layout, BOOT.key);
   }
 
   function clockText(ms) {
-    return new Date(ms).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' });
+    return new Date(ms).toLocaleTimeString(BOOT.lang, { hour: 'numeric', minute: '2-digit', second: '2-digit' });
   }
 
   function tick() {
     var now = Date.now();
     var clock = document.getElementById('clock');
     var stale = !ended && lastOk && now - lastOk > 60000;
-    clock.textContent = clockText(now) + (lastOk ? ' · code updated ' + clockText(lastOk) : '');
+    clock.textContent = clockText(now) + (lastOk ? W('present.codeUpdated', { at: clockText(lastOk) }) : '');
     clock.className = stale ? 'clock stale' : 'clock';
     if (stale) {
-      statusLine.textContent = 'Not updating — check the internet connection. This code may have expired.';
+      statusLine.textContent = W('present.stale');
       statusLine.className = 'status stale';
       box.classList.add('dim');
     } else {
@@ -361,7 +372,7 @@
     if (now - requestedAt > 40000) refresh();
   }, 1000);
 
-  showWaiting('Loading…');
+  showWaiting(roomSay('loading'));
   fit();
   refresh();
 </script>

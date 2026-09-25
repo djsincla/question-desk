@@ -57,17 +57,17 @@ class QD_Api {
 	/** Runs one registered function for the current user. */
 	public static function call( $name, array $args ) {
 		if ( ! isset( self::$functions[ $name ] ) ) {
-			return array( 'ok' => false, 'error' => 'Unknown function ' . $name . '.' );
+			return array( 'ok' => false, 'error' => QD_App::t( 'wp.err.unknownFunction', array( 'name' => $name ) ) );
 		}
 		list( $callback, $access ) = self::$functions[ $name ];
 		if ( 'manage' === $access && ! current_user_can( 'qd_manage' ) ) {
-			return array( 'ok' => false, 'error' => 'Only administrators can do that.' );
+			return array( 'ok' => false, 'error' => QD_App::t( 'err.onlyAdministratorsCanDoThat' ) );
 		}
 		if ( 'facilitate' === $access && ! current_user_can( 'qd_facilitate' ) ) {
-			return array( 'ok' => false, 'error' => 'Sign in as a QA Facilitator or administrator to do that.' );
+			return array( 'ok' => false, 'error' => QD_App::t( 'wp.err.signInFacilitator' ) );
 		}
 		if ( 'coordinate' === $access && ! current_user_can( 'qd_coordinate' ) ) {
-			return array( 'ok' => false, 'error' => 'Sign in as an Event Coordinator or administrator to do that.' );
+			return array( 'ok' => false, 'error' => QD_App::t( 'wp.err.signInCoordinator' ) );
 		}
 		try {
 			return array( 'ok' => true, 'value' => call_user_func_array( $callback, $args ) );
@@ -75,7 +75,7 @@ class QD_Api {
 			return array( 'ok' => false, 'error' => $e->getMessage() );
 		} catch ( Throwable $e ) {
 			error_log( 'Question Desk ' . $name . ': ' . $e->getMessage() ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
-			return array( 'ok' => false, 'error' => 'Something went wrong. Try again.' );
+			return array( 'ok' => false, 'error' => QD_App::t( 'wp.err.wentWrong' ) );
 		}
 	}
 }

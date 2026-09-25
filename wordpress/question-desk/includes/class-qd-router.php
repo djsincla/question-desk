@@ -78,7 +78,7 @@ class QD_Router {
 			if ( ! QD_People::can_coordinate( $event, $email ) ) {
 				self::notice( 'denied', $view );
 			}
-			QD_Pages::send( 'Coordinator.html', $event['name'] . ' — event logistics', array(
+			QD_Pages::send( 'Coordinator.html', QD_App::t( 'page.coordinator', array( 'event' => $event['name'] ) ), array(
 				'eid'   => $event['id'],
 				'board' => QD_Coordinator::board( $event['id'] ),
 			), array( 'eventId' => $event['id'] ) );
@@ -170,13 +170,13 @@ class QD_Router {
 				$event   = QD_Store::event_name( $s );
 				$links[] = array(
 					'label' => $event ? $event . ' — ' . $s['name'] : $s['name'],
-					'note'  => 'active' === $s['status'] ? 'Active' : 'Not active',
+					'note'  => 'active' === $s['status'] ? QD_App::t( 'notice.pick.active' ) : QD_App::t( 'notice.pick.inactive' ),
 					'href'  => 'present' === $view ? QD_Sessions::links( $s )['present'] : self::base_url() . '?view=' . $view . '&s=' . $s['id'],
 				);
 			}
-			QD_Pages::send( 'Denied.html', 'Choose a session', array(
-				'heading' => 'Choose a session',
-				'body'    => $links ? 'Pick the session to open.' : 'You are not assigned to any open sessions.',
+			QD_Pages::send( 'Denied.html', QD_App::t( 'notice.pick.title' ), array(
+				'heading' => QD_App::t( 'notice.pick.title' ),
+				'body'    => $links ? QD_App::t( 'notice.pick.body' ) : QD_App::t( 'notice.pick.none' ),
 				'links'   => $links,
 			) );
 		}
@@ -185,29 +185,29 @@ class QD_Router {
 			foreach ( QD_People::events_for( QD_People::current_email() ) as $ev ) {
 				$links[] = array( 'label' => $ev['name'], 'note' => '', 'href' => QD_Coordinator::link( $ev ) );
 			}
-			QD_Pages::send( 'Denied.html', 'Choose an event', array(
-				'heading' => 'Choose an event',
-				'body'    => $links ? 'Pick the event to open.' : 'You are not an Event Coordinator for any event.',
+			QD_Pages::send( 'Denied.html', QD_App::t( 'notice.pickEvent.title' ), array(
+				'heading' => QD_App::t( 'notice.pickEvent.title' ),
+				'body'    => $links ? QD_App::t( 'notice.pickEvent.body' ) : QD_App::t( 'notice.pickEvent.none' ),
 				'links'   => $links,
 			) );
 		}
 		if ( 'oldScreenLink' === $mode ) {
-			QD_Pages::send( 'Denied.html', 'Room screen link out of date', array(
-				'heading' => 'This room screen link is out of date',
-				'body'    => 'Room screen and PowerPoint slide links changed. Ask whoever runs the session to copy the new one from the Admin page (Sessions → Links). To ask a question, scan the code on the screen in the room.',
+			QD_Pages::send( 'Denied.html', QD_App::t( 'notice.oldScreenLink.tab' ), array(
+				'heading' => QD_App::t( 'notice.oldScreenLink.title' ),
+				'body'    => QD_App::t( 'notice.oldScreenLink.body' ),
 				'links'   => array(),
 			) );
 		}
 		if ( 'noSession' === $mode ) {
-			QD_Pages::send( 'Denied.html', 'Session not found', array(
-				'heading' => 'This room screen link is not valid',
-				'body'    => 'Check the link with whoever is running the session, or scan the code on the screen in the room to ask a question.',
+			QD_Pages::send( 'Denied.html', QD_App::t( 'notice.noSession.tab' ), array(
+				'heading' => QD_App::t( 'notice.noSession.title' ),
+				'body'    => QD_App::t( 'notice.noSession.body' ),
 				'links'   => array(),
 			) );
 		}
-		QD_Pages::send( 'Denied.html', 'Not available', array(
-			'heading' => 'This view is for QA Facilitators',
-			'body'    => 'Sign in with an account listed as a QA Facilitator, or scan the code on the screen in the room to ask a question.',
+		QD_Pages::send( 'Denied.html', QD_App::t( 'notice.denied.tab' ), array(
+			'heading' => QD_App::t( 'notice.denied.title' ),
+			'body'    => QD_App::t( 'notice.denied.body' ),
 			'links'   => array(),
 		) );
 	}
@@ -215,7 +215,7 @@ class QD_Router {
 	/** The participant page. An unknown session still gets the page, which says so. */
 	public static function ask( $sid, $credential ) {
 		$session = QD_Store::get_session( $sid );
-		QD_Pages::send( 'Ask.html', 'Ask a question', array(
+		QD_Pages::send( 'Ask.html', QD_App::t( 'mail.linkAsk' ), array(
 			'sid'        => $session ? $session['id'] : '',
 			'credential' => substr( (string) $credential, 0, 64 ),
 			'languages'  => QD_Settings::language_list( $session ),
