@@ -80,7 +80,8 @@ for (const [name, engine] of ENGINES) {
 
       const framed = await (await page.waitForSelector('iframe[title="Question Desk"]')).contentFrame();
       await framed.waitForSelector('#q:not([disabled])');
-      assert.equal(await framed.textContent('#heading'), 'Ask the panel');
+      // The heading arrives with the session's state, a moment after the box is enabled.
+      await framed.waitForFunction(() => document.getElementById('heading').textContent === 'Ask the panel');
       assert.equal(page.url().startsWith(GUEST), true, 'the address bar keeps the organization’s own link');
 
       await framed.fill('#q', 'Asked through the guest page, from the room');

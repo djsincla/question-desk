@@ -10,7 +10,7 @@
   Apps Script strips comments when it reads this file, so comment markers never reach the server.
 -->
 
-<style data-pages="Admin Ask Denied Home Moderate Panel Sheet">
+<style data-pages="Admin Ask Coordinator Denied Home Moderate Panel Sheet">
   /* Where a session happens: beside its name, for staff only. */
   .room {
     display: inline-block; margin-left: 8px; padding: 2px 9px; border-radius: 999px;
@@ -93,7 +93,7 @@
   button.quiet:hover { background: rgba(16, 24, 40, 0.05); color: var(--ink); border-color: transparent; }
 
   /* ---- form fields */
-  input[type=text], input[type=email], input[type=number], input[type=url], input[type=search],
+  input[type=text], input[type=email], input[type=number], input[type=url], input[type=search], input[type=password],
   input[type=datetime-local], select, textarea {
     font: inherit;
     color: inherit;
@@ -216,7 +216,7 @@
   nav.tabs button[aria-selected="true"]::after { transform: scaleX(1); }
   section[id^="tab-"]:not([hidden]) { animation: qd-rise 0.22s var(--ease); }
 
-  input[type=text], input[type=email], input[type=number], input[type=url], input[type=datetime-local], textarea { width: 100%; }
+  input[type=text], input[type=email], input[type=number], input[type=url], input[type=password], input[type=datetime-local], textarea { width: 100%; }
   textarea { min-height: 5rem; resize: vertical; }
   label.field { display: block; margin-bottom: 14px; }
   label.field > span, .field-label { display: block; font-weight: 600; font-size: 0.9rem; margin-bottom: 4px; }
@@ -228,6 +228,15 @@
   .row > * { flex: 1 1 14rem; }
   .actions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
 
+  /* The People tab: one card per role, every card the same width however many there are. */
+  .people-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 16px; }
+  /* Equal height per row, with each card's add box at its foot, so a wrapped row leaves no
+     dead space under the shorter cards. */
+  .people-cards > .panel { margin-bottom: 0; display: flex; flex-direction: column; }
+  .people-cards > .panel .people { flex: 1 1 auto; }
+  /* Not a role like the three above it: the recipients card takes the width it lands on,
+     rather than sitting alone with a gap beside it. */
+  .people-cards > #summaryPanel { grid-column: 1 / -1; }
   .panel { padding: 18px; margin-bottom: 18px; }
   .panel.form { border-top: 3px solid var(--action); box-shadow: var(--shadow-lg); animation: qd-rise 0.22s var(--ease); }
 
@@ -743,6 +752,50 @@
     .page { box-shadow: none; border-radius: 0; margin: 0; max-width: none; min-height: 100vh; page-break-after: always; break-after: page; }
     .page:last-of-type { page-break-after: auto; break-after: auto; }
   }
+</style>
+
+<style data-pages="Admin">
+  /* The Gemini key and the prompt editor (Health tab). */
+  .keyform { padding-bottom: 14px; margin-bottom: 14px; border-bottom: 1px solid var(--rule); }
+  #prompt-text { font: 0.86rem/1.55 ui-monospace, Menlo, monospace; white-space: pre-wrap; }
+  #promptPanel.wide { margin-top: 18px; }
+  .guards { margin-top: 14px; }
+  .guards summary { cursor: pointer; color: var(--muted); font-size: 0.9rem; }
+  .guards pre {
+    margin: 8px 0 0; padding: 12px 14px; background: var(--paper); border: 1px solid var(--rule);
+    border-radius: var(--radius-sm); color: var(--muted); font: 0.84rem/1.5 ui-monospace, Menlo, monospace;
+    white-space: pre-wrap;
+  }
+</style>
+
+<style data-pages="Moderate">
+  /* A question the Event Coordinators also have. */
+  .chip.logistics { background: var(--action-soft); color: var(--action); border-color: var(--action-ring); }
+</style>
+
+<style data-pages="Coordinator">
+  /* Event Coordinator portal: the questions about running the event, in one list. */
+  body { max-width: 56rem; margin: 0 auto; padding: 18px 20px 48px; }
+  header { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+  header .title { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  header h1 { font-size: 1.35rem; margin: 0; }
+  header img { max-height: 30px; max-width: 120px; }
+  .nav { display: flex; align-items: center; gap: 14px; }
+  .lead { color: var(--muted); margin: 0 0 18px; max-width: 46rem; }
+  .board { display: flex; flex-direction: column; gap: 10px; }
+  .item {
+    display: flex; gap: 16px; align-items: flex-start; justify-content: space-between;
+    background: var(--card); border: 1px solid var(--rule); border-left: 4px solid var(--action);
+    border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow-sm);
+  }
+  .item.sorted { border-left-color: var(--rule-strong); opacity: 0.62; }
+  .item .what { min-width: 0; }
+  .item .text { margin: 0; font-size: 1.02rem; }
+  .item.sorted .text { text-decoration: line-through; text-decoration-color: var(--faint); }
+  .item .original { margin: 4px 0 0; color: var(--muted); font-size: 0.92rem; }
+  .item .where { margin: 8px 0 0; display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; color: var(--faint); font-size: 0.85rem; }
+  .item .where .session { font-weight: 600; color: var(--muted); }
+  .empty { color: var(--muted); margin: 18px 2px; }
 </style>
 
 <style data-pages="Present">

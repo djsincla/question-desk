@@ -353,7 +353,7 @@ function runHealthCheck() {
   const add = function (name, ok, detail) { checks.push({ name: name, ok: !!ok, detail: detail }); };
 
   const key = props_().getProperty('GEMINI_API_KEY');
-  add('Gemini API key', key, key ? 'Set' : 'Missing — add GEMINI_API_KEY in Project Settings → Script Properties.');
+  add('Gemini API key', key, key ? 'Set' : 'Missing — add it under Admin → Health & testing → Gemini.');
   if (key) {
     const started = Date.now();
     const r = geminiRequest_('Health check. Set ok to true.', {

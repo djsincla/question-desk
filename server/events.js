@@ -51,10 +51,14 @@ function saveEvent(input) {
   };
   const languages = input.languages === undefined || input.languages === null || (Array.isArray(input.languages) && !input.languages.length)
     ? null : cleanLanguages_(input.languages);
-  const roster = roster_('MODERATORS');
-  const moderators = input.moderators === undefined ? undefined : (input.moderators || [])
-    .map(function (e) { return String(e).toLowerCase(); })
-    .filter(function (e) { return roster.indexOf(e) !== -1; });
+  const onList = function (key, list) {
+    const roster = roster_(key);
+    return list === undefined ? undefined : (list || [])
+      .map(function (e) { return String(e).toLowerCase(); })
+      .filter(function (e) { return roster.indexOf(e) !== -1; });
+  };
+  const moderators = onList('MODERATORS', input.moderators);
+  const coordinators = onList('COORDINATORS', input.coordinators);
   const brand = {
     orgName: cleanText_(input.orgName, 80),
     accent: color(input.accent, 'The accent'),
@@ -72,12 +76,14 @@ function saveEvent(input) {
       ev.brand = brand;
       if (input.languages !== undefined) ev.languages = languages;   // null: use the site's
       if (moderators !== undefined) ev.moderators = moderators;
+      if (coordinators !== undefined) ev.coordinators = coordinators;
       saveEvent_(ev);
       audit_('Event edited', { id: ev.id, eventName: name }, '');
     } else {
       const orders = allEvents_().map(function (e) { return typeof e.order === 'number' ? e.order : 0; });
       id = newId_(8);
-      saveEvent_({ id: id, name: name, brand: brand, languages: languages, moderators: moderators || [], hasLogo: false, created: Date.now(), createdBy: me,
+      saveEvent_({ id: id, name: name, brand: brand, languages: languages, moderators: moderators || [],
+                   coordinators: coordinators || [], hasLogo: false, created: Date.now(), createdBy: me,
                    order: orders.length ? Math.min.apply(null, orders) - 1 : 0 });
       audit_('Event created', { id: id, eventName: name }, '');
     }
@@ -345,6 +351,7 @@ function duplicateEvent(eid) {
     fresh.brand = JSON.parse(JSON.stringify(ev.brand || {}));
     fresh.languages = ev.languages ? ev.languages.slice() : null;
     fresh.moderators = (ev.moderators || []).slice();
+    fresh.coordinators = (ev.coordinators || []).slice();
     saveEvent_(fresh);
   });
   if (ev.hasLogo) {
@@ -381,7 +388,7 @@ function eventChecklist(eid) {
   const site = [
     { label: 'Question grouping runs every minute', ok: trigger, detail: trigger ? '' : 'Run setUp() in the Apps Script editor.' },
     { label: 'Gemini is set up', ok: !!props_().getProperty('GEMINI_API_KEY') && !health.failures,
-      detail: !props_().getProperty('GEMINI_API_KEY') ? 'No Gemini API key in Script Properties.' : health.failures ? 'Grouping failed ' + health.failures + ' times in a row: ' + (health.lastError || '') : '' },
+      detail: !props_().getProperty('GEMINI_API_KEY') ? 'No Gemini API key: add one under Health & testing.' : health.failures ? 'Grouping failed ' + health.failures + ' times in a row: ' + (health.lastError || '') : '' },
     { label: 'Email quota', ok: MailApp.getRemainingDailyQuota() >= 20, detail: MailApp.getRemainingDailyQuota() + ' emails left today' }
   ];
   const sessions = allSessions_().filter(function (s) { return s.eventId === eid && !s.loadTest; }).map(function (s) {

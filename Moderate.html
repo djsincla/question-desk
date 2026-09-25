@@ -398,6 +398,13 @@
       var li = el('li');
       var text = el('div', 'text');
       var translated = q.translation && q.translation !== q.text;
+      if (q.logistics) {
+        var flag = el('span', 'chip logistics', q.sorted ? 'Event team ✓' : 'Event team');
+        flag.title = q.sorted
+          ? 'About running the event. The Event Coordinators have sorted it.'
+          : 'About running the event: it is with the Event Coordinators as well as you.';
+        text.appendChild(flag);
+      }
       if (q.lang && translated) {
         var chip = el('span', 'chip');
         chip.textContent = q.lang;
@@ -729,6 +736,13 @@
         var done = el('span', 'done-tag');
         done.textContent = '✓ Answered';
         text.appendChild(done);
+      }
+      if (q.logistics) {
+        var flag = el('span', 'chip logistics', q.sorted ? 'Event team ✓' : 'Event team');
+        flag.title = q.sorted
+          ? 'About running the event. The Event Coordinators have sorted it.'
+          : 'About running the event: it is with the Event Coordinators as well as you.';
+        text.appendChild(flag);
       }
       if (q.lang && translated) {
         var chip = el('span', 'chip');

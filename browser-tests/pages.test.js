@@ -274,7 +274,13 @@ test('chromium: admin page loads its tabs without script errors', async () => {
     assert.equal(await card.locator('input[type=checkbox]').count(), 0);
     const cardBox = await card.boundingBox();
     const adminBox = await page.locator('#tab-people .panel', { has: page.locator('#adminList') }).boundingBox();
-    assert.ok(Math.abs(cardBox.width - adminBox.width) < 2, 'same width as the Administrators card');
+    const coordBox = await page.locator('#tab-people .panel', { has: page.locator('#coordList') }).boundingBox();
+    // The three role cards share a row, equal width and height; the recipients card is not a
+    // role, and takes the whole width below them rather than sitting alone with a gap beside it.
+    assert.ok(Math.abs(coordBox.width - adminBox.width) < 2, 'the role cards are equal width');
+    assert.ok(Math.abs(coordBox.height - adminBox.height) < 2, 'and equal height, so no dead space');
+    assert.ok(cardBox.width > adminBox.width * 2, 'the recipients card spans the row: ' + cardBox.width);
+    assert.ok(cardBox.y > adminBox.y + adminBox.height - 1, 'and sits below them');
     await card.locator('input[type=email]').fill('board@example.org');
     await card.locator('button', { hasText: 'Add' }).click();
     await page.waitForFunction(() => /board@example\.org/.test(document.getElementById('summaryList').textContent), null, { timeout: 5000 });

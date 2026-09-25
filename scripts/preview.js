@@ -51,17 +51,28 @@ const MERGED = {
   }
 };
 
+/** The questions in a prompt are its JSON lines, wherever an admin's own wording puts them. */
+function jsonLines(prompt) {
+  return String(prompt || '').split('\n').map((line) => {
+    const text = line.trim();
+    if (text.charAt(0) !== '{' || text.charAt(text.length - 1) !== '}') return null;
+    try { return JSON.parse(text); } catch (err) { return null; }
+  }).filter(Boolean);
+}
+
 function demoGemini(call) {
   if (call.schema.properties.assignments) {
-    const lines = call.prompt.split('New questions:\n')[1].split('\n\nDo not invent')[0].split('\n').filter(Boolean);
     const assignments = [];
     const used = new Set();
-    lines.forEach((line) => {
-      const { id, text } = JSON.parse(line);
+    jsonLines(call.prompt).filter((q) => q.id && q.text).forEach(({ id, text }) => {
       const q = QUESTIONS.find((row) => row[0] === text);
       if (!q || !q[3]) return;
       used.add(q[3]);
-      assignments.push({ id, topic: q[3], language: q[1], translation: q[2] || q[0] });
+      const row = { id, topic: q[3], language: q[1], translation: q[2] || q[0] };
+      if (call.schema.properties.assignments.items.properties.logistics) {
+        row.logistics = /\b(parking|room|rooms|wifi|agenda|schedule|food|lunch|signage|interpreter|interpretation|accessible|accessibility|toilets?|quiet)\b/i.test(text);
+      }
+      assignments.push(row);
     });
     return { assignments, labels: Array.from(used).map((topic) => ({ topic, translations: LABELS[topic] })) };
   }

@@ -22,10 +22,12 @@ class QD_Events {
 		$has_languages = array_key_exists( 'languages', $input );
 		$languages     = ( ! $has_languages || null === $input['languages'] || ( is_array( $input['languages'] ) && ! $input['languages'] ) )
 			? null : QD_Settings::clean_languages( $input['languages'] );
-		$roster     = QD_People::moderators();
-		$moderators = array_key_exists( 'moderators', $input )
-			? array_values( array_intersect( array_map( 'strtolower', (array) $input['moderators'] ), $roster ) )
-			: null;
+		$on_list    = function ( $key, $roster ) use ( $input ) {
+			return array_key_exists( $key, $input )
+				? array_values( array_intersect( array_map( 'strtolower', (array) $input[ $key ] ), $roster ) ) : null;
+		};
+		$moderators   = $on_list( 'moderators', QD_People::moderators() );
+		$coordinators = $on_list( 'coordinators', QD_People::coordinators() );
 		$brand = array(
 			'orgName'     => QD_Util::clean_text( $input['orgName'] ?? '', 80 ),
 			'accent'      => $color( $input['accent'] ?? '', 'The accent' ),
@@ -36,7 +38,7 @@ class QD_Events {
 		);
 
 		$id = (string) ( $input['id'] ?? '' );
-		QD_Util::with_lock( 'events', function () use ( &$id, $name, $brand, $languages, $moderators, $has_languages, $me ) {
+		QD_Util::with_lock( 'events', function () use ( &$id, $name, $brand, $languages, $moderators, $coordinators, $has_languages, $me ) {
 			if ( $id ) {
 				$ev = QD_Store::get_event( $id );
 				if ( ! $ev ) {
@@ -50,6 +52,9 @@ class QD_Events {
 				if ( null !== $moderators ) {
 					$ev['moderators'] = $moderators;
 				}
+				if ( null !== $coordinators ) {
+					$ev['coordinators'] = $coordinators;
+				}
 				QD_Store::save_event( $ev );
 				QD_Activity::log( 'Event edited', array( 'id' => $id, 'eventName' => $name ), '' );
 			} else {
@@ -59,7 +64,8 @@ class QD_Events {
 					'name'       => $name,
 					'brand'      => $brand,
 					'languages'  => $languages,
-					'moderators' => $moderators ? $moderators : array(),
+					'moderators'   => $moderators ? $moderators : array(),
+					'coordinators' => $coordinators ? $coordinators : array(),
 					'hasLogo'    => false,
 					'created'    => QD_Util::now_ms(),
 					'createdBy'  => $me,
@@ -172,7 +178,8 @@ class QD_Events {
 			'name'       => QD_Util::clean_text( $ev['name'] . ' (copy)', 80 ),
 			'brand'      => (array) ( $ev['brand'] ?? array() ),
 			'languages'  => $ev['languages'] ?? null,
-			'moderators' => array_values( (array) ( $ev['moderators'] ?? array() ) ),
+			'moderators'   => array_values( (array) ( $ev['moderators'] ?? array() ) ),
+			'coordinators' => array_values( (array) ( $ev['coordinators'] ?? array() ) ),
 			'hasLogo'    => false,
 			'logoId'     => 0,
 			'created'    => QD_Util::now_ms(),

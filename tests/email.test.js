@@ -189,7 +189,7 @@ test('the summary keeps original wording and the English translation for every q
   h.ask(s, h.join(s), 'Parking is a problem');
   h.ask(s, h.join(s), '주차 공간이 부족합니다');
   h.env.gemini = (call) => {
-    const lines = call.prompt.split('New questions:\n')[1].split('\n\nDo not invent')[0].split('\n').filter(Boolean);
+    const lines = call.prompt.split('\n').filter((line) => line.trim().charAt(0) === '{');
     return {
       assignments: lines.map((line) => {
         const { id, text } = JSON.parse(line);
