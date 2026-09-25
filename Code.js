@@ -49,7 +49,8 @@ const CONFIG = {
   // the room screen footer. Separate from languages above, whose names are compared as values.
   appLanguages: {
     en: { name: 'English', native: 'English' },
-    es: { name: 'Spanish', native: 'Español' }
+    es: { name: 'Spanish', native: 'Español' },
+    ko: { name: 'Korean', native: '한국어' }
   },
   defaultMaxLength: 300,          // per session, admin can change
   maxLengthCeiling: 1024,         // no session may allow more than this

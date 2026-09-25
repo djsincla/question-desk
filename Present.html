@@ -33,7 +33,7 @@
 <div class="waiting" id="waiting"></div>
 
 <div class="now" id="now" hidden>
-  <div class="tag">Now answering</div>
+  <div class="tag" id="nowTag">Now answering</div>
   <div class="label" id="nowLabel"></div>
   <div class="others" id="nowOthers"></div>
   <div class="merged" id="nowMerged" hidden></div>
@@ -74,6 +74,7 @@
   }
 
   (function writeLanguages() {
+    document.getElementById('nowTag').textContent = roomSay('nowAnswering');
     document.getElementById('scanEn').textContent = PHRASES.en.scan;
     document.getElementById('helpEn').textContent = PHRASES.en.help;
     // Plain text, not a span: the caption's spans are the other languages, shown muted.
