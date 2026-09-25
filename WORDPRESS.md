@@ -37,6 +37,8 @@ edit the pages and `Code.js` at the root, as for the Apps Script version.
   from WordPress data: branding and logos (Media Library), site and event languages, events,
   sessions (validation, schedule, links and room screen keys, order, activate, end, delete,
   duplicate, archive and restore), people as WordPress roles, and the activity log behind them.
+  The language each person reads the app in is WordPress user meta (`qd_lang`); the site's own is
+  the `qd_app_language` option.
   25 Admin functions answer for real; the 16 from later phases say so. 50 PHPUnit tests, and a
   browser test that saves and deletes a session through the REST transport in both engines.
 - [x] **Phase 2 — participants.** The participant page on WordPress data: the rotating room

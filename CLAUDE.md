@@ -331,12 +331,18 @@ session, then its event, then the site. `page_()` resolves both and is the only 
 `APP_TEXT_FOR` also says which phrases each page is sent, by the first part of the key: the queue
 has no use for the Admin page's five hundred, and every phrase travels with every page load.
 
-**Spanish conventions**, set with the organization and to be kept by any language added next:
-roles are translated — *Facilitador/a de preguntas*, *Coordinador/a del evento*, plural
-*Facilitadores de preguntas* — and the register is informal *tú*, matching the Spanish the
-participant page already used. Product names stay: Question Desk, Gemini, WordPress, PowerPoint.
-The eight `csv.label.*` phrases stay English on purpose: they name a column in the file a person
-is importing, so a translated name would point them at a column that is not there.
+**Wording conventions**, set with the organization and to be kept by any language added next.
+Roles are translated, not kept in English: Spanish *Facilitador/a de preguntas* and
+*Coordinador/a del evento*, Korean 질문 진행자 and 행사 코디네이터. The register matches whatever
+the participant text in `UI_TEXT` already used for that language — informal *tú* in Spanish, the
+polite form in Korean. Product names stay: Question Desk, Gemini, WordPress, PowerPoint. The
+eight `csv.label.*` phrases stay English on purpose: they name a column in the file a person is
+importing, so a translated name would point them at a column that is not there.
+
+Adding a language is one line in `CONFIG.appLanguages` and a drafting pass; the People tab
+picker, the Branding setting, the per-session Room language and the tests all pick it up. Then
+read the rendered pages — every language so far has turned up something the tests could not see,
+including the room screen's *Now answering* banner, which was written into the markup.
 
 Pages keep their English in the markup and name their key — `<h1 data-w="coord.title">Event
 logistics</h1>` — and `fillWords()` overwrites it only when the page is read in another
@@ -362,8 +368,8 @@ What stays in one language, on purpose:
 - `'Questions for the panel'` — the default *value* of an admin-editable field, not a label.
 - Gemini prompts, guards and `{{placeholders}}`: they address a model, not a person.
 - **Topic labels.** They are the Questions↔Topics join key and the reason a Korean and a Spanish
-  question land in the same group. A facilitator reading the queue in Spanish therefore sees
-  Spanish chrome around English topic labels. That looks like a bug and is not: "fixing" it
+  question land in the same group. A facilitator reading the queue in Spanish or Korean therefore
+  sees translated chrome around English topic labels. That looks like a bug and is not: "fixing" it
   splits every language into parallel topics that never meet.
 
 `scripts/translate-strings.js` drafts a language with Gemini into `translations/<code>.json` for

@@ -20,6 +20,8 @@ License: Apache 2.0
 4. The facilitator's **queue** shows topics instead of a long list. They merge a topic
    into one question to read aloud, and mark it **Now answering** on the room screen
    and everyone's phone.
+5. **The app itself reads in English, Spanish or Korean**, chosen per person — the queue,
+   the admin page, the room screen's status lines and the emails, not only the questions.
 5. Participants can tap **Me too** on topic labels, never on other people's questions,
    so the room's priorities surface without repeat questions.
 6. When the session ends, QA Facilitators get a **summary email** with a CSV.
