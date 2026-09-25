@@ -12,7 +12,7 @@
     <img id="logo" alt="" hidden>
     <h1 data-w="admin.top.questionDeskAdministration">Question Desk Administration</h1>
   </div>
-  <div class="who"><span id="who">Loading…</span> · <span id="version"></span> <a id="notes" target="_blank" rel="noopener" hidden>Release notes</a></div>
+  <div class="who"><span id="who">Loading…</span> · <span id="version"></span> <a id="notes" target="_blank" rel="noopener" data-w="admin.releaseNotes" hidden>Release notes</a></div>
 </header>
 
 <nav class="tabs" role="tablist">
@@ -308,7 +308,7 @@
     </div>
     <div class="panel" id="summaryPanel">
       <h2 data-w="admin.people.sessionSummaryEmailRecipients">Session Summary Email Recipients</h2>
-      <p class="hint flush-top" id="summaryHint" data-w="admin.people.summaryHint">Get every session's questions summary when it ends. Anyone can be added, even outside your organization.</p>
+      <p class="hint flush-top" id="summaryHint" data-w="admin.people.summaryHint">Every session's questions summary goes to these addresses, and only these, when it ends. Anyone can be added, even outside your organization.</p>
       <ul class="people" id="summaryList"></ul>
       <form class="adder" id="summaryAdder">
         <input type="email" data-w-ph="admin.people.nameDomainOrg4" placeholder="name@domain.org" data-w-a="admin.people.sessionSummaryEmailRecipient" aria-label="Session summary email recipient">
@@ -757,7 +757,7 @@
   }
 
   function statusLabel(s) {
-    return s.status === 'active' ? 'Active' : s.status === 'ended' ? 'Ended' : W('admin.notActive');
+    return W(s.status === 'active' ? 'admin.statusActive' : s.status === 'ended' ? 'admin.statusEnded' : 'admin.notActive');
   }
 
   function eventById(id) {
@@ -854,13 +854,13 @@
     fold.appendChild(el('span', null, '›'));
     fold.type = 'button';
     fold.setAttribute('aria-expanded', collapsed[ev.id] ? 'false' : 'true');
-    fold.setAttribute('aria-label', (collapsed[ev.id] ? 'Show' : 'Hide') + ' sessions in ' + ev.name);
+    fold.setAttribute('aria-label', W(collapsed[ev.id] ? 'admin.foldShow' : 'admin.foldHide', { event: ev.name }));
     fold.onclick = function () {
       collapsed[ev.id] = !collapsed[ev.id];
       saveCollapsed();
       block.classList.toggle('collapsed', !!collapsed[ev.id]);
       fold.setAttribute('aria-expanded', collapsed[ev.id] ? 'false' : 'true');
-      fold.setAttribute('aria-label', (collapsed[ev.id] ? 'Show' : 'Hide') + ' sessions in ' + ev.name);
+      fold.setAttribute('aria-label', W(collapsed[ev.id] ? 'admin.foldShow' : 'admin.foldHide', { event: ev.name }));
       updateFoldAll();
     };
     head.appendChild(fold);
@@ -868,13 +868,13 @@
     var order = el('div', 'order');
     var up = el('button', null, '▲');
     up.type = 'button';
-    up.setAttribute('aria-label', 'Move event ' + ev.name + ' up');
+    up.setAttribute('aria-label', W('admin.moveEventUpName', { event: ev.name }));
     up.title = W('admin.moveEventUp');
     up.disabled = index === 0;
     up.onclick = function () { moveEvent(ev.id, -1); };
     var down = el('button', null, '▼');
     down.type = 'button';
-    down.setAttribute('aria-label', 'Move event ' + ev.name + ' down');
+    down.setAttribute('aria-label', W('admin.moveEventDownName', { event: ev.name }));
     down.title = W('admin.moveEventDown');
     down.disabled = index === total - 1;
     down.onclick = function () { moveEvent(ev.id, 1); };
@@ -927,7 +927,7 @@
     mailFacilitators.type = 'button';
     mailFacilitators.disabled = !people.length;
     mailFacilitators.title = people.length
-      ? 'Each QA Facilitator gets one email with the queue link for each session they are running: ' + people.join(', ')
+      ? W('admin.mailFacilitatorsTitle', { people: people.join(', ') })
       : W('admin.noQaFacilitatorsAssigned');
     mailFacilitators.onclick = function () {
       ask({
@@ -948,7 +948,7 @@
     acts.appendChild(mailFacilitators);
     var more = el('details', 'more');
     var moreLabel = el('summary', null, W('admin.more'));
-    moreLabel.setAttribute('aria-label', 'More actions for ' + ev.name);
+    moreLabel.setAttribute('aria-label', W('admin.moreActionsFor', { event: ev.name }));
     more.appendChild(moreLabel);
     var menu = el('div', 'menu');
     var menuItem = function (label, fn, cls) {
@@ -964,7 +964,7 @@
       portal.href = state.appUrl + '?view=coordinator&e=' + ev.id;
       portal.target = '_blank';
       portal.rel = 'noopener';
-      portal.title = 'Questions about running this event, for ' + ev.coordinators.join(', ');
+      portal.title = W('admin.portalFor', { people: ev.coordinators.join(', ') });
       portal.onclick = function () { more.open = false; };
       menu.appendChild(portal);
     }
@@ -1060,12 +1060,12 @@
     card.addEventListener('mouseup', function () { card.draggable = false; });
     var up = el('button', null, '▲');
     up.type = 'button';
-    up.setAttribute('aria-label', 'Move ' + s.name + ' up');
+    up.setAttribute('aria-label', W('admin.moveSessionUp', { name: s.name }));
     up.disabled = index === 0;
     up.onclick = function () { moveSession(s.id, -1); };
     var down = el('button', null, '▼');
     down.type = 'button';
-    down.setAttribute('aria-label', 'Move ' + s.name + ' down');
+    down.setAttribute('aria-label', W('admin.moveSessionDown', { name: s.name }));
     down.disabled = index === total - 1;
     down.onclick = function () { moveSession(s.id, 1); };
     grip.appendChild(up);
@@ -1086,7 +1086,8 @@
     info.appendChild(h);
     var meta = [
       s.access === 'link' ? W('admin.shareableLink') : W('admin.inRoomQr'),
-      (s.theme === 'light' ? 'Light screen' : s.theme === 'contrast' ? 'High-contrast screen' : 'Dark screen') + (s.roomQuestions ? ' listing questions' : ''),
+      W(s.theme === 'light' ? 'admin.themeLight' : s.theme === 'contrast' ? 'admin.themeContrast' : 'admin.themeDark') +
+        (s.roomQuestions ? W('admin.themeListing') : ''),
       Wn('admin.metaQuestions', s.questionCount) +
         (s.prepared && s.prepared.length ? W('admin.metaPrepared', { n: s.prepared.length }) : ''),
       Wn('admin.metaFacilitators', s.moderators.length),
@@ -1096,13 +1097,13 @@
     if (s.ended) meta.push(W('admin.metaEnded', { at: fmtDate(s.ended) }));
     else if (s.started) meta.push(W('admin.metaStarted', { at: fmtDate(s.started) }));
     else meta.push(W('admin.metaCreated', { at: fmtDate(s.created) }));
-    if (s.status !== 'ended' && s.scheduledStart && !s.scheduleStarted) meta.push('starts ' + fmtDate(s.scheduledStart));
-    if (s.status !== 'ended' && s.scheduledEnd) meta.push('ends ' + fmtDate(s.scheduledEnd));
+    if (s.status !== 'ended' && s.scheduledStart && !s.scheduleStarted) meta.push(W('admin.metaStarts', { at: fmtDate(s.scheduledStart) }));
+    if (s.status !== 'ended' && s.scheduledEnd) meta.push(W('admin.metaEnds', { at: fmtDate(s.scheduledEnd) }));
     if (s.brand && s.brand.orgName) meta.push(W('admin.metaBrandedFor', { name: s.brand.orgName }));
     if (s.summaryPending && !s.summarySent) meta.push(W('admin.metaSummaryPending', { why: s.summaryPending.error }));
     var gp = s.guestPage || {};
     var gpUses = [gp.room ? W('admin.roomScreen') : '', gp.slide ? 'slide' : '', gp.panel ? W('admin.panelistView') : ''].filter(Boolean);
-    if (gpUses.length) meta.push('guest page for ' + gpUses.join(', '));
+    if (gpUses.length) meta.push(W('admin.metaGuestPageFor', { uses: gpUses.join(', ') }));
     if (s.summarySent) meta.push(W('admin.metaSummarySent', { at: fmtDate(s.summarySent) }));
     info.appendChild(el('div', 'meta', meta.join(' · ')));
     head.appendChild(info);
@@ -1111,7 +1112,7 @@
     var ended = s.status === 'ended';
 
     if (!ended) {
-      var toggle = el('button', s.status === 'active' ? '' : 'primary', s.status === 'active' ? 'Deactivate' : 'Activate');
+      var toggle = el('button', s.status === 'active' ? '' : 'primary', W(s.status === 'active' ? 'admin.deactivate' : 'admin.activate'));
       toggle.type = 'button';
       toggle.onclick = function () {
         call('setSessionActive', [s.id, s.status !== 'active'], function (res) {
@@ -1154,7 +1155,7 @@
       var mailMods = el('button', null, W('admin.emailQaFacilitators'));
       mailMods.type = 'button';
       mailMods.disabled = !s.moderators.length;
-      mailMods.title = s.moderators.length ? s.moderators.join(', ') : 'No QA Facilitators assigned';
+      mailMods.title = s.moderators.length ? s.moderators.join(', ') : W('admin.noFacilitatorsAssigned');
       mailMods.onclick = function () {
         call('emailLinks', [s.id, { toModerators: true, present: true, moderate: true }], function (n) {
           toast(Wn('admin.sentLinksTo', n));
@@ -1411,7 +1412,7 @@
     $('f-guest-url').value = guest.url || '';
     $('f-guest-url-box').hidden = !(guest.room || guest.slide || guest.panel);
     $('f-guest-url').placeholder = W('admin.guestUrlHint', { url: state.guestPageUrl || state.guestPageDefault });
-    $('f-summary-to').textContent = (state.summaryDefaults.extra || []).join(', ') || 'nobody yet — add them on the People tab';
+    $('f-summary-to').textContent = (state.summaryDefaults.extra || []).join(', ') || W('admin.nobodyYetAddThem');
     $('f-start').value = toLocalInput(s.scheduledStart);
     $('f-end').value = toLocalInput(s.scheduledEnd);
     var own = s.brand || {};
@@ -1632,9 +1633,9 @@
     if (!res.sessions.length) body.appendChild(el('p', 'hint', W('admin.thisEventHasNo')));
     res.sessions.forEach(function (s) {
       var h = el('h3', null, s.name);
-      h.appendChild(el('span', 'pill ' + s.status, s.status === 'active' ? 'Active' : s.status === 'ended' ? 'Ended' : 'Not active'));
+      h.appendChild(el('span', 'pill ' + s.status, statusLabel(s)));
       body.appendChild(h);
-      body.appendChild(el('p', 'hint', (s.access === 'link' ? 'Shareable link' : 'In-room QR') + ' · ' + s.languages));
+      body.appendChild(el('p', 'hint', W(s.access === 'link' ? 'admin.shareableLink' : 'admin.inRoomQr') + ' · ' + s.languages));
       body.appendChild(checkTable(s.checks));
       if (s.status !== 'ended') {
         var links = el('div', 'links');
@@ -1829,7 +1830,8 @@
   function openEmail(s, mode) {
     emailTarget = s;
     emailMode = mode;
-    $('emailTitle').textContent = (mode === 'summary' ? 'Email summary — ' : mode === 'eventSummary' ? 'Email event summary — ' : 'Email links — ') + s.name;
+    $('emailTitle').textContent = W(mode === 'summary' ? 'admin.emailSummaryTitle'
+      : mode === 'eventSummary' ? 'admin.emailEventSummaryTitle' : 'admin.emailLinksTitle', { name: s.name });
     $('e-kinds').hidden = mode === 'summary' || mode === 'eventSummary';
     if (mode === 'eventSummary') {
       var everyone = [];
@@ -2358,7 +2360,6 @@
   function renderSummaryList() {
     var ul = $('summaryList');
     var extra = state.summaryDefaults.extra || [];
-    $('summaryHint').textContent = "Every session's questions summary goes to these addresses, and only these, when it ends. Anyone can be added, even outside your organization.";
     ul.innerHTML = '';
     if (!extra.length) ul.appendChild(el('li', 'hint', W('admin.noneYet')));
     extra.forEach(function (email) {
@@ -2389,7 +2390,7 @@
     var extra = (state.summaryDefaults.extra || []).slice();
     if (extra.indexOf(email) === -1) extra.push(email);
     // Cleared only once saved, so a rejected address can be fixed instead of retyped.
-    saveSummary(extra, 'Added ' + email, this.querySelector('button'), function () { input.value = ''; });
+    saveSummary(extra, W('admin.added', { email: email }), this.querySelector('button'), function () { input.value = ''; });
   });
 
   $('b-accent-pick').addEventListener('input', function () { $('b-accent').value = this.value; });

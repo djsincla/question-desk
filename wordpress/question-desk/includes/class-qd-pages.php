@@ -27,12 +27,13 @@ class QD_Pages {
 		if ( $text ) {
 			$boot['text'] = $text;
 		}
-		if ( QD_App::has_words( $file ) ) {
+		$parts = QD_App::words_parts( $file );
+		if ( $parts ) {
 			// Nobody is signed in at a venue laptop, so the room screen and the panelist view read
 			// the session's language; every other page reads the person's in front of it.
 			$room          = in_array( $file, array( 'Present.html', 'Panel.html' ), true );
 			$boot['lang']  = $room ? QD_App::room_language( $session ) : QD_App::app_language();
-			$boot['words'] = QD_App::words_for( $boot['lang'] );
+			$boot['words'] = QD_App::words_for( $boot['lang'], $parts );
 		}
 
 		$replacements = array(

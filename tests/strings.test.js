@@ -168,6 +168,7 @@ test('a page is handed one language, and the catalog stays small enough to send'
   assert.equal(boot.lang, 'en');
   assert.equal(boot.words['coord.sorted'], 'Sorted', 'the whole catalog, in one language');
   assert.equal(boot.words['coord.tally.other'], '{n} questions about running the event');
+  assert.equal(boot.words['admin.copy'], undefined, 'and nothing the portal never shows');
   assert.ok(!boot.words.en && !boot.words.es, 'not every language: the server already chose');
   assert.ok(JSON.stringify(boot.words).length < 60000, 'the catalog is getting too big to send with every page');
 
@@ -188,10 +189,11 @@ test('a person reads the app in their own language, and falls back to English un
   assert.equal(boot.lang, 'es');
   // A phrase nobody has drafted yet reads in English rather than not at all.
   const undrafted = Object.keys(h.app.APP_TEXT).filter((k) => !h.app.APP_TEXT[k].es)[0];
-  if (undrafted) {
-    assert.equal(boot.words[undrafted], h.app.APP_TEXT[undrafted].en);
-    assert.equal(h.app.t_(undrafted, null, 'es'), h.app.APP_TEXT[undrafted].en);
-  }
+  if (undrafted) assert.equal(h.app.t_(undrafted, null, 'es'), h.app.APP_TEXT[undrafted].en);
+
+  // The portal is sent its own words and the shared ones, not the Admin page's five hundred.
+  assert.deepEqual(Object.keys(boot.words).map((k) => k.split('.')[0]).filter((p, i, all) => all.indexOf(p) === i).sort(),
+    ['coord', 'shared']);
   assert.equal(h.app.appLanguageCode_('fr'), 'en', 'a language we do not have is English');
   assert.throws(() => h.app.t_('coord.nothing'), /Unknown phrase/);
 

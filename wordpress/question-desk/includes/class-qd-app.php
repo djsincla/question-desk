@@ -32,20 +32,24 @@ class QD_App {
 		return $part ? $data['uiText'][ $part ] : null;
 	}
 
-	/** Does this page read BOOT.words? */
-	public static function has_words( $file ) {
-		return ! empty( self::data()['appTextFor'][ $file ] );
+	/** Which phrases this page reads, by the first part of the key, or null if it reads none. */
+	public static function words_parts( $file ) {
+		$parts = self::data()['appTextFor'][ $file ] ?? null;
+		return $parts ? $parts : null;
 	}
 
 	/**
-	 * The whole staff catalog in one language, English wherever that language has no wording yet
-	 * (wordsFor_ in server/strings.js).
+	 * The phrases one page reads, in one language, English wherever that language has no wording
+	 * yet (wordsFor_ in server/strings.js). Without $parts it is the whole catalog.
 	 */
-	public static function words_for( $lang ) {
+	public static function words_for( $lang, $parts = null ) {
 		$data = self::data();
 		$code = isset( $data['config']['appLanguages'][ $lang ] ) ? $lang : 'en';
 		$out  = array();
 		foreach ( $data['appText'] as $key => $languages ) {
+			if ( $parts && ! in_array( explode( '.', $key )[0], $parts, true ) ) {
+				continue;
+			}
 			$out[ $key ] = $languages[ $code ] ?? $languages['en'];
 		}
 		return $out;

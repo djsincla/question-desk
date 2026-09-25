@@ -28,7 +28,7 @@ const PATTERNS = [
 ];
 
 // Placeholder and machine domains that are fine to publish.
-const ALLOWED_EMAIL = /^(?:[A-Za-z0-9._%+-]+@(?:example\.(?:org|com|net)|[a-z0-9-]+\.test|users\.noreply\.github\.com)|name@domain\.org|noreply@anthropic\.com)$/i;
+const ALLOWED_EMAIL = /^(?:[A-Za-z0-9._%+-]+@(?:example\.(?:org|com|net)|[a-z0-9-]+\.test|users\.noreply\.github\.com)|name@domain\.org|nombre@dominio\.org|noreply@anthropic\.com)$/i;
 
 const FORBIDDEN_FILES = [/(^|\/)\.clasp\.json$/, /(^|\/)\.clasprc\.json$/, /(^|\/)\.deploy\.env$/, /(^|\/)\.env(\..*)?$/, /\.pem$/, /\.p12$/];
 

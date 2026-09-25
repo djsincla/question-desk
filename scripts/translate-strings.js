@@ -143,16 +143,35 @@ function apply(code) {
   const file = path.join(OUT_DIR, code + '.json');
   if (!fs.existsSync(file)) throw new Error('No ' + path.relative(ROOT, file) + ' yet. Draft it first.');
   const drafted = JSON.parse(fs.readFileSync(file, 'utf8'));
-  const quoted = function (s) { return "'" + String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "'"; };
+  // A phrase may carry a newline (the end-of-session note does), which cannot go into a
+  // single-quoted line as itself.
+  const quoted = function (s) {
+    return "'" + String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'")
+      .replace(/\n/g, '\\n').replace(/\r/g, '\\r').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029') + "'";
+  };
+
+  // However the wording was drafted — Gemini, a translator, by hand — it is checked before it
+  // reaches the catalog: an unknown key is a typo, and a changed placeholder is a hole in a
+  // sentence nobody sees until a room does.
+  const wrong = [];
+  Object.keys(drafted).forEach(function (key) {
+    if (!TEXT[key]) return wrong.push(key + ': not a phrase');
+    if (tokens(drafted[key]) !== tokens(TEXT[key].en)) {
+      wrong.push(key + ': placeholders changed\n    en: ' + TEXT[key].en + '\n    ' + code + ': ' + drafted[key]);
+    }
+  });
+  if (wrong.length) throw new Error('Nothing applied. ' + wrong.length + ' to fix:\n  ' + wrong.join('\n  '));
 
   let added = 0;
   const lines = fs.readFileSync(CATALOG, 'utf8').split('\n').map(function (line) {
-    const m = /^(\s*)'([^']+)': \{ en: ((?:[^'\\]|\\.|')*?) \},$/.exec(line);
+    // The last phrase in the catalog has no trailing comma.
+    const m = /^(\s*)'([^']+)': \{ en: ((?:[^'\\]|\\.|')*?) \},?$/.exec(line);
     if (!m) return line;
     const key = m[2];
     if (!drafted[key] || TEXT[key][code]) return line;
     added++;
-    return m[1] + "'" + key + "': { en: " + m[3] + ', ' + code + ': ' + quoted(drafted[key]) + ' },';
+    return m[1] + "'" + key + "': { en: " + m[3] + ', ' + code + ': ' + quoted(drafted[key]) +
+      (line.endsWith(',') ? ' },' : ' }');
   });
   fs.writeFileSync(CATALOG, lines.join('\n'));
   console.log('Put ' + added + ' ' + LANGUAGES[code].name + ' phrases into server/strings.js.');

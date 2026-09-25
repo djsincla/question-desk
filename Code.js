@@ -200,7 +200,7 @@ function page_(file, title, boot, session) {
     // session's language; every other page reads the language of the person in front of it.
     const room = file === 'Present.html' || file === 'Panel.html';
     boot.lang = room ? roomLanguage_(session) : appLanguage_();
-    boot.words = wordsFor_(boot.lang);
+    boot.words = wordsFor_(boot.lang, APP_TEXT_FOR[file]);
   }
   template.boot = JSON.stringify(boot)
     .replace(/</g, '\\u003c')

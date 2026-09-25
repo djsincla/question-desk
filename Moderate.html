@@ -397,7 +397,7 @@
   function drawPrepared(list) {
     var box = document.getElementById('prepared');
     box.hidden = ended || !list.length;
-    document.getElementById('preparedCount').textContent = '· ' + list.length + ' ready to add';
+    document.getElementById('preparedCount').textContent = W('mod.preparedCount', { n: list.length });
     var ul = document.getElementById('preparedList');
     ul.innerHTML = '';
     list.forEach(function (q) {

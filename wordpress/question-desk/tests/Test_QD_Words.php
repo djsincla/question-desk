@@ -32,8 +32,17 @@ class Test_QD_Words extends WP_UnitTestCase {
 	}
 
 	public function test_a_phrase_falls_back_to_english_and_fills_in_its_values() {
-		$this->assertSame( 'Sorted', QD_App::t( 'coord.sorted', null, 'es' ), 'English until someone writes the Spanish' );
+		$this->assertSame( 'Resuelto', QD_App::t( 'coord.sorted', null, 'es' ), 'the reader\'s language' );
 		$this->assertSame( '3 waiting', QD_App::t( 'coord.waiting', array( 'n' => 3 ) ) );
+		$this->assertSame( '3 pendientes', QD_App::t( 'coord.waiting', array( 'n' => 3 ), 'es' ) );
+
+		// A phrase nobody has drafted yet reads in English rather than not at all.
+		foreach ( QD_App::data()['appText'] as $key => $languages ) {
+			if ( ! isset( $languages['es'] ) ) {
+				$this->assertSame( $languages['en'], QD_App::t( $key, null, 'es' ) );
+				break;
+			}
+		}
 		$this->assertSame( 'en', QD_App::app_language_code( 'fr' ), 'a language we do not have is English' );
 		$this->expectException( QD_Error::class );
 		QD_App::t( 'coord.nothing' );
@@ -47,8 +56,9 @@ class Test_QD_Words extends WP_UnitTestCase {
 		}
 		$words = QD_App::words_for( 'en' );
 		$this->assertSame( array_keys( $data['appText'] ), array_keys( $words ) );
-		$this->assertTrue( QD_App::has_words( 'Moderate.html' ) );
-		$this->assertFalse( QD_App::has_words( 'Ask.html' ) );
+		$this->assertArrayNotHasKey( 'admin.copy', QD_App::words_for( 'en', array( 'mod' ) ), 'a page gets its own words' );
+		$this->assertSame( array( 'mod', 'shared' ), QD_App::words_parts( 'Moderate.html' ) );
+		$this->assertNull( QD_App::words_parts( 'Ask.html' ) );
 	}
 
 	public function test_a_person_reads_the_app_in_their_own_language_and_a_room_follows_its_session() {
