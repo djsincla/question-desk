@@ -4,6 +4,14 @@ All notable changes to Question Desk. Versions follow [Semantic Versioning](http
 Each release is tagged `vX.Y.Z` and published as a GitHub release by `scripts/ship.sh`,
 which reads the notes for that version from this file.
 
+## [2.29.1] - 2026-09-25
+
+### Changed
+- The Branding tab's **Languages** panel is now **Device Translation Language Choices**. The old
+  heading read like the app's own language, which it is not — it is the set of languages a
+  participant's phone and the room screen can be read in, and the app's own language lives two
+  fields below it.
+
 ## [2.29.0] - 2026-09-24
 
 ### Added
@@ -891,6 +899,7 @@ Fixes from a full code review.
 - "Merge into one question" for reading a topic aloud.
 - Participant page in English, Korean and Spanish.
 
+[2.29.1]: https://github.com/djsincla/question-desk/releases/tag/v2.29.1
 [2.29.0]: https://github.com/djsincla/question-desk/releases/tag/v2.29.0
 [2.28.0]: https://github.com/djsincla/question-desk/releases/tag/v2.28.0
 [2.27.0]: https://github.com/djsincla/question-desk/releases/tag/v2.27.0
