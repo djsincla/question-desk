@@ -577,7 +577,7 @@ const APP_TEXT = {
   'admin.people.nameDomainOrg4': { en: 'name@domain.org', es: 'nombre@dominio.org', ko: 'name@domain.org' },
   'admin.people.sessionSummaryEmailRecipient': { en: 'Session summary email recipient', es: 'Destinatario del resumen de la sesión', ko: '세션 요약 메일 수신자' },
   'admin.people.add4': { en: 'Add', es: 'Añadir', ko: '추가' },
-  'admin.branding.languages': { en: 'Languages', es: 'Idiomas', ko: '언어' },
+  'admin.branding.languages': { en: 'Device Translation Language Choices', es: 'Opciones de idioma de traducción en el dispositivo', ko: '기기 번역 언어 선택' },
   'admin.branding.saveLangs': { en: 'Save languages', es: 'Guardar idiomas', ko: '언어 저장' },
   'admin.branding.branding': { en: 'Branding', es: 'Imagen', ko: '브랜딩' },
   'admin.branding.shownBesideTheLogo': { en: 'Shown beside the logo and as the sender name on emails.', es: 'Se muestra junto al logotipo y como nombre del remitente en los correos.', ko: '로고 옆에, 그리고 메일 발신자 이름으로 표시됩니다.' },
